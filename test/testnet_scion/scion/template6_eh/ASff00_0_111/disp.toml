@@ -1,0 +1,15 @@
+[dispatcher]
+id = "dispatcher1-ff00_0_111-eh"
+application_socket = "/run/shm/dispatcher/endhost1-ff00_0_111.sock"
+socket_file_mode = "0777"
+
+[metrics]
+prometheus = "[fd00:f00d:cafe::3:1]:30441"
+
+[features]
+
+[api]
+addr = "[fd00:f00d:cafe::3:1]:31141"
+
+[log.console]
+level = "debug"

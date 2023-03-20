@@ -1,0 +1,48 @@
+{
+	"isd_as": "0-f:f:f",
+	"ratelimit": {
+		"byte_rate": 100,
+		"packet_rate": 100
+	},
+	"peers": [
+		{
+			"isd_as": "0-0",
+			"drkey_protocol": 3,
+			"ratelimit": {
+				"byte_rate": 9223372036854775807,
+				"packet_rate": 9223372036854775807
+			}
+		},
+		{
+			"isd_as": "1-0",
+			"drkey_protocol": 3,
+			"ratelimit": {
+				"byte_rate": 10,
+				"packet_rate": 0
+			}
+		},
+		{
+			"isd_as": "2-0",
+			"drkey_protocol": 3,
+			"ratelimit": {
+				"byte_rate": 0,
+				"packet_rate": 10
+			}
+		},
+		{
+			"isd_as": "3-0",
+			"drkey_protocol": 3,
+			"ratelimit": {
+				"byte_rate": 0,
+				"packet_rate": 0
+			}
+		}
+	],
+
+	"best_effort": {
+		"ratelimit": {
+			"byte_rate": 10,
+			"packet_rate": 10
+		}
+	}
+}

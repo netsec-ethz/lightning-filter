@@ -1,0 +1,26 @@
+{
+	"isd_as": "0-0",
+	"drkey_protocol": 0,
+	"port": 49149,
+	"ratelimit": {
+		"byte_rate": 9223372036854775807,
+		"packet_rate": 9223372036854775807
+	},
+	"peers": [
+		{
+			"isd_as": "1-1",
+			"drkey_protocol": 0,
+			"ip": "10.248.2.1",
+			"ratelimit": {
+				"byte_rate": 9223372036854775807,
+				"packet_rate": 9223372036854775807
+			}
+		}
+	],
+	"outbound": {
+		"ether": "98:03:9b:79:bb:54"
+	},
+	"inbound": {
+		"ether": "98:03:9b:79:bb:54"
+	}
+}

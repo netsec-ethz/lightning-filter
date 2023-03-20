@@ -1,0 +1,87 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2021 ETH Zurich
+
+# tabs and spaces
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: AlignWithSpaces
+ContinuationIndentWidth: 8
+ColumnLimit: 80
+
+# align
+AlignOperands: true
+AlignAfterOpenBracket: DontAlign  # uses ContinuationIndentWidth
+AlignConsecutiveAssignments: false
+AlignConsecutiveMacros: true
+AlignEscapedNewlines: Left
+AlignTrailingComments : true
+PointerAlignment: Right
+
+# allow
+AllowAllArgumentsOnNextLine: false
+
+# allow short ... on a single line
+AllowShortBlocksOnASingleLine: Empty
+AllowShortCaseLabelsOnASingleLine: false
+# AllowShortEnumsOnASingleLine: false  # seems to break AfterEnum
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLambdasOnASingleLine: All
+AllowShortLoopsOnASingleLine: true
+
+# line breaks
+AlwaysBreakAfterReturnType: TopLevel
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterCaseLabel: false
+  AfterControlStatement: false
+  AfterEnum: false
+  AfterFunction: true
+  AfterNamespace: false
+  AfterUnion: false
+  BeforeCatch: false
+  BeforeElse: false
+  IndentBraces: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+BreakBeforeBinaryOperators: None
+BreakBeforeTernaryOperators: true
+
+# indent
+IndentCaseLabels: false
+IndentPPDirectives: None
+
+# empty lines
+KeepEmptyLinesAtTheStartOfBlocks: true
+MaxEmptyLinesToKeep: 2
+
+# spaces
+SpaceAfterCStyleCast: false
+SpaceAfterLogicalNot: false
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCaseColon: false
+SpaceBeforeCpp11BracedList: false
+SpaceBeforeParens: ControlStatementsExceptControlMacros
+SpaceInEmptyParentheses: false
+SpacesBeforeTrailingComments: 1
+SpacesInAngles: false
+SpacesInCStyleCastParentheses: false
+SpacesInConditionalStatement: false
+SpacesInContainerLiterals: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+BitFieldColonSpacing: After
+
+# sort includes (block-wise)
+SortIncludes: CaseInsensitive
+
+# avoid ContinuationIndentWidth for nested struct/union initialization
+Cpp11BracedListStyle: false
+
+# macros
+ForEachMacros: [
+	'RTE_ETH_FOREACH_DEV',
+	'RTE_LCORE_FOREACH',
+	'RTE_LCORE_FOREACH_WORKER'
+]

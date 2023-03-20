@@ -1,0 +1,48 @@
+{
+	"isd_as": "1-1",
+	"drkey_protocol": 0,
+	"port": 49149,
+	"ratelimit": {
+		"byte_rate": 9223372036854775807,
+		"packet_rate": 9223372036854775807
+	},
+	"peers": [
+		{
+			"isd_as": "2-1",
+			"drkey_protocol": 0,
+			"ip": "172.31.116.130",
+			"ratelimit": {
+				"byte_rate": 9223372036854775807,
+				"packet_rate": 9223372036854775807
+			}
+		},
+		{
+			"isd_as": "3-1",
+			"drkey_protocol": 0,
+			"ip": "172.31.116.130",
+			"ratelimit": {
+				"byte_rate": 50000000,
+				"packet_rate": 400000
+			}
+		}
+	],
+	"inbound": {
+		"ether": "00:64:74:61:70:11"
+	},
+
+	"wg_ratelimiter" : {
+		"port": 51820,
+		"ratelimit_handshake": {
+			"byte_rate": 50000000,
+			"byte_burst": 1000000,
+			"packet_rate": 400000,
+			"packet_burst": 400000
+		},
+		"ratelimit_data": {
+			"byte_rate": 10000000000000,
+			"byte_burst": 10000000000000,
+			"packet_rate": 10000000000000,
+			"packet_burst": 10000000000000
+		}
+	}
+}

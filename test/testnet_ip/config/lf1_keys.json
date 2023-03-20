@@ -1,0 +1,29 @@
+{
+	"isd_as": "1-1",
+	"peers": [
+		{
+			"isd_as": "4-0",
+			"drkey_protocol": 3
+		},
+		{
+			"isd_as": "2-1",
+			"drkey_protocol": 3
+		},
+		{
+			"isd_as": "2-1",
+			"drkey_protocol": 2
+		},
+		{
+			"isd_as": "2-1",
+			"drkey_protocol": 1
+		},
+		{
+			"isd_as": "2-1",
+			"drkey_protocol": 4
+		},
+		{
+			"isd_as": "2-1",
+			"drkey_protocol": 5
+		}
+	]
+}

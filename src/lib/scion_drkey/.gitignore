@@ -1,0 +1,3 @@
+*.a
+libdrkey.h
+test/build

@@ -1,0 +1,33 @@
+[general]
+id = "sd1-ff00_0_112"
+config_dir = "gen/ASff00_0_112"
+reconnect_to_dispatcher = true
+
+[trust_db]
+connection = "gen-cache/sd1-ff00_0_112.trust.db"
+
+[path_db]
+connection = "gen-cache/sd1-ff00_0_112.path.db"
+
+[drkey_lvl2_db]
+connection = "gen-cache/sd1-ff00_0_112.drkey.db"
+
+[sd]
+address = "127.0.0.28:30255"
+bind_dialer_to_address = true
+
+[tracing]
+enabled = true
+debug = true
+agent = "0.0.0.0:6831"
+
+[metrics]
+prometheus = "127.0.0.28:30455"
+
+[features]
+
+[api]
+addr = "127.0.0.28:30955"
+
+[log.console]
+level = "debug"

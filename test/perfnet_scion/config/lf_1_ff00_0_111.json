@@ -1,0 +1,47 @@
+{
+	"isd_as": "1-ff00:0:111",
+	"drkey_protocol": 1,
+	"ratelimit": {
+		"byte_rate": 9223372036854775807,
+		"packet_rate": 9223372036854775807
+	},
+
+	"peers": [
+		{
+			"isd_as": "1-ff00:0:112",
+			"drkey_protocol": 1,
+			"ratelimit": {
+				"byte_rate": 9223372036854775807,
+				"packet_rate": 9223372036854775807
+			}
+		},
+		{
+			"isd_as": "1-ff00:0:112",
+			"drkey_protocol": 3,
+			"ratelimit": {
+				"byte_rate": 9223372036854775807,
+				"packet_rate": 9223372036854775807
+			}
+		}
+	],
+
+	"best_effort": {
+		"ratelimit": {
+			"byte_rate": 9223372036854775807,
+			"packet_rate": 9223372036854775807
+		}
+	},
+
+	"inbound": {
+		"ether": "3c:fd:fe:9e:8e:39",
+		"ip": "10.248.2.2"
+	},
+
+	"outbound": {
+		"ether": "3c:fd:fe:9e:8e:39",
+		"ip": "10.248.1.1"
+	},
+
+	"drkey_service_addr": "10.248.7.1:31008"
+}
+

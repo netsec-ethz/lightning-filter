@@ -1,0 +1,24 @@
+{
+	"ratelimit": {
+		"byte_rate": 9223372036854775807,
+		"packet_rate": 9223372036854775807
+	},
+	"peers": [
+		{
+			"isd_as": "4-0",
+			"drkey_protocol": 3,
+			"ratelimit": {
+				"byte_rate": 9223372036854775807,
+				"packet_rate": 9223372036854775807
+			}
+		},
+		{
+			"isd_as": "2-1",
+			"drkey_protocol": 3,
+			"ratelimit": {
+				"byte_rate": 9223372036854775807,
+				"packet_rate": 9223372036854775807
+			}
+		}
+	]
+}
