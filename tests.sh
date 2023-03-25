@@ -2,8 +2,13 @@
 
 set -Euo pipefail
 
-# SCION source directory with the SCION binaries in bin/.
-SCION_DIR=$1
+# Check that SCION_DIR is set.
+# The SCION source directory points to the SCION repository
+# including the SCION binaries in bin/.
+if [ -z "$SCION_DIR" ]; then
+    echo The SCION_DIR environment variable is not set!
+    exit -1
+fi
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
@@ -89,13 +94,8 @@ fi
 cmake_args="-D LF_WORKER=FWD -D LF_DRKEY_FETCHER=MOCK -D LF_DISTRIBUTOR=ON"
 build_test
 
+echo "Successful: $successful, Errors: $error"
 
-if [[ $error -eq 0 ]]; then
-    echo "Successful: $successful, Errors: $error"
-	exit 0
-else
-    echo "Successful: $successful, Errors: $error"
-	exit 1
-fi
+exit $error
 
 popd > /dev/null

@@ -30,11 +30,11 @@ RUN groupadd --gid $GID --non-unique $USER && \
     useradd $USER --create-home --shell /bin/bash --non-unique --uid $UID --gid $GID && \
     echo "$USER ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# Set the working directory for the user
-WORKDIR /home/$USER
 # Set the default user for the container
 USER $USER
-ENV USER ${USER}
+ENV USER $USER
+# Set the working directory for the user
+WORKDIR /home/$USER
 
 # LF Developer Image
 FROM lf-builder AS lf-developer
@@ -55,10 +55,7 @@ RUN git clone https://github.com/netsec-ethz/scion.git && cd scion && \
     go build -o ./bin/ ./go/scion-pki/ && \
     go build -o ./bin/ ./go/scion/
 
-ENV SCION_BIN=${WORKDIR}/scion/bin
-
-# LF Runner Image
-FROM ubuntu:jammy AS lf-runner
-
-COPY ./build/src/lfstatic /usr/local/lf/lfstatic
-COPY --from=lf-builder /dpdk-21.11/build/app/dpdk-pdump /us/local/lf/dpdk-pdump
+# Set the working directory for the user
+WORKDIR /home/$USER
+ENV SCION_DIR=/home/$USER/scion
+ENV SCION_BIN=/home/$USER/scion/bin

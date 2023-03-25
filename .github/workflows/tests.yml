@@ -1,0 +1,28 @@
+name: Tests CI
+
+on:
+  push:
+    branches: ["open-source"]
+  pull_request:
+    branches: ["open-source"]
+
+jobs:
+  docker-test:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: docker/setup-buildx-action@v1
+      - uses: docker/build-push-action@v4
+        with:
+          context: .
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: lf-developer:latest
+      - name: Start dev container
+        run: ./docker.sh dev_up
+      - name: Run tests in dev container
+        run: ./docker.sh dev_exec bash lightning-filter/tests.sh
+      - name: Stop dev container
+        run: ./docker.sh dev_down

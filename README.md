@@ -42,7 +42,7 @@ make
 For the docker build, first, install docker and add the user to the docker group.
 Then run the provided script to create the docker image and container that builds LightningFilter.
 ```
-./run_docker.sh build <CMAKE_ARGS>
+./docker.sh build <CMAKE_ARGS>
 ```
 
 > Note: CMake flags are not reset between build calls.

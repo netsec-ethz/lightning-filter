@@ -72,3 +72,12 @@ echo "# set PATH so it includes Go" >> $ENV_VARS_FILE
 echo "export PATH=\$PATH:$DEP_DIR/go/bin" >> $ENV_VARS_FILE
 ## Return to working directory
 popd
+
+########################################
+# GitHub Actions
+########################################
+# Set environmental variables for GitHub Actions
+if [ -n "$GITHUB_ENV" ]; then
+    echo "$DEP_DIR/go/bin" >> $GITHUB_PATH
+    echo "PKG_CONFIG_PATH=$DEP_DIR/dpdk-21.11-inst/lib/x86_64-linux-gnu/pkgconfig/" >> $GITHUB_ENV
+fi

@@ -86,5 +86,5 @@ make run_tests
 
 ## Docker
 
-With the docker build, all dependencies are installed in the image and the build is performed in the container. See the script `run_docker.sh`.
+With the docker build, all dependencies are installed in the image and the build is performed in the container. See the script `docker.sh`.
 To set specific compiler flags, we recommend starting a shell in the container.
