@@ -1,11 +1,11 @@
 # LF Builder image
+# Container for building
 FROM ubuntu:jammy AS lf-builder
 ARG UID=1001
 ARG GID=1001
 ARG USER=lf
 
-# Update the package manager and install necessary packages
-# for building, linting, and some testing.
+# Packages for building
 RUN apt-get update && \
     apt-get install -y sudo bash \
     git curl build-essential gcc make cmake pkg-config \
@@ -37,8 +37,10 @@ ENV USER $USER
 WORKDIR /home/$USER
 
 # LF Developer Image
+# Container for developing (building, linting, testing)
 FROM lf-builder AS lf-developer
 
+# Add packages for linting and testing
 RUN sudo apt-get update && \
     sudo apt-get install -y \
     clang-tidy iproute2 iputils-ping \
@@ -54,8 +56,8 @@ RUN git clone https://github.com/netsec-ethz/scion.git && cd scion && \
     go build -o ./bin/ ./go/daemon/ && \
     go build -o ./bin/ ./go/scion-pki/ && \
     go build -o ./bin/ ./go/scion/
+ENV SCION_DIR=/home/$USER/scion
+ENV SCION_BIN=/home/$USER/scion/bin
 
 # Set the working directory for the user
 WORKDIR /home/$USER
-ENV SCION_DIR=/home/$USER/scion
-ENV SCION_BIN=/home/$USER/scion/bin
