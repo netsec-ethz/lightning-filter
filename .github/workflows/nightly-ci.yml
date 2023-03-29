@@ -1,0 +1,53 @@
+name: Nightly CI
+
+on:
+  release:
+    types: [published]
+  schedule:
+    - cron: '00 08 * * *'  # early morning (04:00 UTC) every day
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+
+jobs:
+
+  check_change:
+      runs-on: ubuntu-latest
+      name: Check latest commit
+      outputs:
+        main_changed: ${{ steps.main_changed.outputs.main_changed }}
+      steps:
+        - uses: actions/checkout@v2
+        - name: print latest_commit
+          run: echo ${{ github.sha }}
+
+        - id: main_changed
+          continue-on-error: true
+          name: check latest commit is less than a day
+          if: ${{ github.event_name == 'schedule' }}
+          run: test -z $(git rev-list  --after="24 hours"  ${{ github.sha }}) && echo "::set-output name=main_changed::false"
+
+  build:
+    needs: main_changed
+    if: ${{ needs.check_change.outputs.main_changed != 'false' }}
+
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build and install dependencies
+      run: ./usertools/install_deps.sh
+
+    - name: Setup CMake build
+      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
+      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -D LF_WORKER=IPV4 -D LF_DRKEY_FETCHER=MOCK
+
+    - name: Build
+      # Build your program with the given configuration
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+
+    - name: Test
+      # Execute tests defined by the CMake configuration.
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --target run_tests

@@ -112,9 +112,9 @@ test1()
 	uint32_t dst_addr = 0;
 
 	src_host_addr.addr = &src_addr;
-	src_host_addr.type_length = 0x1;
+	src_host_addr.type_length = 0x0;
 	dst_host_addr.addr = &dst_addr;
-	dst_host_addr.type_length = 0x1;
+	dst_host_addr.type_length = 0x0;
 
 	km = new_test_context();
 	if (km == NULL) {
@@ -213,9 +213,9 @@ test2()
 	uint32_t dst_addr = 0;
 
 	src_host_addr.addr = &src_addr;
-	src_host_addr.type_length = 0x1;
+	src_host_addr.type_length = 0x0;
 	dst_host_addr.addr = &dst_addr;
-	dst_host_addr.type_length = 0x1;
+	dst_host_addr.type_length = 0x0;
 
 	km1 = new_test_context();
 	if (km1 == NULL) {

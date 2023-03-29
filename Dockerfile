@@ -1,11 +1,11 @@
 # LF Builder image
+# Container for building
 FROM ubuntu:jammy AS lf-builder
 ARG UID=1001
 ARG GID=1001
 ARG USER=lf
 
-# Update the package manager and install necessary packages
-# for building, linting, and some testing.
+# Packages for building
 RUN apt-get update && \
     apt-get install -y sudo bash \
     git curl build-essential gcc make cmake pkg-config \
@@ -30,15 +30,17 @@ RUN groupadd --gid $GID --non-unique $USER && \
     useradd $USER --create-home --shell /bin/bash --non-unique --uid $UID --gid $GID && \
     echo "$USER ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# Set the working directory for the user
-WORKDIR /home/$USER
 # Set the default user for the container
 USER $USER
-ENV USER ${USER}
+ENV USER $USER
+# Set the working directory for the user
+WORKDIR /home/$USER
 
 # LF Developer Image
+# Container for developing (building, linting, testing)
 FROM lf-builder AS lf-developer
 
+# Add packages for linting and testing
 RUN sudo apt-get update && \
     sudo apt-get install -y \
     clang-tidy iproute2 iputils-ping \
@@ -54,11 +56,8 @@ RUN git clone https://github.com/netsec-ethz/scion.git && cd scion && \
     go build -o ./bin/ ./go/daemon/ && \
     go build -o ./bin/ ./go/scion-pki/ && \
     go build -o ./bin/ ./go/scion/
+ENV SCION_DIR=/home/$USER/scion
+ENV SCION_BIN=/home/$USER/scion/bin
 
-ENV SCION_BIN=${WORKDIR}/scion/bin
-
-# LF Runner Image
-FROM ubuntu:jammy AS lf-runner
-
-COPY ./build/src/lfstatic /usr/local/lf/lfstatic
-COPY --from=lf-builder /dpdk-21.11/build/app/dpdk-pdump /us/local/lf/dpdk-pdump
+# Set the working directory for the user
+WORKDIR /home/$USER

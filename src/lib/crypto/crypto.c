@@ -87,6 +87,7 @@ lf_crypto_drkey_cbcmac(struct lf_crypto_drkey_ctx *ctx,
 	res = EVP_EncryptInit_ex(ctx->mdctx, EVP_aes_128_cbc(), /* impl: */ NULL,
 			drkey->key, /* iv: */ NULL);
 	assert(res == 1);
+	(void) res; // Unused variable in release
 
 	assert(EVP_CIPHER_CTX_block_size(ctx->mdctx) == LF_CRYPTO_CBC_BLOCK_SIZE);
 	assert(EVP_CIPHER_CTX_key_length(ctx->mdctx) == LF_CRYPTO_DRKEY_SIZE);
@@ -97,6 +98,7 @@ lf_crypto_drkey_cbcmac(struct lf_crypto_drkey_ctx *ctx,
 		res = EVP_EncryptUpdate(ctx->mdctx, mac, &n, data + i,
 				LF_CRYPTO_CBC_BLOCK_SIZE);
 		assert((res == 1) && (n == LF_CRYPTO_MAC_SIZE));
+	(void) res; // Unused variable in release
 	}
 }
 
@@ -157,6 +159,7 @@ lf_crypto_hash_ctx_init(struct lf_crypto_hash_ctx *ctx)
 	res = EVP_DigestInit_ex(ctx->mdctx, EVP_sha1(), /* impl: */ NULL);
 	if (res != 1) {
 		assert(res == 0);
+	(void) res; // Unused variable in release
 		EVP_MD_CTX_free(ctx->mdctx);
 		return -1;
 	}
@@ -176,6 +179,7 @@ lf_crypto_hash_update(struct lf_crypto_hash_ctx *ctx, const uint8_t *data,
 	int res;
 	res = EVP_DigestUpdate(ctx->mdctx, data, data_len);
 	assert(res == 1);
+	(void) res; // Unused variable in release
 }
 
 void
@@ -186,9 +190,11 @@ lf_crypto_hash_final(struct lf_crypto_hash_ctx *ctx,
 	unsigned int hash_length;
 	res = EVP_DigestFinal_ex(ctx->mdctx, hash, &hash_length);
 	assert(res == 1);
+	(void) res; // Unused variable in release
 	assert(hash_length == LF_CRYPTO_HASH_LENGTH);
 	res = EVP_DigestInit_ex2(ctx->mdctx, /* type: */ NULL, /* impl: */ NULL);
 	assert(res == 1);
+	(void) res; // Unused variable in release
 }
 
 int
