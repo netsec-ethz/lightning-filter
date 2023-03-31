@@ -4,7 +4,7 @@ on:
   release:
     types: [published]
   schedule:
-    - cron: '00 08 * * *'  # early morning (04:00 UTC) every day
+    - cron: '00 00,6,12,18 * * *'
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
@@ -29,7 +29,7 @@ jobs:
           run: test -z $(git rev-list  --after="24 hours"  ${{ github.sha }}) && echo "::set-output name=main_changed::false"
 
   build:
-    needs: main_changed
+    needs: check_change
     if: ${{ needs.check_change.outputs.main_changed != 'false' }}
 
     runs-on: ubuntu-22.04
