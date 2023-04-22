@@ -43,7 +43,7 @@ FROM lf-builder AS lf-developer
 # Add packages for linting and testing
 RUN sudo apt-get update && \
     sudo apt-get install -y \
-    clang-tidy iproute2 iputils-ping \
+    clang-tidy clang-format iproute2 iputils-ping \
     python3-pip supervisor net-tools && \
     sudo rm -rf /var/lib/apt/lists/* && \
     sudo pip3 install plumbum toml supervisor-wildcards
