@@ -1,8 +1,9 @@
 # Troubleshooting
 
 ## Fail to Start
+
 ### Unable to allocate memory
-Ensure that enough memory is given to the huge pages.
+Ensure that enough memory is given to the hugepages.
 
 ```
 echo '4096' | sudo tee /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages

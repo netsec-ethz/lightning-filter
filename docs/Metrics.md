@@ -3,26 +3,34 @@
 The DPDK telemetry API provides information and statistics of a running DPDK instance.
 Also, statistics collected by LightningFilter can be accessed through this interface.
 
-To interact with the API, the client script provided by DPDK can be used:
+## Monitoring Stack
+
+There are various ways to collect, aggregate, and monitor the metrics provided through the DPDK telemetry interface. A possible setup is presented in [monitoring/Monitoring.md](monitoring/Monitoring.md)).
+
+## Client Script
+
+A simple way to interact with the API directly, is with the help of the provided client script.
+
 ```
 sudo ./usertools/lf-telemetry.py
 ```
 
 When the DPDK application uses a file prefix, the file prefix has to be passed via the -f flag:
+
 ```
 sudo ./usertools/lf-telemetry.py -f "file_prefix"
 ```
 
 After starting the client script, various metrics can be requested. The responses are then provided in JSON format.
-The client script provides a list of all possible commands and a helper text for each.
+The client script provides a list of all available metrics and a help text for each.
 
-The following sections describe some of the useful metrics offered by LightningFilter.
+## Available Metrics
 
-## Application Information
+The following sections describe some of the metrics offered by LightningFilter.
 
 ### Version
 
-Command:
+Path:
 `/lf/version`
 
 Description:
@@ -44,14 +52,14 @@ Format (experimental):
 
 ### EAL Parameters
 
-Command:
+Path:
 `/eal/params`
 
 Description:
 List of provided EAL parameters.
 
 ### Application PArameters
-Command:
+Path:
 `/eal/app_params`
 
 Description:
@@ -60,7 +68,7 @@ List of provided application parameters.
 ## Traffic Metrics
 
 ### Worker
-Command:
+Path:
 `/lf/worker/stats`
 
 Parameter:
@@ -93,7 +101,7 @@ Format (experimental):
 
 ### Port
 
-Command:
+Path:
 `/ethdev/xstats,<port_id>`
 
 Description:
@@ -103,12 +111,12 @@ Extended statistics for an ethdev port.
 
 ### DRKey Fetching
 
-Command:
+Path:
 `/lf/keymanager/stats`
 
 ### Dictionary
 
-Command:
+Path:
 `/lf/keymanager/dict`
 
 
@@ -116,7 +124,7 @@ Command:
 
 ### Commands
 
-Command:
+Path:
 `/`
 
 Description:
@@ -124,12 +132,8 @@ List all commands.
 
 ### Help
 
-Command:
+Path:
 `/help,<command>`
 
 Description:
 Help text for a command.
-
-# Monitoring
-
-There are various ways to collect, aggregate, and monitor the metrics provided through the DPDK telemetry interface. A possible setup is described here [monitoring/Monitoring.md](monitoring/Monitoring.md)).

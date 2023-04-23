@@ -5,17 +5,21 @@ lf_exec [DPDK EAL parameters] -- [LF parameters]
 ```
 
 ## LF Parameters
-The LightningFilter parameter list can be printed with the help option:
+
+The LightningFilter help option prints the available parameters:
+
 ```
 -h, --help
 ```
 
 ## DPDK EAL Parameters
+
 DPDK documentation: 
 https://doc.dpdk.org/guides-21.11/linux_gsg/linux_eal_parameters.html
 
 ### Lcore-relation option
-The following to parameters define the mapping between logical and physical cores.
+
+The following parameters define the mapping between logical and physical cores.
 
 ```
 -l <core list>
@@ -27,24 +31,29 @@ The following to parameters define the mapping between logical and physical core
 
 ### Device-relation options
 
+Add a PCI device to the list of allowed devices. Multiple -a options are allowed.
+
 ```
 -a, --allow <[domain:]bus:devid.func>
 ```
-Add a PCI device in to the list of devices to probe.
+
+Add a PCI device to the list of blocked devices. Multiple -b options are allowed.
 
 ```
 -b, --block <[domain:]bus:devid.func>
 ```
-Skip probing a PCI device to prevent EAL from using it. Multiple -b options are allowed.
 
 The allow list option and the block list option cannot be used together.
 
 ### Debugging options
 
+Specify the log level for a specific component.
+
 ```
 --log-level <type:val>
 ```
-Specify log level for a specific component. For example:
+
+E.g.:
 
 ```
 --log-level lf:debug

@@ -1,5 +1,6 @@
 # Config
-The LightningFilter configuration file is written in JSON format. In the following we describe the possible options.
+
+The LightningFilter configuration file is written in JSON format. In the following, we describe the possible options.
 
 **isd_as** (string)  
 Local ISD-AS number in the SCION IA format (e.g., "1-ff00:0:110").

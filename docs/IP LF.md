@@ -6,7 +6,7 @@ For outgoing packets, LightningFilter encapsulates the IP packet's payload into 
 
 ETH/IP/Payload => ETH/IP/UDP/LF/Payload
 
-The UDP header uses a specified port to identify LightningFilter encapsulated packets. Usually port 49149 is used.
+The UDP header uses a specified port to identify LightningFilter encapsulated packets. Usually, port 49149 is used.
 The LF header contains the payloads protocol ID, i.e., the protocol ID in the IP header previous to the encapsulation.
 
 ## Header Format
@@ -76,5 +76,5 @@ For the MAC calculation, the "DRKey Protocol" field is overwritten with the leng
 ## Wireshark
 
 It can be helpful to analyze packets with Wireshark when troubleshooting LightningFilter traffic.
-Therefore, install the dissector Lua plugin provided in the `usertools` folder by copying the file to one of the Wireshark's plugin folders.
-How to find the Wireshark's plugin folders is documented [here](https://www.wireshark.org/docs/wsug_html_chunked/ChPluginFolders.html).
+Therefore, install the dissector Lua plugin provided in the `usertools` folder by copying the file to one of Wireshark's plugin folders.
+How to find Wireshark's plugin folders is documented [here](https://www.wireshark.org/docs/wsug_html_chunked/ChPluginFolders.html).

@@ -40,6 +40,7 @@ The following sections describe some of the deployment possibilities.
 > LightningFilter must act layer 2 aware. Otherwise, the switching device connected to the single LightningFilter interface will be confused.
 
 ### VLAN Setup
+
 With VLANs, the single interface setup can almost be transformed into a 2-interface deployment.
 Therefore, divide the network into two parts; the out-facing network and the in-facing network.
 In the out-facing network are the gateway, the VLAN switch, and the LightningFilter. In the in-facing network are all end hosts, the VLAN switch, and the LightningFilter.
@@ -56,6 +57,7 @@ LightningFilter just switches source and destination Ethernet addresses when for
 
 
 ### AWS VPC Routing
+
 AWS offers Virtual Private Cloud (VPC) ingress routing ([see here](https://aws.amazon.com/blogs/aws/new-vpc-ingress-routing-simplifying-integration-of-third-party-appliances/)) to redirect all incoming and outgoing traffic through certain virtual appliances on which LightningFilter would run.
 In summary, two configurations have to be made:
 1. On the gateway, route all ingress traffic (meant for the end-hosts) to the LightningFilter appliance.
@@ -74,4 +76,4 @@ In case no routing-capable device is located between the LightingFilter and the 
 If only one end host device exists, the LightningFilter can act as the gateway for the end host device.
 
 Incoming and outgoing traffic is differentiated by checking if the destination host address corresponds to the end host address.
-Packet modifiers must be configured, so incoming traffic is forwarded to the end host and outgoing traffic is forwarded to the border router.
+Packet modifiers must be configured, so incoming traffic is forwarded to the end host, and outgoing traffic is forwarded to the border router.
