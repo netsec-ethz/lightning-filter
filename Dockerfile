@@ -40,6 +40,9 @@ WORKDIR /home/$USER
 # Container for developing (building, linting, testing)
 FROM lf-builder AS lf-developer
 
+# When started, the container runs indefinitely.
+CMD ["tail", "-f", "/dev/null"]
+
 # Add packages for linting and testing
 RUN sudo apt-get update && \
     sudo apt-get install -y \
