@@ -63,7 +63,7 @@ cmd_dev_up () {
     docker container start lf-dev-container
 
     # Add lightning-filter repo to the git safety exceptions
-    #docker exec lf-dev-container git config --global --add safe.directory /home/$CONTAINER_USER/lightning-filter
+    docker exec lf-dev-container git config --global --add safe.directory /home/$CONTAINER_USER/lightning-filter
 }
 
 cmd_dev_down () {

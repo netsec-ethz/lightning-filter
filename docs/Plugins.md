@@ -3,10 +3,10 @@
 Plugins are modules that can be enabled to extend the packet processing pipeline.
 E.g., a plugin could filter traffic before it is processed by a worker, i.e., core modules. Intra-AS packets could be forwarded directly without further processing, or rate limited could be applied for certain packets.
 
-In LF, to enable a plugin, add its name to the semicolon-separated list of the CMake variable `LF_PLUGINS`. E.g.:
+In LF, to enable a plugin, add its name to the colon-separated list of the CMake variable `LF_PLUGINS`. E.g.:
 
 ```
-cmake -D LF_PLUGINS "bypass;wg_ratelimiter"
+cmake -D LF_PLUGINS=\"bypass:wg_ratelimiter\"
 ```
 
 ## Bypass (name: bypass)

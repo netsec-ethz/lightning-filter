@@ -547,6 +547,7 @@ lf_worker_main_loop(struct lf_worker_context *worker_context)
 		(void)lf_statistics_worker_add_burst(stats, nb_rx);
 
 		for (i = 0; i < nb_rx; ++i) {
+			pkt_res[i] = LF_PKT_UNKNOWN;
 			pkt_res[i] = lf_plugins_pre(worker_context, rx_pkts[i], pkt_res[i]);
 		}
 

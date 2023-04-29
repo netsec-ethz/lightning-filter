@@ -81,7 +81,7 @@ then
     run_integration_test test/testnet_ip/integration_test.sh $LF_EXEC
 fi
 
-cmake_args="-D LF_WORKER=IPV4 -D LF_DRKEY_FETCHER=MOCK -D LF_PLUGINS=\"dst_ratelimiter:wg_ratelimiter\""
+cmake_args="-D LF_WORKER=IPV4 -D LF_DRKEY_FETCHER=MOCK -D LF_PLUGINS=\"bypass:dst_ratelimiter:wg_ratelimiter\""
 build_test
 
 cmake_args="-D LF_WORKER=SCION -D LF_DRKEY_FETCHER=SCION"
