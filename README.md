@@ -1,16 +1,21 @@
 # LightningFilter (Open Source)
 
 LightningFilter is a high-speed traffic filtering mechanism that performs authentication, rate limiting, and duplicate detection.
+LightningFilter uses the DPDK framework, enabling high-speed packet processing.
 
 This repository contains the open-source version, which offers at least the core functionalities of a LightningFilter.
 The closed-source version provides additional functionalities and better performance (~5x throughput).
 
 ## License
-The software is currently licensed under BSD-3.
+
+The software is licensed under BSD-3.
 
 > The license might change to Apache v2 if possible.
 
 ### 3rd Party
+
+DPDK (BSD 3) https://www.dpdk.org/
+
 json-parser (BSD 2) https://github.com/json-parser/json-parser
 
 murmurhash (public domain) https://github.com/aappleby/smhasher/blob/master/src/MurmurHash3.cpp
@@ -18,13 +23,27 @@ murmurhash (public domain) https://github.com/aappleby/smhasher/blob/master/src/
 hashdict (MIT licensed) https://github.com/exebook/hashdict.c
 
 # Installation
+
 See [docs/Installation.md](docs/Installation.md) for detailed information.
 
-There are possibilities to build LightingFilter: natively on the machine, or with docker.
-Both of them rely on Ubuntu 22.04.
+There are mainly two possibilities to build LightingFilter: with the help of a docker container or natively on a machine.
+Both of the options rely on Ubuntu 22.04.
+
+## Docker Container
+
+Install docker and add the user to the docker group.
+Then run the `docker.sh` script to create the docker image and container that builds LightningFilter.
+
+```
+./docker.sh build <CMAKE_ARGS>
+```
+
+> Note: Once a CMake flag is set for a build, it does not change its value for the following build calls.
 
 ## Native
+
 To install dependencies, we use the script provided in `usertools` and then set the required environment variables:
+
 ```
 ./usertools/install_deps.sh
 source dependencies/env_vars
@@ -38,18 +57,21 @@ cmake ../
 make
 ```
 
-## Docker
-For the docker build, first, install docker and add the user to the docker group.
-Then run the provided script to create the docker image and container that builds LightningFilter.
+## Docker Container
+
+For the docker container build, install docker and add the user to the docker group.
+Then run the `docker.sh` script to create the docker image and container that builds LightningFilter.
+
 ```
 ./docker.sh build <CMAKE_ARGS>
 ```
 
-> Note: CMake flags are not reset between build calls.
+> Note: Because CMake flags are cached, once set, any following build call uses them.
 
 # Run
 
-After compiling the application, the executable can be found in `build/src/` and be run as follows:
+After compiling the application, the executable is in `build/src/` and can be run as follows:
+
 ```
 build/src/lf <EAL Parameters> -- <LF Parameters>
 ```
@@ -61,6 +83,7 @@ DPDK defines the EAL parameters, which are described [here](https://doc.dpdk.org
 The application's help text describes the LF parameters.
 
 E.g.:
+
 ```
 build/src/lf --lcores (0-2)@(0-2),(3-7)@(3,7) --log-level lf:debug \
 -- \
@@ -75,11 +98,13 @@ The DPDK telemetry API provides information and statistics of a running DPDK ins
 Also, LightningFilter collects additional statistics and exposes them to the same interface.
 
 Launch interactive client script:
+
 ```
 sudo ./usertools/lf-telemetry.py
 ```
 
 When using a file prefix, the file prefix is set with the -f flag:
+
 ```
 sudo ./usertools/lf-telemetry.py -f "file_prefix"
 ```
@@ -87,28 +112,44 @@ sudo ./usertools/lf-telemetry.py -f "file_prefix"
 More info: [docs/Metrics.md](docs/Metrics.md)
 
 ## Runtime Interface
+
 LightningFilter provides an interface through a Unix socket during runtime, just as for the statistics.
 
 Launch interactive client script:
+
 ```
 sudo ./usertools/lf-ipc.py
 ```
 
 When running LightningFilter with a file prefix, set the file prefix as follows:
+
 ```
 sudo ./usertools/lf-ipc.py -f "file_prefix"
 ```
 
 The script also allows running single commands without starting the interactive mode:
+
 ```
 sudo ./usertools/lf-ipc.py --cmd=<command> {--params=<parameters>}
 ```
+
+# Develop
+
+To get quickly started with developing LightningFilter, we provide a docker image with all the necessary dependencies installed.
+The following commands build the developer image and create a docker container:
+
+```
+./docker.sh dev_image && ./docker.sh dev_up
+```
+
+With VS Code, you can directly start coding within the container using `docker` extension.
 
 # Tests
 
 ## Unit Tests
 
 (in the build directory)
+
 ```
 make run_tests
 ```
@@ -120,20 +161,27 @@ make run_tests
 
 ## Integration Tests
 ### SCION
+
 (in `test/testnet_scion`)
+
 ```
 sudo ./integration_test.sh ../../build/src/lf ~/scion
 ```
+
 > Requires an appropriate build (see README in directory).
 
 ### IP
+
 (in `test/testnet_ip`)
+
 ```
 sudo ./integration_test.sh ../../build/src/lf
 ```
+
 > Requires an appropriate build (see README in directory).
 
 ## Test Script
+
 To run all of the unit and integration tests with different settings (compilation configurations), run the script `run_tests.sh`.
 
 ## Performance Tests
