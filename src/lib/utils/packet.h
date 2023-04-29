@@ -73,7 +73,7 @@ lf_get_ipv6_hdr(const struct lf_worker_context *worker_context,
 {
 	if (unlikely(sizeof(struct rte_ipv6_hdr) > m->data_len - offset)) {
 		LF_WORKER_LOG(NOTICE,
-				"Unsupported packet: IP header exceeds first buffer "
+				"Unsupported packet: IPv6 header exceeds first buffer "
 				"segment.\n");
 		return 0;
 	}
@@ -268,6 +268,30 @@ lf_pkt_set_cksum(const struct lf_worker_context *worker_context,
 		}
 		ipv4_hdr->hdr_checksum = rte_ipv4_cksum(ipv4_hdr);
 	}
+}
+
+struct lf_icmpv6_hdr {
+	uint8_t type;
+	uint8_t code;
+	uint16_t checksum;
+};
+
+static inline unsigned int
+lf_get_icmpv6_hdr(const struct lf_worker_context *worker_context,
+		const struct rte_mbuf *m, unsigned int offset,
+		struct lf_icmpv6_hdr **icmpv6_hdr_ptr)
+{
+	if (unlikely(sizeof(struct lf_icmpv6_hdr) > m->data_len - offset)) {
+		LF_WORKER_LOG(NOTICE,
+				"Unsupported packet: ICMPv6 header exceeds first buffer "
+				"segment.\n");
+		return 0;
+	}
+
+	*icmpv6_hdr_ptr =
+			rte_pktmbuf_mtod_offset(m, struct lf_icmpv6_hdr *, offset);
+
+	return offset + sizeof(struct lf_icmpv6_hdr);
 }
 
 #endif /* LF_UTILS_PACKET_H */

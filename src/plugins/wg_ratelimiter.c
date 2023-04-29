@@ -160,7 +160,7 @@ lf_wg_ratelimiter_handle_pkt_post(struct lf_worker_context *worker_context,
 	}
 #else
 #error "Unknown LF_WORKER value
-#endif /* LF_SCION_GATEWAY */
+#endif /* LF_WORKER_... */
 
 
 	if (ipv4_hdr->next_proto_id != IPPROTO_UDP) {

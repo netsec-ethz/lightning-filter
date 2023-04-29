@@ -37,7 +37,7 @@ jobs:
           cache-to: type=gha,mode=max
           tags: lf-developer:latest
       - name: Start dev container
-        run: ./docker.sh dev_up
+        run: ./docker.sh dev_create &&./docker.sh dev_up
       - name: Run tests in dev container
         run: ./docker.sh dev_exec bash lightning-filter/tests.sh
       - name: Stop dev container
