@@ -60,6 +60,20 @@ lf_plugins_init(struct lf_worker_context *workers, uint16_t nb_workers);
 int
 lf_plugins_apply_config(const struct lf_config *config);
 
+static inline enum lf_pkt_action
+lf_plugins_pre(struct lf_worker_context *worker_context, struct rte_mbuf *m,
+		enum lf_pkt_action pkt_action)
+{
+	enum lf_pkt_action pkt_action_res = pkt_action;
+#if LF_PLUGIN_BYPASS
+	pkt_action = lf_bp_pre(worker_context, m, pkt_action);
+#endif
+
+	(void)worker_context;
+	(void)m;
+	return pkt_action_res;
+}
+
 /**
  * Post packet processing for enabled plugins.
  * This function is called after the core modules have processed the packet.

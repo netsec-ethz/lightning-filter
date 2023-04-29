@@ -546,6 +546,10 @@ lf_worker_main_loop(struct lf_worker_context *worker_context)
 		LF_WORKER_LOG(DEBUG, "%u packets received\n", nb_rx);
 		(void)lf_statistics_worker_add_burst(stats, nb_rx);
 
+		for (i = 0; i < nb_rx; ++i) {
+			pkt_res[i] = lf_plugins_pre(worker_context, rx_pkts[i], pkt_res[i]);
+		}
+
 		lf_worker_handle_pkt(worker_context, rx_pkts, nb_rx, pkt_res);
 
 

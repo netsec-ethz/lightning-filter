@@ -42,9 +42,6 @@
 			RTE_FMT("Worker [%d]: " RTE_FMT_HEAD(__VA_ARGS__, ), \
 					worker_context->worker_id, RTE_FMT_TAIL(__VA_ARGS__, )))
 
-/* Number of packets to be prefetched into the cache */
-#define LF_WORKER_PREFETCH_OFFSET 0
-
 struct lf_worker_context {
 	uint16_t worker_id;
 	uint16_t lcore_id;
@@ -117,6 +114,7 @@ struct lf_pkt_data {
  * The action to be performed with the packet.
  */
 enum lf_pkt_action {
+	LF_PKT_UNKNOWN = 0,
 	LF_PKT_UNKNOWN_DROP,
 	LF_PKT_UNKNOWN_FORWARD,
 	LF_PKT_OUTBOUND_DROP,

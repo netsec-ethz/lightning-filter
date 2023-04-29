@@ -428,20 +428,12 @@ lf_worker_handle_pkt(struct lf_worker_context *worker_context,
 {
 	int i;
 
-	/* Prefetch first packets */
-	for (i = 0; i < LF_WORKER_PREFETCH_OFFSET && i < nb_pkts; i++) {
-		rte_prefetch0(rte_pktmbuf_mtod(pkt_burst[i], void *));
-	}
+	for (i = 0; i < nb_pkts; i++) {
+		if (pkt_res[i] != LF_PKT_UNKNOWN) {
+			/* If packet action is already determined, do not process it */
+			continue;
+		}
 
-	/* Prefetch and forward already prefetched packets */
-	for (i = 0; i < (nb_pkts - LF_WORKER_PREFETCH_OFFSET); i++) {
-		rte_prefetch0(rte_pktmbuf_mtod(pkt_burst[i + LF_WORKER_PREFETCH_OFFSET],
-				void *));
-		pkt_res[i] = handle_pkt(worker_context, pkt_burst[i]);
-	}
-
-	/* Forward remaining prefetched packets */
-	for (; i < nb_pkts; i++) {
 		pkt_res[i] = handle_pkt(worker_context, pkt_burst[i]);
 	}
 }
