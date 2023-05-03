@@ -87,7 +87,7 @@ static const struct port_queues_conf default_port_queues_conf = {
 	.nb_tx_queue = 0,
 };
 
-static const struct lf_setup_port_queue default_port_queue = {
+static const struct lf_distributor_port_queue default_port_queue = {
 	.rx_port_id = RTE_MAX_ETHPORTS,
 	.rx_queue_id = LF_SETUP_MAX_QUEUE,
 	.tx_port_id = RTE_MAX_ETHPORTS,
@@ -659,11 +659,28 @@ check_all_ports_link_status(uint32_t port_mask)
 	}
 }
 
+static inline struct rte_eth_dev_tx_buffer *
+new_tx_buffer(uint16_t socket)
+{
+	struct rte_eth_dev_tx_buffer *tx_buffer;
+
+	/* Initialize TX buffers */
+	tx_buffer = rte_zmalloc_socket("tx_buffer",
+			RTE_ETH_TX_BUFFER_SIZE(LF_MAX_PKT_BURST), 0, socket);
+	if (tx_buffer == NULL) {
+		LF_LOG(ERR, "Cannot allocate tx buffer\n");
+		return NULL;
+	}
+
+	rte_eth_tx_buffer_init(tx_buffer, LF_MAX_PKT_BURST);
+	return tx_buffer;
+}
+
 int
-lf_setup_initialize(uint16_t nb_workers,
+lf_setup_ports(uint16_t nb_workers,
 		const uint16_t worker_lcores[LF_MAX_WORKER],
 		const struct lf_params *params,
-		struct lf_setup_port_queue *port_queues[LF_MAX_WORKER],
+		struct lf_distributor_port_queue *port_queues[LF_MAX_WORKER],
 		struct lf_setup_ct_port_queue *ct_port_queue)
 {
 	int res;
@@ -676,7 +693,7 @@ lf_setup_initialize(uint16_t nb_workers,
 	struct port_queues_conf port_queues_conf[RTE_MAX_ETHPORTS];
 	struct port_queues_conf *port_conf, *tx_port_conf;
 
-	struct lf_setup_port_queue *port_queue;
+	struct lf_distributor_port_queue *port_queue;
 
 	const uint32_t portmask = params->portmask;
 	const uint16_t *dst_port = params->dst_port;
@@ -821,6 +838,12 @@ lf_setup_initialize(uint16_t nb_workers,
 			port_queue->tx_port_id = tx_port_id;
 			port_queue->tx_queue_id = queue_counter;
 			port_queue->forwarding_direction = forwarding_direction[port_id];
+
+			port_queue->tx_buffer = new_tx_buffer(rte_eth_dev_socket_id(tx_port_id));
+			if (port_queue->tx_buffer == NULL) {
+				LF_LOG(ERR, "Failed setting up tx port %u.\n", tx_port_id);
+				return -1;
+			}
 
 			/* increase worker_id and lcore_id */
 			++worker_id;

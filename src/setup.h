@@ -9,24 +9,13 @@
 
 #include "lf.h"
 #include "params.h"
+#include "distributor.h"
 
 /**
  * The setup module is responsible to prepare the ports.
  * This includes the configuration of memory pools, ports, queues, hardware
  * offloading, etc.
  */
-
-/**
- * Struct for a port/queue transmit pair.
- */
-struct lf_setup_port_queue {
-	uint16_t rx_port_id;
-	uint8_t rx_queue_id;
-	uint16_t tx_port_id;
-	uint8_t tx_queue_id;
-
-	enum lf_forwarding_direction forwarding_direction;
-};
 
 /**
  * Control traffic (ct) queues for each port and the port ID of the vdev, to
@@ -61,10 +50,10 @@ struct lf_setup_ct_port_queue {
  * @return 0 on success.
  */
 int
-lf_setup_initialize(uint16_t nb_workers,
+lf_setup_ports(uint16_t nb_workers,
 		const uint16_t worker_lcores[LF_MAX_WORKER],
 		const struct lf_params *params,
-		struct lf_setup_port_queue *port_queues[LF_MAX_WORKER],
+		struct lf_distributor_port_queue *port_queues[LF_MAX_WORKER],
 		struct lf_setup_ct_port_queue *ct_port_queue);
 
 /**

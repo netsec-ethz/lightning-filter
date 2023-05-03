@@ -459,23 +459,14 @@ lf_worker_check_best_effort_pkt(struct lf_worker_context *worker_context,
 	return LF_CHECK_BE;
 }
 
-static inline uint16_t
-receive_pkts(const struct lf_worker_context *worker_context,
-		struct rte_mbuf *rx_pkts[LF_MAX_PKT_BURST])
-{
-#if LF_DISTRIBUTOR
-	return rte_ring_dequeue_burst(worker_context->queues.rx_ring,
-			(void **)rx_pkts, LF_MAX_PKT_BURST, NULL);
-#else
-	return rte_eth_rx_burst(worker_context->queues.rx_port_id,
-			worker_context->queues.rx_queue_id, rx_pkts, LF_MAX_PKT_BURST);
-#endif
-}
-
 static void
-update_pkt_action_statistics(struct lf_statistics_worker *stats,
+update_pkt_statistics(struct lf_statistics_worker *stats, struct rte_mbuf *pkt,
 		enum lf_pkt_action pkt_action)
 {
+	lf_statistics_worker_counter_add(stats, rx_bytes,
+			pkt->pkt_len);
+	lf_statistics_worker_counter_add(stats, rx_pkts, 1);
+
 	switch (pkt_action) {
 	case LF_PKT_UNKNOWN_DROP:
 		lf_statistics_worker_counter_inc(stats, unknown_drop);
@@ -500,12 +491,33 @@ update_pkt_action_statistics(struct lf_statistics_worker *stats,
 	}
 }
 
+static void
+set_distributor_action(struct rte_mbuf *pkt, enum lf_pkt_action pkt_action) {
+		switch (pkt_action) {
+		case LF_PKT_UNKNOWN_DROP:
+		case LF_PKT_INBOUND_DROP:
+		case LF_PKT_OUTBOUND_DROP:
+			*lf_distributor_action(pkt) = LF_DISTRIBUTOR_ACTION_DROP;
+			break;
+		case LF_PKT_UNKNOWN_FORWARD:
+		case LF_PKT_OUTBOUND_FORWARD:
+		case LF_PKT_INBOUND_FORWARD:
+			*lf_distributor_action(pkt) = LF_DISTRIBUTOR_ACTION_FORWARD;
+			break;
+		default:
+			*lf_distributor_action(pkt) = LF_DISTRIBUTOR_ACTION_DROP;
+			/* TODO: reanable log function after removing worker_context from it. */
+			//LF_WORKER_LOG(ERR, "Unknown packet action (%u)\n", pkt_res[i]);
+			break;
+		}
+}
+
 /* main processing loop */
 static void
 lf_worker_main_loop(struct lf_worker_context *worker_context)
 {
 	unsigned int i;
-	uint16_t nb_rx, nb_tx, nb_fwd, nb_drop;
+	uint16_t nb_rx;
 
 	/* packet buffers */
 	struct rte_mbuf *rx_pkts[LF_MAX_PKT_BURST];
@@ -537,7 +549,7 @@ lf_worker_main_loop(struct lf_worker_context *worker_context)
 		(void)time;
 #endif /* !LF_WORKER_OMIT_TIMES_UPDATE */
 
-		nb_rx = receive_pkts(worker_context, rx_pkts);
+		nb_rx = lf_distributor_worker_rx(&worker_context->distributor, rx_pkts);
 
 		if (unlikely(nb_rx <= 0)) {
 			continue;
@@ -553,108 +565,18 @@ lf_worker_main_loop(struct lf_worker_context *worker_context)
 
 		lf_worker_handle_pkt(worker_context, rx_pkts, nb_rx, pkt_res);
 
-
 		for (i = 0; i < nb_rx; ++i) {
-			lf_statistics_worker_counter_add(stats, rx_bytes,
-					rx_pkts[i]->pkt_len);
-			lf_statistics_worker_counter_add(stats, rx_pkts, 1);
-
 			pkt_res[i] =
 					lf_plugins_post(worker_context, rx_pkts[i], pkt_res[i]);
-
-			update_pkt_action_statistics(stats, pkt_res[i]);
 		}
 
-		nb_fwd = 0;
-		nb_drop = 0;
-#if LF_DISTRIBUTOR
 		for (i = 0; i < nb_rx; ++i) {
-			switch (pkt_res[i]) {
-			case LF_PKT_UNKNOWN_DROP:
-			case LF_PKT_INBOUND_DROP:
-			case LF_PKT_OUTBOUND_DROP:
-				*lf_distributor_action(rx_pkts[i]) = LF_DISTRIBUTOR_ACTION_DROP;
-				nb_drop++;
-				lf_statistics_worker_counter_add(stats, drop_bytes,
-						rx_pkts[i]->pkt_len);
-				lf_statistics_worker_counter_add(stats, drop_pkts, 1);
-				break;
-			case LF_PKT_UNKNOWN_FORWARD:
-			case LF_PKT_OUTBOUND_FORWARD:
-			case LF_PKT_INBOUND_FORWARD:
-				*lf_distributor_action(rx_pkts[i]) = LF_DISTRIBUTOR_ACTION_FWD;
-				nb_fwd++;
-				lf_statistics_worker_counter_add(stats, tx_bytes,
-						rx_pkts[i]->pkt_len);
-				lf_statistics_worker_counter_add(stats, tx_pkts, 1);
-				break;
-			default:
-				*lf_distributor_action(rx_pkts[i]) = LF_DISTRIBUTOR_ACTION_DROP;
-				LF_WORKER_LOG(ERR, "Unknown packet action (%u)\n", pkt_res[i]);
-				break;
-			}
+			update_pkt_statistics(stats, rx_pkts[i], pkt_res[i]);
+			set_distributor_action(rx_pkts[i], pkt_res[i]);
 		}
 
-		nb_tx = 0;
-		do {
-			nb_tx += rte_ring_enqueue_burst(worker_context->queues.tx_ring,
-					(void **)rx_pkts + nb_tx, nb_rx - nb_tx, NULL);
-		} while (unlikely(nb_tx < nb_fwd));
-#else
-		/* buffers to transmit and drop packets in burst */
-		struct rte_mbuf *tx_pkts[LF_MAX_PKT_BURST];
-		struct rte_mbuf *drop_pkts[LF_MAX_PKT_BURST];
-		for (i = 0; i < nb_rx; ++i) {
-			switch (pkt_res[i]) {
-			case LF_PKT_UNKNOWN_DROP:
-			case LF_PKT_INBOUND_DROP:
-			case LF_PKT_OUTBOUND_DROP:
-				drop_pkts[nb_drop] = rx_pkts[i];
-				nb_drop++;
-				lf_statistics_worker_counter_add(stats, drop_bytes,
-						rx_pkts[i]->pkt_len);
-				lf_statistics_worker_counter_add(stats, drop_pkts, 1);
-				break;
-			case LF_PKT_UNKNOWN_FORWARD:
-			case LF_PKT_OUTBOUND_FORWARD:
-			case LF_PKT_INBOUND_FORWARD:
-				tx_pkts[nb_fwd] = rx_pkts[i];
-				nb_fwd++;
-				lf_statistics_worker_counter_add(stats, tx_bytes,
-						rx_pkts[i]->pkt_len);
-				lf_statistics_worker_counter_add(stats, tx_pkts, 1);
-				break;
-			default:
-				LF_WORKER_LOG(ERR, "Unknown packet action (%u)\n", pkt_res[i]);
-				drop_pkts[nb_drop] = rx_pkts[i];
-				nb_drop++;
-				break;
-			}
-		}
+		lf_distributor_worker_tx(&worker_context->distributor, rx_pkts, nb_rx);
 
-		/* Drop Rejected Packets */
-		(void)rte_pktmbuf_free_bulk(drop_pkts, nb_drop);
-
-		/* Forward Valid Packets */
-		struct rte_ether_hdr *ether_hdr;
-		for (i = 0; i < nb_fwd; ++i) {
-			ether_hdr = rte_pktmbuf_mtod_offset(tx_pkts[i],
-					struct rte_ether_hdr *, 0);
-			(void)rte_eth_macaddr_get(worker_context->queues.tx_port_id,
-					&ether_hdr->src_addr);
-		}
-		nb_tx = 0;
-		do {
-			nb_tx += rte_eth_tx_burst(worker_context->queues.tx_port_id,
-					worker_context->queues.tx_queue_id, &tx_pkts[nb_tx],
-					nb_fwd - nb_tx);
-		} while (unlikely(nb_tx < nb_fwd));
-#endif /* LF_DISTRIBUTOR */
-
-		if (likely(nb_drop > 0 || nb_tx > 0)) {
-			LF_WORKER_LOG(DEBUG, "%u packets sent\n", nb_tx);
-			LF_WORKER_LOG(DEBUG, "%d packets dropped\n", nb_drop);
-		}
 	}
 }
 

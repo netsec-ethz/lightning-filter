@@ -60,9 +60,6 @@ endfunction()
 option_compile_definition(LF_PDUMP "Enable packet capture framework" OFF)
 
 option_compile_definition(LF_DISTRIBUTOR "Enable distributor lcores" OFF)
-if(LF_DISTRIBUTOR)
-    target_sources(${EXEC} PRIVATE distributor.c)
-endif()
 option_compile_definition(LF_DISTRIBUTOR_REORDER "Enable reorder buffer for best-effort reordering." ON)
 
 option_compile_definition(LF_IPV6 "Use IPv6 (ON, OFF)" OFF)

@@ -233,7 +233,7 @@ assign_lcores(__rte_unused struct lf_params *params)
  *
  * This function configures the queues for each worker context struct.
  * If the control traffic worker is enabled, the queues for the control traffic.
- * (If distributor is enabled, the queues for each distributor context.)
+ * If distributor is enabled, the queues for each distributor context.
  *
  * @param params Application parameters.
  * @return 0 on success
@@ -243,7 +243,7 @@ setup_port_and_queues(struct lf_params *params)
 {
 	int res;
 	uint16_t worker_id;
-	struct lf_setup_port_queue *port_queues[LF_MAX_WORKER];
+	struct lf_distributor_port_queue *port_queues[LF_MAX_WORKER];
 	struct lf_setup_ct_port_queue *ct_port_queue;
 
 	/* Set the control traffic queues if the ct worker is enabled */
@@ -259,7 +259,7 @@ setup_port_and_queues(struct lf_params *params)
 		port_queues[distributor_id] =
 				&distributor_contexts[distributor_id].queue;
 	}
-	res = lf_setup_initialize(nb_distributors, distributor_lcores, params,
+	res = lf_setup_ports(nb_distributors, distributor_lcores, params,
 			port_queues, ct_port_queue);
 
 	if (res < 0) {
@@ -268,9 +268,9 @@ setup_port_and_queues(struct lf_params *params)
 	}
 
 	for (worker_id = 0; worker_id < nb_workers; ++worker_id) {
-		distributor_workers[worker_id] = &worker_contexts[worker_id].queues;
+		distributor_workers[worker_id] = &worker_contexts[worker_id].distributor;
 	}
-	res = lf_distributor_init(params, distributor_lcores, nb_distributors,
+	res = lf_distributor_init(distributor_lcores, nb_distributors,
 			worker_lcores, nb_workers, distributor_contexts,
 			distributor_workers);
 	if (res < 0) {
@@ -279,9 +279,9 @@ setup_port_and_queues(struct lf_params *params)
 	}
 #else
 	for (worker_id = 0; worker_id < nb_workers; ++worker_id) {
-		port_queues[worker_id] = &worker_contexts[worker_id].queues;
+		port_queues[worker_id] = &worker_contexts[worker_id].distributor.queue;
 	}
-	res = lf_setup_initialize(nb_workers, worker_lcores, params, port_queues,
+	res = lf_setup_ports(nb_workers, worker_lcores, params, port_queues,
 			ct_port_queue);
 	if (res < 0) {
 		LF_LOG(ERR, "Application setup failed\n");
@@ -289,11 +289,11 @@ setup_port_and_queues(struct lf_params *params)
 	}
 #endif /* LF_DISTRIBUTOR */
 
-	/* Set forwarding direction in worker context */
-	for (worker_id = 0; worker_id < nb_workers; ++worker_id) {
-		worker_contexts[worker_id].forwarding_direction =
-				worker_contexts[worker_id].queues.forwarding_direction;
-	}
+	/* TODO: Set forwarding direction in worker context */
+	//for (worker_id = 0; worker_id < nb_workers; ++worker_id) {
+	//	worker_contexts[worker_id].forwarding_direction =
+	//			worker_contexts[worker_id].distributor.forwarding_direction;
+	//}
 
 	return 0;
 }

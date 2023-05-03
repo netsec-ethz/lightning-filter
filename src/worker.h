@@ -10,6 +10,7 @@
 #include <rte_common.h>
 #include <rte_ether.h>
 #include <rte_ip.h>
+#include <rte_lcore.h>
 #include <rte_mbuf.h>
 #include <rte_mempool.h>
 
@@ -20,7 +21,7 @@
 #include "lib/log/log.h"
 #include "lib/time/time.h"
 #include "ratelimiter.h"
-#include "setup.h"
+#include "distributor.h"
 
 /**
  * The worker implements the LightningFilter pipeline and processes packets
@@ -40,17 +41,13 @@
 #define LF_WORKER_LOG(level, ...)                                \
 	LF_LOG_DP(level,                                             \
 			RTE_FMT("Worker [%d]: " RTE_FMT_HEAD(__VA_ARGS__, ), \
-					worker_context->worker_id, RTE_FMT_TAIL(__VA_ARGS__, )))
+					rte_lcore_id(), RTE_FMT_TAIL(__VA_ARGS__, )))
 
 struct lf_worker_context {
 	uint16_t worker_id;
 	uint16_t lcore_id;
 
-#if LF_DISTRIBUTOR
-	struct lf_distributor_worker queues;
-#else
-	struct lf_setup_port_queue queues;
-#endif /* LF_DISTRIBUTOR */
+	struct lf_distributor_worker distributor;
 
 	enum lf_forwarding_direction forwarding_direction;
 

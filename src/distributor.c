@@ -19,28 +19,15 @@
 #define REORDER_BUFFER_SIZE 512
 #endif /* LF_DISTRIBUTOR_REORDER */
 
-#define LF_DISTRIBUTOR_LOG(level, ...) \
-	LF_LOG(level, "Distributor: " __VA_ARGS__)
-
-/**
- * Log function for distributor worker.
- * Requires the distributor context to be implicitly defined as `struct
- * *distributor_context`. The worker's ID is then printed in each message.
- * Format (for worker with ID 1): "Worker [1]: log message here"
- */
-#define LF_DISTRIBUTOR_LOG_DP(level, ...)                             \
-	LF_LOG_DP(level,                                                  \
-			RTE_FMT("Distributor [%d]: " RTE_FMT_HEAD(__VA_ARGS__, ), \
-					distributor_context->id, RTE_FMT_TAIL(__VA_ARGS__, )))
 
 #define LF_DISTRIBUTOR_MAX_PKT_BURST LF_MAX_PKT_BURST
 
 #define LF_DISTRIBUTOR_ACTION_DYNFIELD_NAME "lf_distributor_action_dynfield"
 int lf_distributor_action_dynfield_offset = -1;
 
+#if LF_DISTRIBUTOR
 int
-lf_distributor_init(struct lf_params *params,
-		uint16_t distributor_lcores[LF_MAX_DISTRIBUTOR],
+lf_distributor_init(uint16_t distributor_lcores[LF_MAX_DISTRIBUTOR],
 		uint16_t nb_distributors, uint16_t worker_lcores[LF_MAX_WORKER],
 		uint16_t nb_workers,
 		struct lf_distributor_context distributor_contexts[LF_MAX_DISTRIBUTOR],
@@ -57,7 +44,7 @@ lf_distributor_init(struct lf_params *params,
 
 	static const struct rte_mbuf_dynfield distributor_action_dynfield_desc = {
 		.name = LF_DISTRIBUTOR_ACTION_DYNFIELD_NAME,
-		.size = sizeof(lf_distributor_action_dynfield_offset),
+		.size = sizeof(lf_distributor_action_t),
 		.align = __alignof__(lf_distributor_action_t),
 	};
 
@@ -119,8 +106,6 @@ lf_distributor_init(struct lf_params *params,
 
 			worker[worker_id]->rx_ring = rx_ring;
 			worker[worker_id]->tx_ring = tx_ring;
-			worker[worker_id]->forwarding_direction =
-					distributor_contexts[dist_id].queue.forwarding_direction;
 
 			worker_id += 1;
 		}
@@ -148,73 +133,10 @@ lf_distributor_init(struct lf_params *params,
 	}
 
 	return 0;
-	(void)params;
-}
-
-/*
- * Tx buffer error callback
- */
-static void
-flush_tx_error_callback(struct rte_mbuf **unsent, uint16_t count,
-		void *userdata)
-{
-	struct lf_distributor_context *distributor_context = userdata;
-	/* free the mbufs which failed from transmit */
-	LF_DISTRIBUTOR_LOG_DP(DEBUG, "%d packets lost with tx_burst\n", count);
-	rte_pktmbuf_free_bulk(unsent, count);
-}
-
-
-static inline struct rte_eth_dev_tx_buffer *
-new_tx_buffer(struct lf_distributor_context *distributor_context)
-{
-	int res;
-	uint16_t port_id = distributor_context->queue.tx_port_id;
-	struct rte_eth_dev_tx_buffer *tx_buffer;
-
-	/* Initialize TX buffers */
-	tx_buffer = rte_zmalloc_socket("tx_buffer",
-			RTE_ETH_TX_BUFFER_SIZE(LF_MAX_PKT_BURST), 0,
-			rte_eth_dev_socket_id(port_id));
-	if (tx_buffer == NULL) {
-		LF_DISTRIBUTOR_LOG_DP(ERR, "Cannot allocate buffer for tx on port %u\n",
-				port_id);
-		return NULL;
-	}
-
-	rte_eth_tx_buffer_init(tx_buffer, LF_MAX_PKT_BURST);
-
-	res = rte_eth_tx_buffer_set_err_callback(tx_buffer, flush_tx_error_callback,
-			(void *)distributor_context);
-	if (res < 0) {
-		LF_DISTRIBUTOR_LOG_DP(ERR,
-				"Cannot set error callback for tx buffer on port %u\n",
-				port_id);
-		return NULL;
-	}
-	return tx_buffer;
 }
 
 void
-perform_action(struct lf_distributor_context *distributor_context __rte_unused,
-		uint16_t tx_port_id, uint16_t tx_queue_id,
-		struct rte_eth_dev_tx_buffer *tx_buffer, struct rte_mbuf *pkt)
-{
-	struct rte_ether_hdr *ether_hdr;
-
-	if (*lf_distributor_action(pkt) == LF_DISTRIBUTOR_ACTION_FWD) {
-		ether_hdr = rte_pktmbuf_mtod_offset(pkt, struct rte_ether_hdr *, 0);
-		(void)rte_eth_macaddr_get(tx_port_id, &ether_hdr->src_addr);
-
-		rte_eth_tx_buffer(tx_port_id, tx_queue_id, tx_buffer, pkt);
-	} else {
-		rte_pktmbuf_free(pkt);
-	}
-}
-
-void
-lf_distributor_main_loop(struct lf_distributor_context *distributor_context,
-		struct rte_eth_dev_tx_buffer *tx_buffer)
+lf_distributor_main_loop(struct lf_distributor_context *distributor_context)
 {
 	int i;
 	uint16_t nb_rx, nb_fwd, nb_dist;
@@ -222,11 +144,6 @@ lf_distributor_main_loop(struct lf_distributor_context *distributor_context,
 	/* packet buffers */
 	struct rte_mbuf *rx_pkts[LF_MAX_PKT_BURST];
 	struct rte_mbuf *tx_pkts[2 * LF_MAX_PKT_BURST];
-
-	const uint16_t rx_port_id = distributor_context->queue.rx_port_id;
-	const uint16_t rx_queue_id = distributor_context->queue.rx_queue_id;
-	const uint16_t tx_port_id = distributor_context->queue.tx_port_id;
-	const uint16_t tx_queue_id = distributor_context->queue.tx_queue_id;
 
 	const int nb_workers = distributor_context->nb_workers;
 	int worker_rx_counter = 0;
@@ -245,15 +162,7 @@ lf_distributor_main_loop(struct lf_distributor_context *distributor_context,
 
 
 	while (likely(!lf_force_quit)) {
-
-		nb_rx = rte_eth_rx_burst(rx_port_id, rx_queue_id, rx_pkts,
-				LF_MAX_PKT_BURST);
-
-		if (nb_rx > 0) {
-			LF_DISTRIBUTOR_LOG_DP(DEBUG,
-					"%u packets received (port %u, queue %u)\n", nb_rx,
-					rx_port_id, rx_queue_id);
-		}
+		nb_rx = lf_distributor_rx(&distributor_context->queue, rx_pkts);
 
 #if LF_DISTRIBUTOR_REORDER
 		/* mark sequence number */
@@ -336,8 +245,7 @@ lf_distributor_main_loop(struct lf_distributor_context *distributor_context,
 				LF_DISTRIBUTOR_LOG_DP(DEBUG,
 						"Cannot insert packet into reorder buffer. "
 						"Directly enqueuing it to TX\n");
-				perform_action(distributor_context, tx_port_id, tx_queue_id,
-						tx_buffer, tx_pkts[i]);
+				lf_distributor_tx(&distributor_context->queue, &tx_pkts[i], 1);
 			}
 		}
 
@@ -346,31 +254,25 @@ lf_distributor_main_loop(struct lf_distributor_context *distributor_context,
 				2 * LF_MAX_PKT_BURST);
 #endif /* LF_DISTRIBUTOR_REORDER */
 
-		/* Add forward packets to transmit buffer or drop them */
-		for (i = 0; i < nb_fwd; ++i) {
-			perform_action(distributor_context, tx_port_id, tx_queue_id,
-					tx_buffer, tx_pkts[i]);
-		}
-
-		if (nb_fwd > 0) {
-			rte_eth_tx_buffer_flush(tx_port_id, tx_queue_id, tx_buffer);
-		}
+		lf_distributor_tx(&distributor_context->queue, tx_pkts, nb_fwd);
 	}
 }
 
 int
 lf_distributor_run(struct lf_distributor_context *distributor_context)
 {
-	struct rte_eth_dev_tx_buffer *tx_buffer;
+	LF_DISTRIBUTOR_LOG_DP(INFO, "run\n");
 
-	LF_DISTRIBUTOR_LOG_DP(DEBUG, "run\n");
+	// TODO: must be done in setup!
+	//struct rte_eth_dev_tx_buffer *tx_buffer;
+	//tx_buffer = new_tx_buffer(distributor_context);
+	//if (tx_buffer == NULL) {
+	//	return -1;
+	//}
 
-	tx_buffer = new_tx_buffer(distributor_context);
-	if (tx_buffer == NULL) {
-		return -1;
-	}
-
-	lf_distributor_main_loop(distributor_context, tx_buffer);
-	LF_DISTRIBUTOR_LOG_DP(DEBUG, "terminate\n");
+	lf_distributor_main_loop(distributor_context);
+	LF_DISTRIBUTOR_LOG_DP(INFO, "terminate\n");
 	return 0;
 }
+
+#endif /* LF_DISTRIBUTOR */

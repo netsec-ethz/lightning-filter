@@ -46,6 +46,7 @@ get_lf_hdr(const struct lf_worker_context *worker_context,
 	offset += sizeof(struct lf_ip_hdr);
 
 	return offset;
+	(void) worker_context;
 }
 
 /**
