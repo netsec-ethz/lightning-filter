@@ -129,12 +129,11 @@ lf_distributor_tx(struct lf_distributor_port_queue *queue,
 	}
 
 	/* TODO: add statistics for dropped and forwarded pkts/bytes */
-	if ((nb_fwd > 0) | (nb_drop > 0)){
+	if ((nb_fwd > 0) | (nb_drop > 0)) {
 		LF_DISTRIBUTOR_LOG_DP(DEBUG,
-				"%u packets forwarded , (port %u, queue %u)\n",
-				nb_fwd, queue->rx_port_id, queue->rx_queue_id);
-		LF_DISTRIBUTOR_LOG_DP(DEBUG,
-				"%u packets dropped (port %u, queue %u)\n",
+				"%u packets forwarded , (port %u, queue %u)\n", nb_fwd,
+				queue->rx_port_id, queue->rx_queue_id);
+		LF_DISTRIBUTOR_LOG_DP(DEBUG, "%u packets dropped (port %u, queue %u)\n",
 				nb_drop, queue->rx_port_id, queue->rx_queue_id);
 	}
 
@@ -149,9 +148,10 @@ lf_distributor_rx(struct lf_distributor_port_queue *queue,
 
 	nb_rx = rte_eth_rx_burst(queue->rx_port_id, queue->rx_queue_id, rx_pkts,
 			LF_MAX_PKT_BURST);
-	if (nb_rx > 0){
-		LF_DISTRIBUTOR_LOG_DP(DEBUG, "%u packets received (port %u, queue %u)\n",
-			nb_rx, queue->rx_port_id, queue->rx_queue_id);
+	if (nb_rx > 0) {
+		LF_DISTRIBUTOR_LOG_DP(DEBUG,
+				"%u packets received (port %u, queue %u)\n", nb_rx,
+				queue->rx_port_id, queue->rx_queue_id);
 	}
 
 	return nb_rx;
@@ -163,8 +163,8 @@ lf_distributor_worker_rx(struct lf_distributor_worker *worker_context,
 {
 	int nb_pkts;
 #if LF_DISTRIBUTOR
-	nb_pkts = rte_ring_dequeue_burst(worker_context->rx_ring,
-			(void **)rx_pkts, LF_MAX_PKT_BURST, NULL);
+	nb_pkts = rte_ring_dequeue_burst(worker_context->rx_ring, (void **)rx_pkts,
+			LF_MAX_PKT_BURST, NULL);
 #else
 	nb_pkts = lf_distributor_rx(&worker_context->queue, rx_pkts);
 #endif
@@ -182,15 +182,15 @@ lf_distributor_worker_tx(struct lf_distributor_worker *worker_context,
 				(void **)rx_pkts + nb_tx, nb_pkts - nb_tx, NULL);
 	} while (unlikely(nb_tx < nb_pkts));
 #else
-	(void) lf_distributor_tx(&worker_context->queue, rx_pkts, nb_pkts);
+	(void)lf_distributor_tx(&worker_context->queue, rx_pkts, nb_pkts);
 #endif
 
-return 0;
+	return 0;
 }
 
 /**
- * Initialize the distributor contexts. This includes the contexts of the distributors itself
- * and the workers.
+ * Initialize the distributor contexts. This includes the contexts of the
+ * distributors itself and the workers.
  *
  * @param distributor_lcores Lcore map for the distributors.
  * @param nb_distributors Number of distributors.

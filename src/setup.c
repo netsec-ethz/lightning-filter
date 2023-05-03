@@ -677,8 +677,7 @@ new_tx_buffer(uint16_t socket)
 }
 
 int
-lf_setup_ports(uint16_t nb_workers,
-		const uint16_t worker_lcores[LF_MAX_WORKER],
+lf_setup_ports(uint16_t nb_workers, const uint16_t worker_lcores[LF_MAX_WORKER],
 		const struct lf_params *params,
 		struct lf_distributor_port_queue *port_queues[LF_MAX_WORKER],
 		struct lf_setup_ct_port_queue *ct_port_queue)
@@ -839,7 +838,8 @@ lf_setup_ports(uint16_t nb_workers,
 			port_queue->tx_queue_id = queue_counter;
 			port_queue->forwarding_direction = forwarding_direction[port_id];
 
-			port_queue->tx_buffer = new_tx_buffer(rte_eth_dev_socket_id(tx_port_id));
+			port_queue->tx_buffer =
+					new_tx_buffer(rte_eth_dev_socket_id(tx_port_id));
 			if (port_queue->tx_buffer == NULL) {
 				LF_LOG(ERR, "Failed setting up tx port %u.\n", tx_port_id);
 				return -1;

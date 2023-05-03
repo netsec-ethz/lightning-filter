@@ -264,9 +264,9 @@ lf_distributor_run(struct lf_distributor_context *distributor_context)
 	LF_DISTRIBUTOR_LOG_DP(INFO, "run\n");
 
 	// TODO: must be done in setup!
-	//struct rte_eth_dev_tx_buffer *tx_buffer;
-	//tx_buffer = new_tx_buffer(distributor_context);
-	//if (tx_buffer == NULL) {
+	// struct rte_eth_dev_tx_buffer *tx_buffer;
+	// tx_buffer = new_tx_buffer(distributor_context);
+	// if (tx_buffer == NULL) {
 	//	return -1;
 	//}
 

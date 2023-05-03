@@ -268,7 +268,8 @@ setup_port_and_queues(struct lf_params *params)
 	}
 
 	for (worker_id = 0; worker_id < nb_workers; ++worker_id) {
-		distributor_workers[worker_id] = &worker_contexts[worker_id].distributor;
+		distributor_workers[worker_id] =
+				&worker_contexts[worker_id].distributor;
 	}
 	res = lf_distributor_init(distributor_lcores, nb_distributors,
 			worker_lcores, nb_workers, distributor_contexts,
@@ -290,10 +291,10 @@ setup_port_and_queues(struct lf_params *params)
 #endif /* LF_DISTRIBUTOR */
 
 	/* TODO: Set forwarding direction in worker context */
-	//for (worker_id = 0; worker_id < nb_workers; ++worker_id) {
+	// for (worker_id = 0; worker_id < nb_workers; ++worker_id) {
 	//	worker_contexts[worker_id].forwarding_direction =
 	//			worker_contexts[worker_id].distributor.forwarding_direction;
-	//}
+	// }
 
 	return 0;
 }

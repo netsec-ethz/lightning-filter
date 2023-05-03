@@ -15,13 +15,13 @@
 #include <rte_mempool.h>
 
 #include "config.h"
+#include "distributor.h"
 #include "keymanager.h"
 #include "lf.h"
 #include "lib/crypto/crypto.h"
 #include "lib/log/log.h"
 #include "lib/time/time.h"
 #include "ratelimiter.h"
-#include "distributor.h"
 
 /**
  * The worker implements the LightningFilter pipeline and processes packets
@@ -38,10 +38,9 @@
  * *worker_context`. The worker's ID is then printed in each message. Format
  * (for worker with ID 1): "Worker [1]: log message here"
  */
-#define LF_WORKER_LOG(level, ...)                                \
-	LF_LOG_DP(level,                                             \
-			RTE_FMT("Worker [%d]: " RTE_FMT_HEAD(__VA_ARGS__, ), \
-					rte_lcore_id(), RTE_FMT_TAIL(__VA_ARGS__, )))
+#define LF_WORKER_LOG(level, ...)                                         \
+	LF_LOG_DP(level, RTE_FMT("Worker [%d]: " RTE_FMT_HEAD(__VA_ARGS__, ), \
+							 rte_lcore_id(), RTE_FMT_TAIL(__VA_ARGS__, )))
 
 struct lf_worker_context {
 	uint16_t worker_id;

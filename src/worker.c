@@ -463,8 +463,7 @@ static void
 update_pkt_statistics(struct lf_statistics_worker *stats, struct rte_mbuf *pkt,
 		enum lf_pkt_action pkt_action)
 {
-	lf_statistics_worker_counter_add(stats, rx_bytes,
-			pkt->pkt_len);
+	lf_statistics_worker_counter_add(stats, rx_bytes, pkt->pkt_len);
 	lf_statistics_worker_counter_add(stats, rx_pkts, 1);
 
 	switch (pkt_action) {
@@ -492,24 +491,25 @@ update_pkt_statistics(struct lf_statistics_worker *stats, struct rte_mbuf *pkt,
 }
 
 static void
-set_distributor_action(struct rte_mbuf *pkt, enum lf_pkt_action pkt_action) {
-		switch (pkt_action) {
-		case LF_PKT_UNKNOWN_DROP:
-		case LF_PKT_INBOUND_DROP:
-		case LF_PKT_OUTBOUND_DROP:
-			*lf_distributor_action(pkt) = LF_DISTRIBUTOR_ACTION_DROP;
-			break;
-		case LF_PKT_UNKNOWN_FORWARD:
-		case LF_PKT_OUTBOUND_FORWARD:
-		case LF_PKT_INBOUND_FORWARD:
-			*lf_distributor_action(pkt) = LF_DISTRIBUTOR_ACTION_FORWARD;
-			break;
-		default:
-			*lf_distributor_action(pkt) = LF_DISTRIBUTOR_ACTION_DROP;
-			/* TODO: reanable log function after removing worker_context from it. */
-			//LF_WORKER_LOG(ERR, "Unknown packet action (%u)\n", pkt_res[i]);
-			break;
-		}
+set_distributor_action(struct rte_mbuf *pkt, enum lf_pkt_action pkt_action)
+{
+	switch (pkt_action) {
+	case LF_PKT_UNKNOWN_DROP:
+	case LF_PKT_INBOUND_DROP:
+	case LF_PKT_OUTBOUND_DROP:
+		*lf_distributor_action(pkt) = LF_DISTRIBUTOR_ACTION_DROP;
+		break;
+	case LF_PKT_UNKNOWN_FORWARD:
+	case LF_PKT_OUTBOUND_FORWARD:
+	case LF_PKT_INBOUND_FORWARD:
+		*lf_distributor_action(pkt) = LF_DISTRIBUTOR_ACTION_FORWARD;
+		break;
+	default:
+		*lf_distributor_action(pkt) = LF_DISTRIBUTOR_ACTION_DROP;
+		/* TODO: reanable log function after removing worker_context from it. */
+		// LF_WORKER_LOG(ERR, "Unknown packet action (%u)\n", pkt_res[i]);
+		break;
+	}
 }
 
 /* main processing loop */
@@ -576,7 +576,6 @@ lf_worker_main_loop(struct lf_worker_context *worker_context)
 		}
 
 		lf_distributor_worker_tx(&worker_context->distributor, rx_pkts, nb_rx);
-
 	}
 }
 

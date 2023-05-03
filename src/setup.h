@@ -7,9 +7,9 @@
 
 #include <rte_config.h>
 
+#include "distributor.h"
 #include "lf.h"
 #include "params.h"
-#include "distributor.h"
 
 /**
  * The setup module is responsible to prepare the ports.
@@ -50,8 +50,7 @@ struct lf_setup_ct_port_queue {
  * @return 0 on success.
  */
 int
-lf_setup_ports(uint16_t nb_workers,
-		const uint16_t worker_lcores[LF_MAX_WORKER],
+lf_setup_ports(uint16_t nb_workers, const uint16_t worker_lcores[LF_MAX_WORKER],
 		const struct lf_params *params,
 		struct lf_distributor_port_queue *port_queues[LF_MAX_WORKER],
 		struct lf_setup_ct_port_queue *ct_port_queue);
