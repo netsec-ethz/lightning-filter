@@ -135,14 +135,14 @@ sudo ./usertools/lf-ipc.py --cmd=<command> {--params=<parameters>}
 
 # Develop
 
-To get quickly started with developing LightningFilter, we provide a docker image with all the necessary dependencies installed.
-The following commands build the developer image and create a docker container:
+To get quickly started with developing LightningFilter, we provide a Development Container setup (`.devcontainer/devcontainer.json`) with all required dependencies and some useful tools.
+When using VS Code, just install the [Visual Studio Code Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension and open the project in a container (`>Dev Container: Reopen in Container`).
+
+Alternatively, the developer container can also be created with the `docker.sh` script:
 
 ```
 ./docker.sh dev_image && ./docker.sh dev_up
 ```
-
-With VS Code, you can directly start coding within the container using `docker` extension.
 
 # Tests
 
