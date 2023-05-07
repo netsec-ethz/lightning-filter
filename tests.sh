@@ -81,6 +81,13 @@ then
     run_integration_test test/testnet_ip/integration_test.sh $LF_EXEC
 fi
 
+cmake_args="-D LF_WORKER=FWD -D LF_DRKEY_FETCHER=MOCK -D LF_DISTRIBUTOR=ON"
+build_test
+if [ $? -eq 0 ]
+then
+    run_integration_test test/testnet_ip/integration_test.sh $LF_EXEC
+fi
+
 cmake_args="-D LF_WORKER=IPV4 -D LF_DRKEY_FETCHER=MOCK -D LF_PLUGINS=\"bypass:dst_ratelimiter:wg_ratelimiter\""
 build_test
 
@@ -90,9 +97,6 @@ if [ $? -eq 0 ]
 then
 run_integration_test test/testnet_scion/integration_test.sh $LF_EXEC $SCION_DIR
 fi
-
-cmake_args="-D LF_WORKER=FWD -D LF_DRKEY_FETCHER=MOCK -D LF_DISTRIBUTOR=ON"
-build_test
 
 echo "Successful: $successful, Errors: $error"
 

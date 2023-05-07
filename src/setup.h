@@ -7,7 +7,6 @@
 
 #include <rte_config.h>
 
-#include "distributor.h"
 #include "lf.h"
 #include "params.h"
 
@@ -16,6 +15,18 @@
  * This includes the configuration of memory pools, ports, queues, hardware
  * offloading, etc.
  */
+
+/**
+ * Struct for a port/queue transmit pair.
+ */
+struct lf_setup_port_queue {
+	uint16_t rx_port_id;
+	uint8_t rx_queue_id;
+	uint16_t tx_port_id;
+	uint8_t tx_queue_id;
+
+	enum lf_forwarding_direction forwarding_direction;
+};
 
 /**
  * Control traffic (ct) queues for each port and the port ID of the vdev, to
@@ -29,30 +40,23 @@ struct lf_setup_ct_port_queue {
 };
 
 /**
- * The setup function is responsible to prepare the DPDK environment.
- * This includes the configuration of memory pools, ports, queue pairs. Queue
- * pairs consist of on rx and one tx queue. After running this function, the
- * active ports are started.
- * @param nb_queues Number of queue pairs to be initiated.
- * @param worker_lcores Maping between the queue pairs and lcores of the
- * worker handling the queue. E.g., the lcores of the workers, which are
- * responsible to handle the queue pairs. If the queue pairs are located on
- * another socket than the handler, which is identified by the given, a warning
- * is issued.
- * @param portmask Mask indicating enabled ports.
- * @param dst_port For each rx ports the corresponding tx port. The value
- * RTE_MAX_ETHPORTS is used if rx port is not used.
- * @param forwading_direction For each rx port the corresponding packet
- * direction (inbound, outbound, or both).
+ * The setup function is responsible to prepare the memory pools, ports and
+ * rx/tx queues. After running this function, the active ports are started.
+ * @param nb_port_queues Number of queue pairs to be initiated.
+ * @param lcores Maping between the queue pairs and lcores that handle the
+ * queues. E.g., the lcores of the workers, which are responsible to handle the
+ * queue pairs. If the queue pairs are located on another socket than the
+ * handler, which is identified by the given, a warning is issued.
+ * @param params LF parameters.
  * @param port_queues Return the initiated queue pairs.
- * @param ct_port_queues If not NULL, returns the control traffic port queues
- * and the control traffic filter is setup. of each enabled port.
+ * @param ct_port_queue If not NULL, returns the control traffic port queues and
+ * the control traffic filter is setup. of each enabled port.
  * @return 0 on success.
  */
 int
-lf_setup_ports(uint16_t nb_workers, const uint16_t worker_lcores[LF_MAX_WORKER],
+lf_setup_ports(uint16_t nb_port_queues, const uint16_t lcores[LF_MAX_WORKER],
 		const struct lf_params *params,
-		struct lf_distributor_port_queue *port_queues[LF_MAX_WORKER],
+		struct lf_setup_port_queue port_queues[LF_MAX_WORKER],
 		struct lf_setup_ct_port_queue *ct_port_queue);
 
 /**

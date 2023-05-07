@@ -258,6 +258,7 @@ set_spao_timestamp(struct lf_worker_context *worker_context,
 	/* Set header fields */
 	scion_spao_set_timestamp(spao_hdr, relative_timestamp);
 	return 0;
+	(void)worker_context;
 }
 
 static inline int

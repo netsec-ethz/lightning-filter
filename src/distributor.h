@@ -15,15 +15,19 @@
 
 #include "lf.h"
 #include "lib/log/log.h"
+#include "setup.h"
 
 /**
- * The distributor offers the possibility to distribute received packets on a
- * port/queue among multiple workers. This ensures that not a flow can be
+ * The distributor module is responsible for getting received packets from the
+ * ports to the workers and vice versa for transmitting packets.
+ *
+ * Furthermore, the distributor offers the possibility to distribute received
+ * packets on a port among multiple workers. This ensures that not a flow can be
  * targeted with a flooding attack by overwhelming a single worker, as it is
  * possible when just using RSS. After the worker processes a packet, it is
  * returned to the distributor, which then performs the packet action
- * (drop/forward). Furthermore, a lightweight packet order mechanism is provided
- * that can be enabled to preserve packet order.
+ * (drop/forward). Additionally, a lightweight packet order mechanism is
+ * provided that can be enabled to preserve packet order.
  */
 
 #define LF_DISTRIBUTOR_LOG(level, ...) \
@@ -56,15 +60,18 @@ lf_distributor_action(struct rte_mbuf *mbuf)
 			lf_distributor_action_t *);
 }
 
-struct lf_distributor_port_queue {
+struct lf_distributor_rx_tx_ring {
+	struct rte_ring *rx_ring;
+	struct rte_ring *tx_ring;
+};
+
+struct lf_distributor_rx_tx_port {
 	uint16_t rx_port_id;
 	uint8_t rx_queue_id;
 	uint16_t tx_port_id;
 	uint8_t tx_queue_id;
 
 	struct rte_eth_dev_tx_buffer *tx_buffer;
-
-	enum lf_forwarding_direction forwarding_direction;
 };
 
 struct lf_distributor_context {
@@ -75,31 +82,38 @@ struct lf_distributor_context {
 	uint16_t lcore_id;
 
 	/* The ports/queues to receive and send packets to */
-	struct lf_distributor_port_queue queue;
+	struct lf_distributor_rx_tx_port queue;
 
 	/* number of workers to which packets are distributed */
 	uint16_t nb_workers;
+
 	/* One buffer per worker to transfer packets between this distributor and
 	 * worker */
 	struct rte_ring *worker_rx_rings[LF_MAX_WORKER];
 	struct rte_ring *worker_tx_rings[LF_MAX_WORKER];
 
-#if LF_DISTRIBUTOR_REORDER
+	/* The reorder buffer is initialized if LF_DISTRIBUTOR_REORDER is set to
+	 * true. */
 	struct rte_reorder_buffer *reorder_buffer;
-#endif /* LF_DISTRIBUTOR_REORDER */
 };
 
 struct lf_distributor_worker {
-#if LF_DISTRIBUTOR
-	struct rte_ring *rx_ring;
-	struct rte_ring *tx_ring;
-#else
-	struct lf_distributor_port_queue queue;
-#endif
+	union {
+		struct lf_distributor_rx_tx_ring ring;
+		struct lf_distributor_rx_tx_port port;
+	} rx_tx;
+};
+
+struct lf_distributor {
+	struct lf_distributor_worker *workers[LF_MAX_WORKER];
+	uint16_t nb_workers;
+
+	struct lf_distributor_context distributor_contexts[LF_MAX_DISTRIBUTOR];
+	uint16_t nb_distributors;
 };
 
 inline static int
-lf_distributor_tx(struct lf_distributor_port_queue *queue,
+lf_distributor_tx_port(struct lf_distributor_rx_tx_port *queue,
 		struct rte_mbuf *pkts[LF_MAX_PKT_BURST], int nb_pkts)
 {
 	int i;
@@ -141,7 +155,7 @@ lf_distributor_tx(struct lf_distributor_port_queue *queue,
 }
 
 inline static int
-lf_distributor_rx(struct lf_distributor_port_queue *queue,
+lf_distributor_rx_port(struct lf_distributor_rx_tx_port *queue,
 		struct rte_mbuf *rx_pkts[LF_MAX_PKT_BURST])
 {
 	uint16_t nb_rx;
@@ -162,12 +176,12 @@ lf_distributor_worker_rx(struct lf_distributor_worker *worker_context,
 		struct rte_mbuf *rx_pkts[LF_MAX_PKT_BURST])
 {
 	int nb_pkts;
-#if LF_DISTRIBUTOR
-	nb_pkts = rte_ring_dequeue_burst(worker_context->rx_ring, (void **)rx_pkts,
-			LF_MAX_PKT_BURST, NULL);
-#else
-	nb_pkts = lf_distributor_rx(&worker_context->queue, rx_pkts);
-#endif
+	if (LF_DISTRIBUTOR) {
+		nb_pkts = rte_ring_dequeue_burst(worker_context->rx_tx.ring.rx_ring,
+				(void **)rx_pkts, LF_MAX_PKT_BURST, NULL);
+	} else {
+		nb_pkts = lf_distributor_rx_port(&worker_context->rx_tx.port, rx_pkts);
+	}
 	return nb_pkts;
 }
 
@@ -175,37 +189,43 @@ inline static int
 lf_distributor_worker_tx(struct lf_distributor_worker *worker_context,
 		struct rte_mbuf *rx_pkts[LF_MAX_PKT_BURST], int nb_pkts)
 {
-#if LF_DISTRIBUTOR
-	int nb_tx = 0;
-	do {
-		nb_tx += rte_ring_enqueue_burst(worker_context->tx_ring,
-				(void **)rx_pkts + nb_tx, nb_pkts - nb_tx, NULL);
-	} while (unlikely(nb_tx < nb_pkts));
-#else
-	(void)lf_distributor_tx(&worker_context->queue, rx_pkts, nb_pkts);
-#endif
+	if (LF_DISTRIBUTOR) {
+		int nb_tx = 0;
+		do {
+			nb_tx += rte_ring_enqueue_burst(worker_context->rx_tx.ring.tx_ring,
+					(void **)rx_pkts + nb_tx, nb_pkts - nb_tx, NULL);
+		} while (unlikely(nb_tx < nb_pkts));
+	} else {
+		(void)lf_distributor_tx_port(&worker_context->rx_tx.port, rx_pkts,
+				nb_pkts);
+	}
 
 	return 0;
 }
 
 /**
- * Initialize the distributor contexts. This includes the contexts of the
+ * Initialize the distributor context. This includes the contexts of the
  * distributors itself and the workers.
  *
- * @param distributor_lcores Lcore map for the distributors.
- * @param nb_distributors Number of distributors.
- * @param worker_lcores Lcore map of the workers.
- * @param nb_workers Number of workers.
- * @param distributor_contexts Initialized distributor contexts.
- * @param worker Initialized worker contexts.
+ * @param lf_distributor The distributor context to be initialized.
+ * @param port_queues List of port/queues to receive packets from and sent
+ * packets out.
+ * @param nb_port_queues Lenght of port_queues list.
+ * @param workers List of pointers to worker contexts to be initialized.
  * @return int 0 on success.
  */
 int
-lf_distributor_init(uint16_t distributor_lcores[LF_MAX_DISTRIBUTOR],
-		uint16_t nb_distributors, uint16_t worker_lcores[LF_MAX_WORKER],
-		uint16_t nb_workers,
-		struct lf_distributor_context distributor_contexts[LF_MAX_DISTRIBUTOR],
-		struct lf_distributor_worker *worker[LF_MAX_WORKER]);
+lf_distributor_init(struct lf_distributor *lf_distributor,
+		struct lf_setup_port_queue *port_queues, uint16_t nb_port_queues,
+		struct lf_distributor_worker *workers[LF_MAX_WORKER]);
+
+/**
+ * Frees the content of the lf_distributor struct (not itself).
+ * This includes the distributors' and workers' structs. Hence, all the workers
+ * have to terminate beforehand.
+ */
+void
+lf_distributor_close(struct lf_distributor *distributor);
 
 /**
  * Distributor running function. Expected to be called with
