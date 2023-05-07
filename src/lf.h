@@ -10,6 +10,13 @@
 /* defined in main.c */
 extern volatile bool lf_force_quit;
 
+/* lcore assignments */
+extern uint16_t lf_nb_workers;
+extern uint16_t lf_worker_lcores[RTE_MAX_LCORE];
+extern uint16_t lf_keymanager_lcore;
+extern uint16_t lf_distributor_lcores[RTE_MAX_LCORE];
+extern uint16_t lf_nb_distributors;
+
 #define LF_TELEMETRY_PREFIX "/lf"
 
 #define LF_MAX_PKT_BURST 32

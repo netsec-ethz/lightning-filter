@@ -48,6 +48,7 @@ lf_get_eth_hdr(const struct lf_worker_context *worker_context,
 	offset += sizeof(struct rte_ether_hdr);
 
 	return offset;
+	(void)worker_context;
 }
 
 struct lf_ether_hdr_aligned {
@@ -81,6 +82,7 @@ lf_get_ipv6_hdr(const struct lf_worker_context *worker_context,
 	*ipv6_hdr_ptr = rte_pktmbuf_mtod_offset(m, struct rte_ipv6_hdr *, offset);
 
 	return offset + sizeof(struct rte_ipv6_hdr);
+	(void)worker_context;
 }
 
 static inline unsigned int
@@ -115,6 +117,7 @@ lf_get_ip_hdr(const struct lf_worker_context *worker_context,
 	offset += ipv4_hdr_length;
 
 	return offset;
+	(void)worker_context;
 }
 
 static inline unsigned int
@@ -132,6 +135,7 @@ lf_get_udp_hdr(const struct lf_worker_context *worker_context,
 	*udp_hdr_ptr = rte_pktmbuf_mtod_offset(m, struct rte_udp_hdr *, offset);
 	offset += sizeof(struct rte_udp_hdr);
 	return offset;
+	(void)worker_context;
 }
 
 static inline unsigned int
@@ -149,6 +153,7 @@ lf_get_tcp_hdr(const struct lf_worker_context *worker_context,
 	*tcp_hdr_ptr = rte_pktmbuf_mtod_offset(m, struct rte_tcp_hdr *, offset);
 	offset += sizeof(struct rte_tcp_hdr);
 	return offset;
+	(void)worker_context;
 }
 
 /**
@@ -292,6 +297,7 @@ lf_get_icmpv6_hdr(const struct lf_worker_context *worker_context,
 			rte_pktmbuf_mtod_offset(m, struct lf_icmpv6_hdr *, offset);
 
 	return offset + sizeof(struct lf_icmpv6_hdr);
+	(void)worker_context;
 }
 
 #endif /* LF_UTILS_PACKET_H */

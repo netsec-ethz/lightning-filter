@@ -192,6 +192,7 @@ scion_get_cmn_hdr(const struct lf_worker_context *worker_context,
 
 	*scion_cmn_hdr = rte_pktmbuf_mtod_offset(m, struct scion_cmn_hdr *, offset);
 	return offset + sizeof(struct scion_cmn_hdr);
+	(void)worker_context;
 }
 
 /*
@@ -212,6 +213,7 @@ scion_get_addr_ia_hdr(const struct lf_worker_context *worker_context,
 	*scion_addr_ia_hdr =
 			rte_pktmbuf_mtod_offset(m, struct scion_addr_ia_hdr *, offset);
 	return offset + sizeof(struct scion_addr_ia_hdr);
+	(void)worker_context;
 }
 
 /**
@@ -298,6 +300,7 @@ scion_get_pathmeta_hdr(const struct lf_worker_context *worker_context,
 	*scion_path_meta_hdr =
 			rte_pktmbuf_mtod_offset(m, struct scion_path_meta_hdr *, offset);
 	return offset + sizeof(struct scion_path_meta_hdr);
+	(void)worker_context;
 }
 
 /**
@@ -350,6 +353,7 @@ scion_path_meta_hdr_get_length(const struct lf_worker_context *worker_context,
 
 	assert(path_header_len <= INT_MAX);
 	return (int)path_header_len;
+	(void)worker_context;
 }
 
 /**
@@ -458,6 +462,7 @@ scion_get_ext_hdr(const struct lf_worker_context *worker_context,
 	}
 	*scion_ext_hdr = rte_pktmbuf_mtod_offset(m, struct scion_ext_hdr *, offset);
 	return offset + sizeof(struct scion_ext_hdr);
+	(void)worker_context;
 }
 
 static inline unsigned int
@@ -474,6 +479,7 @@ scion_get_spao_hdr(const struct lf_worker_context *worker_context,
 	*scion_packet_authenticator_opt = rte_pktmbuf_mtod_offset(m,
 			struct scion_packet_authenticator_opt *, offset);
 	return offset + sizeof(struct scion_packet_authenticator_opt);
+	(void)worker_context;
 }
 
 /**
@@ -707,6 +713,7 @@ scion_get_gateway_frame_hdr(const struct lf_worker_context *worker_context,
 	*scion_gateway_frame_hdr = rte_pktmbuf_mtod_offset(m,
 			struct scion_gateway_frame_hdr *, offset);
 	return offset + sizeof(struct scion_gateway_frame_hdr);
+	(void)worker_context;
 }
 
 /**
@@ -737,4 +744,4 @@ scion_skip_gateway(const struct lf_worker_context *worker_context,
 		uint16_t sig_port, const struct rte_mbuf *m,
 		struct rte_ipv4_hdr **enc_ipv4_hdr);
 
-#endif
+#endif /* SCION_UTILS_H */

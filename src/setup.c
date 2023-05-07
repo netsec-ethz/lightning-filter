@@ -660,10 +660,9 @@ check_all_ports_link_status(uint32_t port_mask)
 }
 
 int
-lf_setup_initialize(uint16_t nb_workers,
-		const uint16_t worker_lcores[LF_MAX_WORKER],
+lf_setup_ports(uint16_t nb_port_queues, const uint16_t lcores[LF_MAX_WORKER],
 		const struct lf_params *params,
-		struct lf_setup_port_queue *port_queues[LF_MAX_WORKER],
+		struct lf_setup_port_queue port_queues[LF_MAX_WORKER],
 		struct lf_setup_ct_port_queue *ct_port_queue)
 {
 	int res;
@@ -675,8 +674,6 @@ lf_setup_initialize(uint16_t nb_workers,
 	uint32_t rx_portmask, tx_portmask;
 	struct port_queues_conf port_queues_conf[RTE_MAX_ETHPORTS];
 	struct port_queues_conf *port_conf, *tx_port_conf;
-
-	struct lf_setup_port_queue *port_queue;
 
 	const uint32_t portmask = params->portmask;
 	const uint16_t *dst_port = params->dst_port;
@@ -705,19 +702,19 @@ lf_setup_initialize(uint16_t nb_workers,
 		return -1;
 	}
 
-	if (nb_workers == 0) {
-		LF_LOG(ERR, "Invalid parameters: number of workers is zero\n");
+	if (nb_port_queues == 0) {
+		LF_LOG(ERR, "Invalid parameters: number of port queues is zero\n");
 		return -1;
 	}
 
-	if (nb_workers % nb_rx_ports) {
-		LF_LOG(ERR, "Invalid parameters: number of workers can not be "
+	if (nb_port_queues % nb_rx_ports) {
+		LF_LOG(ERR, "Invalid parameters: number of port queues can not be "
 					"divided evenly among receiving ports\n");
 		return -1;
 	}
 
 	/* each port has the same number of queues */
-	nb_worker_per_port = nb_workers / nb_rx_ports;
+	nb_worker_per_port = nb_port_queues / nb_rx_ports;
 	nb_queues_per_port = nb_worker_per_port + (ct_port_queue ? 1 : 0);
 	if (nb_queues_per_port > LF_SETUP_MAX_QUEUE) {
 		LF_LOG(ERR,
@@ -734,8 +731,8 @@ lf_setup_initialize(uint16_t nb_workers,
 	for (socket_id = 0; socket_id < MAX_NB_SOCKETS; ++socket_id) {
 		pktmbuf_pool[socket_id] = NULL;
 	}
-	pktmbuf_pool_size = calculate_nb_mbufs(nb_rx_ports, nb_rx_ports, nb_workers,
-			nb_queues_per_port, nb_queues_per_port);
+	pktmbuf_pool_size = calculate_nb_mbufs(nb_rx_ports, nb_rx_ports,
+			nb_port_queues, nb_queues_per_port, nb_queues_per_port);
 
 
 	/*
@@ -747,8 +744,8 @@ lf_setup_initialize(uint16_t nb_workers,
 		port_queues_conf[port_id] = default_port_queues_conf;
 	}
 	/* set lcore configurations to default */
-	for (worker_id = 0; worker_id < nb_workers; ++worker_id) {
-		*port_queues[worker_id] = default_port_queue;
+	for (worker_id = 0; worker_id < nb_port_queues; ++worker_id) {
+		port_queues[worker_id] = default_port_queue;
 	}
 
 	worker_id = 0;
@@ -781,10 +778,7 @@ lf_setup_initialize(uint16_t nb_workers,
 		/* Assign each rx queue to one worker. */
 		for (queue_counter = 0; queue_counter < nb_worker_per_port;
 				queue_counter++) {
-
-			port_queue = port_queues[worker_id];
-
-			lcore_id = worker_lcores[worker_id];
+			lcore_id = lcores[worker_id];
 
 			socket_id = rte_lcore_to_socket_id(lcore_id);
 
@@ -816,11 +810,12 @@ lf_setup_initialize(uint16_t nb_workers,
 			/*
 			 * set worker values
 			 */
-			port_queue->rx_port_id = port_id;
-			port_queue->rx_queue_id = queue_counter;
-			port_queue->tx_port_id = tx_port_id;
-			port_queue->tx_queue_id = queue_counter;
-			port_queue->forwarding_direction = forwarding_direction[port_id];
+			port_queues[worker_id].rx_port_id = port_id;
+			port_queues[worker_id].rx_queue_id = queue_counter;
+			port_queues[worker_id].tx_port_id = tx_port_id;
+			port_queues[worker_id].tx_queue_id = queue_counter;
+			port_queues[worker_id].forwarding_direction =
+					forwarding_direction[port_id];
 
 			/* increase worker_id and lcore_id */
 			++worker_id;
@@ -834,7 +829,7 @@ lf_setup_initialize(uint16_t nb_workers,
 	}
 
 	/* all workers have been assigned a receiving port */
-	assert(worker_id == nb_workers);
+	assert(worker_id == nb_port_queues);
 
 	if (ct_port_queue) {
 		LF_LOG(DEBUG, "Initialize signal ports...\n");

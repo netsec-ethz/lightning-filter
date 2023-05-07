@@ -51,7 +51,7 @@ include(plugins/CMakePlugins.cmake)
 target_sources(${EXEC} PRIVATE params.c setup.c duplicate_filter.c config.c configmanager.c)
 target_sources(${EXEC} PRIVATE keymanager.c ratelimiter.c statistics.c version.c)
 target_sources(${EXEC} PRIVATE lib/crypto/crypto.c lib/hash/murmurhash.c lib/ipc/ipc.c)
-target_sources(${EXEC} PRIVATE worker_ct.c)
+target_sources(${EXEC} PRIVATE worker_ct.c distributor.c)
 target_sources(${EXEC} PRIVATE plugins/plugins.c)
 
 # Link DPDK statically
