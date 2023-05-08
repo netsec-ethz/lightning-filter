@@ -92,7 +92,13 @@ lf_distributor_init(struct lf_distributor *distributor,
 
 	/* assign port queues either to distributors or workers */
 	if (LF_DISTRIBUTOR) {
-		assert(nb_port_queues == lf_nb_distributors);
+		if (nb_port_queues != lf_nb_distributors) {
+			LF_DISTRIBUTOR_LOG(ERR,
+					"Invalid parameters: number of port queues (%u) "
+					"must be equal to the number of workers (%u).",
+					nb_port_queues, lf_nb_distributors);
+			return -1;
+		}
 		for (i = 0; i < lf_nb_distributors; i++) {
 			tx_buffer =
 					new_tx_buffer(rte_lcore_to_socket_id(lf_worker_lcores[i]));
@@ -109,7 +115,13 @@ lf_distributor_init(struct lf_distributor *distributor,
 					};
 		}
 	} else {
-		assert(nb_port_queues == lf_nb_workers);
+		if (nb_port_queues != lf_nb_workers) {
+			LF_DISTRIBUTOR_LOG(ERR,
+					"Invalid parameters: number of port queues (%u) "
+					"must be equal to the number of workers (%u).",
+					nb_port_queues, lf_nb_workers);
+			return -1;
+		}
 		for (i = 0; i < lf_nb_workers; i++) {
 			tx_buffer =
 					new_tx_buffer(rte_lcore_to_socket_id(lf_worker_lcores[i]));

@@ -74,7 +74,7 @@ function build_test() {
     return $ret
 }
 
-cmake_args="-D LF_WORKER=IPV4 -D LF_DRKEY_FETCHER=MOCK"
+cmake_args="-D LF_WORKER=IPV4 -D LF_DRKEY_FETCHER=MOCK -D CMAKE_BUILD_TYPE=Release"
 build_test
 if [ $? -eq 0 ]
 then
@@ -91,7 +91,7 @@ fi
 cmake_args="-D LF_WORKER=IPV4 -D LF_DRKEY_FETCHER=MOCK -D LF_PLUGINS=\"bypass:dst_ratelimiter:wg_ratelimiter\""
 build_test
 
-cmake_args="-D LF_WORKER=SCION -D LF_DRKEY_FETCHER=SCION"
+cmake_args="-D LF_WORKER=SCION -D LF_DRKEY_FETCHER=SCION  -D CMAKE_BUILD_TYPE=Release"
 build_test
 if [ $? -eq 0 ]
 then
