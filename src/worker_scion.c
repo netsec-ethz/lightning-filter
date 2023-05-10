@@ -126,8 +126,7 @@ struct parsed_spao {
  * returned.
  */
 static inline int
-get_spao_hdr(const struct lf_worker_context *worker_context,
-		const struct rte_mbuf *m, unsigned int offset,
+get_spao_hdr(const struct rte_mbuf *m, unsigned int offset,
 		const struct scion_cmn_hdr *scion_cmn_hdr,
 		struct scion_packet_authenticator_opt **spao_hdr_ptr, uint8_t *next_hdr)
 {
@@ -142,14 +141,13 @@ get_spao_hdr(const struct lf_worker_context *worker_context,
 
 	/* skip HBH header and adjust next_hdr and offset*/
 	if (likely(*next_hdr == SCION_PROTOCOL_HBH)) {
-		if (unlikely(scion_get_ext_hdr(worker_context, m, offset,
-							 &scion_ext_hdr) == 0)) {
+		if (unlikely(scion_get_ext_hdr(m, offset, &scion_ext_hdr) == 0)) {
 			return -1;
 		}
 
 		offset += SCION_EXT_HDR_LEN(scion_ext_hdr);
 		if (unlikely(offset > m->data_len)) {
-			LF_WORKER_LOG(NOTICE,
+			LF_WORKER_LOG_DP(NOTICE,
 					"SCION HBH extension header length (%u) larger than "
 					"data len (%u).",
 					SCION_EXT_HDR_LEN(scion_ext_hdr), m->data_len);
@@ -162,13 +160,12 @@ get_spao_hdr(const struct lf_worker_context *worker_context,
 
 	/* check if E2E extension headers are present */
 	if (unlikely(*next_hdr != SCION_PROTOCOL_E2E)) {
-		LF_WORKER_LOG(NOTICE, "No SCION E2E extension header found.\n");
+		LF_WORKER_LOG_DP(NOTICE, "No SCION E2E extension header found.\n");
 		/* No SPAO header detected */
 		return 0;
 	}
 
-	if (unlikely(scion_get_ext_hdr(worker_context, m, offset, &scion_ext_hdr) ==
-				 0)) {
+	if (unlikely(scion_get_ext_hdr(m, offset, &scion_ext_hdr) == 0)) {
 		return -1;
 	}
 	*next_hdr = scion_ext_hdr->next_hdr;
@@ -176,7 +173,7 @@ get_spao_hdr(const struct lf_worker_context *worker_context,
 	/* get and check size of scion extension header */
 	offset_max = offset + SCION_EXT_HDR_LEN(scion_ext_hdr);
 	if (unlikely(offset_max > m->data_len)) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"SCION E2E extension header length (%u) larger than data "
 				"len (%u).",
 				SCION_EXT_HDR_LEN(scion_ext_hdr), m->data_len);
@@ -192,8 +189,8 @@ get_spao_hdr(const struct lf_worker_context *worker_context,
 		if (tlv_hdr->type == SCION_E2E_OPTION_TYPE_SPAO) {
 			/* found a SPAO header */
 			if (tlv_hdr->data_len + 2 + offset > offset_max) {
-				LF_WORKER_LOG(NOTICE, "Invalid SCION packet: SPAO length "
-									  "exceeds extension header length.\n");
+				LF_WORKER_LOG_DP(NOTICE, "Invalid SCION packet: SPAO length "
+										 "exceeds extension header length.\n");
 				return -1;
 			}
 
@@ -222,8 +219,7 @@ get_spao_hdr(const struct lf_worker_context *worker_context,
  * @param timestamp: current (unique) timestamp in nanoseconds (CPU endian)
  */
 static inline int
-set_spao_timestamp(struct lf_worker_context *worker_context,
-		uint32_t path_timestamp, uint64_t timestamp,
+set_spao_timestamp(uint32_t path_timestamp, uint64_t timestamp,
 		struct scion_packet_authenticator_opt *spao_hdr)
 {
 	uint64_t relative_timestamp;
@@ -232,7 +228,7 @@ set_spao_timestamp(struct lf_worker_context *worker_context,
 	path_timestamp_ns = LF_TIME_NS_IN_S * (uint64_t)path_timestamp;
 
 	if (unlikely(path_timestamp_ns > timestamp)) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Path timestamp (%" PRIu64 "ms) is in the future (now: %" PRIu64
 				").\n",
 				path_timestamp_ns, timestamp);
@@ -245,7 +241,7 @@ set_spao_timestamp(struct lf_worker_context *worker_context,
 
 	/* ensure that timestamp fits into 6 bytes */
 	if (unlikely(relative_timestamp >> 48)) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Path timestamp (%" PRIu64
 				" ns) is too far in the past (relative_timestamp: %" PRIu64
 				").\n",
@@ -258,7 +254,6 @@ set_spao_timestamp(struct lf_worker_context *worker_context,
 	/* Set header fields */
 	scion_spao_set_timestamp(spao_hdr, relative_timestamp);
 	return 0;
-	(void)worker_context;
 }
 
 static inline int
@@ -285,7 +280,7 @@ hash_path_hdr(struct lf_worker_context *worker_context, void *path_hdr,
 		break;
 	case SCION_PATH_TYPE_SCION: {
 		if (unlikely(sizeof(struct scion_path_meta_hdr) > path_header_len)) {
-			LF_WORKER_LOG(NOTICE,
+			LF_WORKER_LOG_DP(NOTICE,
 					"Invalid SCION packet: path header type "
 					"inconsistent with expected path header length.\n");
 			return -1;
@@ -302,8 +297,8 @@ hash_path_hdr(struct lf_worker_context *worker_context, void *path_hdr,
 		seg_len[2] = ((scion_path_meta_hdr->seg_len[2] & 0x3F));
 
 		if (unlikely(seg_len[0] + seg_len[1] + seg_len[2] > 64)) {
-			LF_WORKER_LOG(NOTICE, "Invalid SCION packet: path header hop "
-								  "field number exceeds 64.\n");
+			LF_WORKER_LOG_DP(NOTICE, "Invalid SCION packet: path header hop "
+									 "field number exceeds 64.\n");
 			return -1;
 		}
 
@@ -319,7 +314,7 @@ hash_path_hdr(struct lf_worker_context *worker_context, void *path_hdr,
 										seg_len[2] * SCION_PATH_HOPFIELD_SIZE
 							: 0);
 		if (unlikely(actual_path_header_len != path_header_len)) {
-			LF_WORKER_LOG(NOTICE,
+			LF_WORKER_LOG_DP(NOTICE,
 					"Invalid SCION packet: SCION path header length "
 					"inconsistent with path header length.\n");
 			return -1;
@@ -377,8 +372,8 @@ hash_path_hdr(struct lf_worker_context *worker_context, void *path_hdr,
 	case SCION_PATH_TYPE_ONEHOP: {
 		if (unlikely(SCION_PATH_INFOFIELD_SIZE + 2 * SCION_PATH_HOPFIELD_SIZE >
 					 path_header_len)) {
-			LF_WORKER_LOG(NOTICE, "Invalid SCION packet: path header type "
-								  "inconsistent with header length.\n");
+			LF_WORKER_LOG_DP(NOTICE, "Invalid SCION packet: path header type "
+									 "inconsistent with header length.\n");
 			return -1;
 		}
 		struct scion_path_info_hdr *scion_path_info_hdr =
@@ -402,7 +397,7 @@ hash_path_hdr(struct lf_worker_context *worker_context, void *path_hdr,
 		break;
 	}
 	default:
-		LF_WORKER_LOG(NOTICE, "Unknown SCION path type %u.\n", path_type);
+		LF_WORKER_LOG_DP(NOTICE, "Unknown SCION path type %u.\n", path_type);
 		return -1;
 		break;
 	}
@@ -441,7 +436,7 @@ compute_pkt_hash(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	/* hash payload */
 	if (unlikely(parsed_spao->payload_offset + parsed_spao->payload_length >
 				 m->data_len)) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Not yet implemented: SCION payload exceeds "
 				"first buffer segment (offset = %d, length = %d, segment = "
 				"%d).\n",
@@ -454,7 +449,7 @@ compute_pkt_hash(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	(void)lf_crypto_hash_update(&worker_context->crypto_hash_ctx, payload,
 			parsed_spao->payload_length);
 
-	LF_WORKER_LOG(DEBUG, "Finalize hash\n");
+	LF_WORKER_LOG_DP(DEBUG, "Finalize hash\n");
 	(void)lf_crypto_hash_final(&worker_context->crypto_hash_ctx, hash);
 
 	return 0;
@@ -482,18 +477,18 @@ check_pkt_hash(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 
 	res = compute_pkt_hash(worker_context, m, parsed_pkt, parsed_spao, hash);
 	if (res != 0) {
-		LF_WORKER_LOG(ERR, "Failed to compute hash. res = %d\n", res);
+		LF_WORKER_LOG_DP(ERR, "Failed to compute hash. res = %d\n", res);
 		lf_statistics_worker_counter_inc(worker_context->statistics, error);
 		return 1;
 	}
 
 	res = lf_crypto_hash_cmp(hash, parsed_spao->spao_hdr->hash);
 	if (likely(res != 0)) {
-		LF_WORKER_LOG(DEBUG, "Packet hash check failed.\n");
+		LF_WORKER_LOG_DP(DEBUG, "Packet hash check failed.\n");
 		lf_statistics_worker_counter_inc(worker_context->statistics,
 				invalid_hash);
 	} else {
-		LF_WORKER_LOG(DEBUG, "Pack hash check passed.\n");
+		LF_WORKER_LOG_DP(DEBUG, "Pack hash check passed.\n");
 	}
 
 #if (LF_WORKER_IGNORE_HASH_CHECK)
@@ -538,9 +533,8 @@ postprocess_mac_input(struct parsed_spao *parsed_spao)
  * packet does not contains a LF SPAO header. Returns < 0 if an error occurred.
  */
 static int
-get_lf_spao_hdr(struct lf_worker_context *worker_context, struct rte_mbuf *m,
-		struct parsed_pkt *parsed_pkt, struct parsed_spao *parsed_spao,
-		struct lf_pkt_data *pkt_data)
+get_lf_spao_hdr(struct rte_mbuf *m, struct parsed_pkt *parsed_pkt,
+		struct parsed_spao *parsed_spao, struct lf_pkt_data *pkt_data)
 {
 	int scion_ext_hdr_len;
 
@@ -548,14 +542,14 @@ get_lf_spao_hdr(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	 * Get SPAO header and check if it corresponds to the LightingFilter
 	 * format.
 	 */
-	scion_ext_hdr_len = get_spao_hdr(worker_context, m, parsed_pkt->offset,
-			parsed_pkt->scion_cmn_hdr, &parsed_spao->spao_hdr,
-			&parsed_spao->payload_protocol);
+	scion_ext_hdr_len =
+			get_spao_hdr(m, parsed_pkt->offset, parsed_pkt->scion_cmn_hdr,
+					&parsed_spao->spao_hdr, &parsed_spao->payload_protocol);
 	if (unlikely(scion_ext_hdr_len == 0)) {
 		/* no SPAO header found */
 		return 1;
 	} else if (unlikely(scion_ext_hdr_len < 0)) {
-		LF_WORKER_LOG(NOTICE, "Failed to get SPAO header.\n");
+		LF_WORKER_LOG_DP(NOTICE, "Failed to get SPAO header.\n");
 		return -1;
 	}
 
@@ -570,21 +564,22 @@ get_lf_spao_hdr(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 						SCION_SPAO_SPI_DRKEY_TYPE_HH ||
 				parsed_spao->spao_hdr->spi_drkey_d !=
 						SCION_SPAO_SPI_DRKEY_DIRECTION_RECEIVER)) {
-		LF_WORKER_LOG(NOTICE, "Unexpected SPAO SPI DRKey information.\n");
+		LF_WORKER_LOG_DP(NOTICE, "Unexpected SPAO SPI DRKey information.\n");
 		return -1;
 	}
 
 	/* Algorithm must be SHA and AES-CBC*/
 	if (unlikely(parsed_spao->spao_hdr->algorithm !=
 				 SCION_SPAO_ALGORITHM_TYPE_SHA_AES_CBC)) {
-		LF_WORKER_LOG(NOTICE, "Unexpected SPAO algorithm (%d), expected %d.\n",
+		LF_WORKER_LOG_DP(NOTICE,
+				"Unexpected SPAO algorithm (%d), expected %d.\n",
 				parsed_spao->spao_hdr->algorithm,
 				SCION_SPAO_ALGORITHM_TYPE_SHA_AES_CBC);
 		return -1;
 	}
 
 	if (unlikely(parsed_spao->spao_hdr->reserved != 0)) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Unexpected SPAO reserved field (%d), expected %d.\n",
 				parsed_spao->spao_hdr, 0);
 		return -1;
@@ -683,8 +678,7 @@ handle_inbound_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	struct parsed_spao parsed_spao;
 	struct lf_pkt_data pkt_data;
 
-	res = get_lf_spao_hdr(worker_context, m, parsed_pkt, &parsed_spao,
-			&pkt_data);
+	res = get_lf_spao_hdr(m, parsed_pkt, &parsed_spao, &pkt_data);
 	if (res == 0) {
 		check_state = handle_inbound_pkt_with_lf_hdr(worker_context, m,
 				parsed_pkt, &parsed_spao, &pkt_data);
@@ -695,8 +689,7 @@ handle_inbound_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 		check_state = LF_CHECK_ERROR;
 	}
 
-	lf_worker_pkt_mod(worker_context, m, parsed_pkt->ether_hdr,
-			parsed_pkt->l3_hdr,
+	lf_worker_pkt_mod(m, parsed_pkt->ether_hdr, parsed_pkt->l3_hdr,
 			lf_configmanager_worker_get_inbound_pkt_mod(
 					worker_context->config));
 
@@ -739,7 +732,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	/* get current time */
 	res = lf_time_worker_get_unique(&worker_context->time, &timestamp_now);
 	if (unlikely(res != 0)) {
-		LF_WORKER_LOG(ERR, "Failed to get timestamp.\n");
+		LF_WORKER_LOG_DP(ERR, "Failed to get timestamp.\n");
 		return -1;
 	}
 
@@ -762,7 +755,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 			worker_context->key_manager, parsed_pkt->scion_addr_ia_hdr->dst_ia,
 			&dst_addr, &src_addr, drkey_protocol, timestamp_now, &drkey);
 	if (unlikely(drkey_epoch_flag < 0)) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Outbound DRKey not found for AS " PRIISDAS
 				" and drkey_protocol %d (ns_now = %" PRIu64 ", res = %d)!\n",
 				PRIISDAS_VAL(rte_be_to_cpu_64(
@@ -772,7 +765,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 		return -1;
 	}
 
-	LF_WORKER_LOG(DEBUG,
+	LF_WORKER_LOG_DP(DEBUG,
 			"Outbound DRKey [" PRIISDAS "]:" PRIIP " - [XX]:" PRIIP
 			" and drkey_protocol %d is %x (ns_now = %" PRIu64 ", res = %d)\n",
 			PRIISDAS_VAL(
@@ -788,7 +781,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	 * Hence, any pointer to these headers must be moved or should be
 	 * invalidated afterwards.
 	 */
-	add_hdr_len = scion_add_spao_hdr(worker_context, m, parsed_pkt->offset,
+	add_hdr_len = scion_add_spao_hdr(m, parsed_pkt->offset,
 			parsed_pkt->scion_cmn_hdr, &spao_hdr);
 	if (add_hdr_len < 0) {
 		return -1;
@@ -804,8 +797,8 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	 * header length from the payload length provided in the SCION common
 	 * header.
 	 */
-	payload_offset = scion_skip_extension_hdr(worker_context, m,
-			parsed_pkt->scion_cmn_hdr, parsed_pkt->offset, &payload_protocol);
+	payload_offset = scion_skip_extension_hdr(m, parsed_pkt->scion_cmn_hdr,
+			parsed_pkt->offset, &payload_protocol);
 	if (payload_offset == 0) {
 		return -1;
 	}
@@ -832,18 +825,18 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	parsed_spao.payload_length = payload_len;
 
 	/* packet hash */
-	LF_WORKER_LOG(DEBUG, "Compute packet hash.\n");
+	LF_WORKER_LOG_DP(DEBUG, "Compute packet hash.\n");
 	res = compute_pkt_hash(worker_context, m, parsed_pkt, &parsed_spao,
 			spao_hdr->hash);
 	if (unlikely(res != 0)) {
-		LF_WORKER_LOG(ERR, "Failed to compute hash. res = %d\n", res);
+		LF_WORKER_LOG_DP(ERR, "Failed to compute hash. res = %d\n", res);
 		/* TODO: error handling */
 		return -1;
 	}
 
 	/* set timestamp */
-	res = set_spao_timestamp(worker_context, parsed_pkt->path_timestamp,
-			timestamp_now, spao_hdr);
+	res = set_spao_timestamp(parsed_pkt->path_timestamp, timestamp_now,
+			spao_hdr);
 	if (unlikely(res != 0)) {
 		/* TODO: error handling */
 		return -1;
@@ -889,17 +882,16 @@ handle_outbound_pkt(struct lf_worker_context *worker_context,
 
 	add_len = add_spao(worker_context, m, parsed_pkt);
 	if (unlikely(add_len < 0)) {
-		LF_WORKER_LOG(ERR, "Failed to add SPAO header.\n");
+		LF_WORKER_LOG_DP(ERR, "Failed to add SPAO header.\n");
 		return LF_PKT_OUTBOUND_DROP;
 	}
-	LF_WORKER_LOG(DEBUG, "SPAO header added.\n");
+	LF_WORKER_LOG_DP(DEBUG, "SPAO header added.\n");
 
 	/*
 	 * Apply outbound packet modifications, i.e., ethernet and IP address,
 	 * and reset checksums.
 	 */
-	lf_worker_pkt_mod(worker_context, m, parsed_pkt->ether_hdr,
-			parsed_pkt->l3_hdr,
+	lf_worker_pkt_mod(m, parsed_pkt->ether_hdr, parsed_pkt->l3_hdr,
 			lf_configmanager_worker_get_outbound_pkt_mod(
 					worker_context->config));
 
@@ -917,20 +909,20 @@ handle_outbound_pkt(struct lf_worker_context *worker_context,
  * Returns -1 on error.
  */
 static int
-parse_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
-		unsigned int offset, struct parsed_pkt *parsed_pkt)
+parse_pkt(struct rte_mbuf *m, unsigned int offset,
+		struct parsed_pkt *parsed_pkt)
 {
 	int res;
 
 	if (unlikely(m->data_len != m->pkt_len)) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Not yet implemented: buffer with multiple segments "
 				"received.\n");
 		return -1;
 	}
 
 	offset = 0;
-	offset = lf_get_eth_hdr(worker_context, m, offset, &parsed_pkt->ether_hdr);
+	offset = lf_get_eth_hdr(m, offset, &parsed_pkt->ether_hdr);
 	if (unlikely(offset == 0)) {
 		return -1;
 	}
@@ -938,19 +930,19 @@ parse_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 #if LF_IPV6
 	if (unlikely(parsed_pkt->ether_hdr->ether_type !=
 				 rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV6))) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Unsupported packet type %#X: must be IPv6 (%#X).\n",
 				rte_be_to_cpu_16(parsed_pkt->ether_hdr->ether_type),
 				RTE_ETHER_TYPE_IPV6);
 		return -1;
 	}
-	offset = lf_get_ipv6_hdr(worker_context, m, offset, &parsed_pkt->ipv6_hdr);
+	offset = lf_get_ipv6_hdr(m, offset, &parsed_pkt->ipv6_hdr);
 	if (unlikely(offset == 0)) {
 		return -1;
 	}
 	if (parsed_pkt->ipv6_hdr->proto != IP_PROTO_ID_UDP) {
 		/* Probably intra AS traffic: forward without checks */
-		LF_WORKER_LOG(DEBUG,
+		LF_WORKER_LOG_DP(DEBUG,
 				"IPv6 packet type is not UDP (%#X) but %#X. Probably intra "
 				"AS traffic.\n",
 				IP_PROTO_ID_UDP, parsed_pkt->ipv6_hdr->proto);
@@ -959,20 +951,20 @@ parse_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 #else
 	if (unlikely(parsed_pkt->ether_hdr->ether_type !=
 				 rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4))) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Unsupported packet type %#X: must be IPv4 (%#X).\n",
 				rte_be_to_cpu_16(parsed_pkt->ether_hdr->ether_type),
 				RTE_ETHER_TYPE_IPV4);
 		return -1;
 	}
 
-	offset = lf_get_ip_hdr(worker_context, m, offset, &parsed_pkt->ipv4_hdr);
+	offset = lf_get_ip_hdr(m, offset, &parsed_pkt->ipv4_hdr);
 	if (unlikely(offset == 0)) {
 		return -1;
 	}
 	if (parsed_pkt->ipv4_hdr->next_proto_id != IP_PROTO_ID_UDP) {
 		/* Probably intra AS traffic: forward without checks */
-		LF_WORKER_LOG(DEBUG,
+		LF_WORKER_LOG_DP(DEBUG,
 				"IPv4 packet type is not UDP (%#X) but %#X. Probably intra "
 				"AS traffic.\n",
 				IP_PROTO_ID_UDP, parsed_pkt->ipv4_hdr->next_proto_id);
@@ -980,7 +972,7 @@ parse_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	}
 #endif /* LF_IPV6 */
 
-	offset = lf_get_udp_hdr(worker_context, m, offset, &parsed_pkt->udp_hdr);
+	offset = lf_get_udp_hdr(m, offset, &parsed_pkt->udp_hdr);
 	if (unlikely(offset == 0)) {
 		return -1;
 	}
@@ -991,8 +983,7 @@ parse_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	 * segment.
 	 */
 	/* scion common header */
-	offset = scion_get_cmn_hdr(worker_context, m, offset,
-			&parsed_pkt->scion_cmn_hdr);
+	offset = scion_get_cmn_hdr(m, offset, &parsed_pkt->scion_cmn_hdr);
 	if (unlikely(offset == 0)) {
 		return -1;
 	}
@@ -1001,20 +992,19 @@ parse_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	parsed_pkt->scion_addr_hdr_len =
 			SCION_ADDR_HDR_LEN(parsed_pkt->scion_cmn_hdr);
 	if (parsed_pkt->scion_addr_hdr_len > m->data_len - offset) {
-		LF_WORKER_LOG(NOTICE, "Not yet implemented: SCION address header "
-							  "exceeds first buffer segment.\n");
+		LF_WORKER_LOG_DP(NOTICE, "Not yet implemented: SCION address header "
+								 "exceeds first buffer segment.\n");
 		return -1;
 	}
 	/* no need to check length again */
-	(void)scion_get_addr_ia_hdr(worker_context, m, offset,
-			&parsed_pkt->scion_addr_ia_hdr);
+	(void)scion_get_addr_ia_hdr(m, offset, &parsed_pkt->scion_addr_ia_hdr);
 	offset += parsed_pkt->scion_addr_hdr_len;
 
 	/* path header */
-	res = scion_path_hdr_length(worker_context, m, offset,
+	res = scion_path_hdr_length(m, offset,
 			parsed_pkt->scion_cmn_hdr->path_type);
 	if (res < 0) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Failed to calculate SCION path header length (res = %d)\n",
 				res);
 		return -1;
@@ -1027,7 +1017,7 @@ parse_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	if (sizeof(struct scion_cmn_hdr) + parsed_pkt->scion_addr_hdr_len +
 					parsed_pkt->scion_path_hdr_len !=
 			SCION_HDR_LEN(parsed_pkt->scion_cmn_hdr)) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Failed to parse SCION headers: header lengths mismatch "
 				"(hdr_len = %d, cmn_hdr_len = %d, addr_hdr_len = %d, "
 				"path_hdr_len = %d)\n",
@@ -1041,10 +1031,10 @@ parse_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	res = scion_get_path_timestamp(parsed_pkt->scion_cmn_hdr->path_type,
 			parsed_pkt->scion_path_hdr, &parsed_pkt->path_timestamp);
 	if (res == 1) {
-		LF_WORKER_LOG(DEBUG, "Path without path timestamp\n", res);
+		LF_WORKER_LOG_DP(DEBUG, "Path without path timestamp\n", res);
 		return 1;
 	} else if (res == -1) {
-		LF_WORKER_LOG(ERR, "Failed to obtain path timestamp\n", res);
+		LF_WORKER_LOG_DP(ERR, "Failed to obtain path timestamp\n", res);
 		return -1;
 	}
 
@@ -1095,7 +1085,7 @@ preprocess_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	/*
 	 * Parse packet and return if error occurred or packet is intra-AS.
 	 */
-	res = parse_pkt(worker_context, m, 0, parsed_pkt);
+	res = parse_pkt(m, 0, parsed_pkt);
 	if (unlikely(res < 0)) {
 		return PKT_ERROR;
 	} else if (unlikely(res > 0) ||
@@ -1113,10 +1103,10 @@ preprocess_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	switch (forwarding_direction) {
 	case LF_FORWARDING_DIRECTION_INBOUND:
 		if (likely(dst_ia == local_isd_as)) {
-			LF_WORKER_LOG(DEBUG, "Inbound packet\n");
+			LF_WORKER_LOG_DP(DEBUG, "Inbound packet\n");
 			return PKT_INBOUND;
 		}
-		LF_WORKER_LOG(DEBUG,
+		LF_WORKER_LOG_DP(DEBUG,
 				"Expected inbound packet but destination IA (" PRIISDAS
 				") is not local IA (" PRIISDAS ").\n",
 				PRIISDAS_VAL(rte_be_to_cpu_64(dst_ia)),
@@ -1124,10 +1114,10 @@ preprocess_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 		return PKT_UNEXPECTED;
 	case LF_FORWARDING_DIRECTION_OUTBOUND:
 		if (likely(src_ia == local_isd_as)) {
-			LF_WORKER_LOG(DEBUG, "Outbound packet\n");
+			LF_WORKER_LOG_DP(DEBUG, "Outbound packet\n");
 			return PKT_OUTBOUND;
 		}
-		LF_WORKER_LOG(DEBUG,
+		LF_WORKER_LOG_DP(DEBUG,
 				"Expected outbound packet but source IA (" PRIISDAS
 				") is not local IA (" PRIISDAS ").\n",
 				PRIISDAS_VAL(rte_be_to_cpu_64(dst_ia)),
@@ -1135,14 +1125,14 @@ preprocess_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 		return PKT_UNEXPECTED;
 	default: // LF_FORWARDING_DIRECTION_BOTH
 		if (dst_ia == local_isd_as) {
-			LF_WORKER_LOG(DEBUG, "Inbound packet\n");
+			LF_WORKER_LOG_DP(DEBUG, "Inbound packet\n");
 			return PKT_INBOUND;
 		}
 		if (src_ia == local_isd_as) {
-			LF_WORKER_LOG(DEBUG, "Outbound packet\n");
+			LF_WORKER_LOG_DP(DEBUG, "Outbound packet\n");
 			return PKT_OUTBOUND;
 		}
-		LF_WORKER_LOG(DEBUG,
+		LF_WORKER_LOG_DP(DEBUG,
 				"Neither source IA (" PRIISDAS ") nor destination IA (" PRIISDAS
 				") correspond to local IA (" PRIISDAS ").\n",
 				PRIISDAS_VAL(rte_be_to_cpu_64(src_ia)),

@@ -59,13 +59,13 @@ handle_inbound_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	uint8_t exp_hash[20]; /* expected hash */
 	uint16_t payload_len; /* payload (upper layer) length */
 
-	offset = get_lf_hdr(worker_context, m, offset, &lf_hdr);
+	offset = get_lf_hdr(m, offset, &lf_hdr);
 	if (unlikely(offset == 0)) {
 		return LF_PKT_INBOUND_DROP;
 	}
 
 	if (lf_hdr->rsv != 0) {
-		LF_WORKER_LOG(NOTICE, "Unexpected reserved values.\n");
+		LF_WORKER_LOG_DP(NOTICE, "Unexpected reserved values.\n");
 		return LF_PKT_INBOUND_DROP;
 	}
 
@@ -113,13 +113,13 @@ handle_inbound_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 
 	/* check packet hash */
 #if !(LF_WORKER_OMIT_HASH_CHECK)
-	LF_WORKER_LOG(DEBUG, "Check packet hash.\n");
+	LF_WORKER_LOG_DP(DEBUG, "Check packet hash.\n");
 	(void)lf_crypto_hash_update(&worker_context->crypto_hash_ctx,
 			(uint8_t *)(lf_hdr + 1), payload_len);
 	(void)lf_crypto_hash_final(&worker_context->crypto_hash_ctx, exp_hash);
 	res = lf_crypto_hash_cmp(exp_hash, lf_hdr->hash);
 	if (likely(res != 0)) {
-		LF_WORKER_LOG(DEBUG, "Packet hash check failed.\n");
+		LF_WORKER_LOG_DP(DEBUG, "Packet hash check failed.\n");
 		lf_statistics_worker_counter_inc(worker_context->statistics,
 				invalid_hash);
 #if !(LF_WORKER_IGNORE_HASH_CHECK)
@@ -141,12 +141,11 @@ handle_inbound_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	 * header.
 	 * Subtract the removed headers from the offset.
 	 */
-	LF_WORKER_LOG(DEBUG, "Decapsulate Packet\n");
-	size_t encaps_hdr_len =
-			lf_decapsulate_pkt(worker_context, m, offset, ipv4_hdr, lf_hdr);
+	LF_WORKER_LOG_DP(DEBUG, "Decapsulate Packet\n");
+	size_t encaps_hdr_len = lf_decapsulate_pkt(m, offset, ipv4_hdr, lf_hdr);
 	if (unlikely(encaps_hdr_len % 2 != 0)) {
 		/* unexpected error occurred */
-		LF_WORKER_LOG(ERR, "Ether header move ignores alignment of 2!\n");
+		LF_WORKER_LOG_DP(ERR, "Ether header move ignores alignment of 2!\n");
 		return LF_PKT_INBOUND_DROP;
 	}
 	ether_hdr = lf_ether_hdr_move(ether_hdr, encaps_hdr_len);
@@ -162,7 +161,7 @@ handle_inbound_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	 * Apply inbound packet modifications, i.e., ethernet and IP address,
 	 * and reset checksums.
 	 */
-	lf_worker_pkt_mod(worker_context, m, ether_hdr, ipv4_hdr,
+	lf_worker_pkt_mod(m, ether_hdr, ipv4_hdr,
 			lf_configmanager_worker_get_inbound_pkt_mod(
 					worker_context->config));
 
@@ -195,7 +194,7 @@ encapsulate_pkt(struct lf_worker_context *worker_context,
 	/* TODO: (fstreun) check that payload length fits into a uin16_t */
 	payload_len = m->pkt_len - offset;
 
-	encaps_hdr_len = lf_add_udp_lf_hdr(worker_context, m, offset, ipv4_hdr,
+	encaps_hdr_len = lf_add_udp_lf_hdr(m, offset, ipv4_hdr,
 			rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4), &udp_hdr, &lf_hdr);
 	if (encaps_hdr_len < 0) {
 		return -1;
@@ -246,7 +245,7 @@ encapsulate_pkt(struct lf_worker_context *worker_context,
 	/* Set timestamp */
 	res = lf_time_worker_get_unique(&worker_context->time, &timestamp);
 	if (unlikely(res != 0)) {
-		LF_WORKER_LOG(ERR, "Failed to get timestamp.\n");
+		LF_WORKER_LOG_DP(ERR, "Failed to get timestamp.\n");
 		return -1;
 	}
 	lf_hdr->timestamp = rte_cpu_to_be_64(timestamp);
@@ -256,7 +255,7 @@ encapsulate_pkt(struct lf_worker_context *worker_context,
 			peer->isd_as, &dst_addr, &src_addr, drkey_protocol, timestamp,
 			&drkey);
 	if (unlikely(res < 0)) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Outbound DRKey not found for AS " PRIISDAS
 				" and drkey_protocol %d (ns_now = %" PRIu64 ", res = %d)!\n",
 				PRIISDAS_VAL(rte_be_to_cpu_64(peer->isd_as)),
@@ -264,7 +263,7 @@ encapsulate_pkt(struct lf_worker_context *worker_context,
 		return -1;
 	}
 
-	LF_WORKER_LOG(DEBUG,
+	LF_WORKER_LOG_DP(DEBUG,
 			"DRKey [" PRIISDAS "]:" PRIIP " - [XX]:" PRIIP
 			" and drkey_protocol %d (ns_now = %" PRIu64 ") is %x\n",
 			PRIISDAS_VAL(rte_be_to_cpu_64(peer->isd_as)),
@@ -300,7 +299,7 @@ handle_outbound_pkt(struct lf_worker_context *worker_context,
 	peer = lf_configmanager_worker_get_peer_from_ip(worker_context->config,
 			ipv4_hdr->dst_addr);
 	if (unlikely(peer == NULL)) {
-		LF_WORKER_LOG(DEBUG, "No peer found.\n");
+		LF_WORKER_LOG_DP(DEBUG, "No peer found.\n");
 		return LF_PKT_OUTBOUND_DROP;
 	}
 
@@ -310,11 +309,11 @@ handle_outbound_pkt(struct lf_worker_context *worker_context,
 	 */
 	encaps_hdr_len = encapsulate_pkt(worker_context, peer, m, offset, ipv4_hdr);
 	if (unlikely(encaps_hdr_len < 0)) {
-		LF_WORKER_LOG(DEBUG, "Packet encapsulation failed.\n");
+		LF_WORKER_LOG_DP(DEBUG, "Packet encapsulation failed.\n");
 		return LF_PKT_OUTBOUND_DROP;
 	}
 	if (unlikely(encaps_hdr_len % 2 != 0)) {
-		LF_WORKER_LOG(ERR, "Ether header move ignores alignment of 2!\n");
+		LF_WORKER_LOG_DP(ERR, "Ether header move ignores alignment of 2!\n");
 		return LF_PKT_OUTBOUND_DROP;
 	}
 	ether_hdr = lf_ether_hdr_move(ether_hdr, -encaps_hdr_len);
@@ -324,7 +323,7 @@ handle_outbound_pkt(struct lf_worker_context *worker_context,
 	 * Apply outbound packet modifications, i.e., ethernet and IP address,
 	 * and reset checksums.
 	 */
-	lf_worker_pkt_mod(worker_context, m, ether_hdr, ipv4_hdr,
+	lf_worker_pkt_mod(m, ether_hdr, ipv4_hdr,
 			lf_configmanager_worker_get_outbound_pkt_mod(
 					worker_context->config));
 
@@ -344,27 +343,27 @@ handle_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m)
 			worker_context->forwarding_direction;
 
 	if (unlikely(m->data_len != m->pkt_len)) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Not yet implemented: buffer with multiple segments "
 				"received.\n");
 		return LF_PKT_UNKNOWN_DROP;
 	}
 
 	offset = 0;
-	offset = lf_get_eth_hdr(worker_context, m, offset, &ether_hdr);
+	offset = lf_get_eth_hdr(m, offset, &ether_hdr);
 	if (unlikely(offset == 0)) {
 		return LF_PKT_UNKNOWN_DROP;
 	}
 
 	if (unlikely(ether_hdr->ether_type !=
 				 rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4))) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Unsupported packet type %#X: must be IPv4 (%#X).\n",
 				rte_be_to_cpu_16(ether_hdr->ether_type), RTE_ETHER_TYPE_IPV4);
 		return LF_PKT_UNKNOWN_DROP;
 	}
 
-	offset = lf_get_ip_hdr(worker_context, m, offset, &ipv4_hdr);
+	offset = lf_get_ip_hdr(m, offset, &ipv4_hdr);
 	if (unlikely(offset == 0)) {
 		return LF_PKT_UNKNOWN_DROP;
 	}
@@ -376,16 +375,16 @@ handle_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m)
 	switch (forwarding_direction) {
 	case LF_FORWARDING_DIRECTION_INBOUND:
 		if (unlikely(ipv4_hdr->next_proto_id != IP_PROTO_ID_UDP)) {
-			LF_WORKER_LOG(NOTICE,
+			LF_WORKER_LOG_DP(NOTICE,
 					"Expected inbound packet but no UDP header.\n");
 			return LF_PKT_UNKNOWN_DROP;
 		}
-		offset = lf_get_udp_hdr(worker_context, m, offset, &udp_hdr);
+		offset = lf_get_udp_hdr(m, offset, &udp_hdr);
 		if (unlikely(offset == 0)) {
 			return LF_PKT_UNKNOWN_DROP;
 		}
 		if (unlikely(udp_hdr->dst_port != lf_port)) {
-			LF_WORKER_LOG(NOTICE,
+			LF_WORKER_LOG_DP(NOTICE,
 					"Expected inbound packet with UDP port %u but UDP port is "
 					"%u.\n",
 					rte_be_to_cpu_16(lf_port),
@@ -393,29 +392,29 @@ handle_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m)
 			return LF_PKT_UNKNOWN_DROP;
 		}
 
-		LF_WORKER_LOG(DEBUG, "Inbound packet\n");
+		LF_WORKER_LOG_DP(DEBUG, "Inbound packet\n");
 		return handle_inbound_pkt(worker_context, m, offset, ether_hdr,
 				ipv4_hdr, udp_hdr);
 
 	case LF_FORWARDING_DIRECTION_OUTBOUND:
-		LF_WORKER_LOG(DEBUG, "Outbound packet\n");
+		LF_WORKER_LOG_DP(DEBUG, "Outbound packet\n");
 		return handle_outbound_pkt(worker_context, m, offset, ether_hdr,
 				ipv4_hdr);
 	default: // LF_FORWARDING_DIRECTION_BOTH
 		if (ipv4_hdr->next_proto_id == IP_PROTO_ID_UDP) {
-			offset_tmp = lf_get_udp_hdr(worker_context, m, offset, &udp_hdr);
+			offset_tmp = lf_get_udp_hdr(m, offset, &udp_hdr);
 			if (unlikely(offset_tmp == 0)) {
 				return LF_PKT_UNKNOWN_DROP;
 			}
 			if (udp_hdr->dst_port == lf_port) {
-				LF_WORKER_LOG(DEBUG, "Inbound packet\n");
+				LF_WORKER_LOG_DP(DEBUG, "Inbound packet\n");
 				return handle_inbound_pkt(worker_context, m, offset_tmp,
 						ether_hdr, ipv4_hdr, udp_hdr);
 			}
 		}
 
 		/* in all other cases, the packet is considered an outbound packet */
-		LF_WORKER_LOG(DEBUG, "Outbound packet\n");
+		LF_WORKER_LOG_DP(DEBUG, "Outbound packet\n");
 		return handle_outbound_pkt(worker_context, m, offset, ether_hdr,
 				ipv4_hdr);
 	}

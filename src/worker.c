@@ -68,9 +68,8 @@ lf_worker_init(uint16_t nb_workers, uint16_t *worker_lcores,
 }
 
 void
-lf_worker_pkt_mod(const struct lf_worker_context *worker_context,
-		struct rte_mbuf *m, struct rte_ether_hdr *ether_hdr, void *l3_hdr,
-		const struct lf_config_pkt_mod *pkt_mod)
+lf_worker_pkt_mod(struct rte_mbuf *m, struct rte_ether_hdr *ether_hdr,
+		void *l3_hdr, const struct lf_config_pkt_mod *pkt_mod)
 {
 	uint8_t tmp[RTE_ETHER_ADDR_LEN];
 
@@ -91,8 +90,7 @@ lf_worker_pkt_mod(const struct lf_worker_context *worker_context,
 		memcpy(ipv6_hdr->dst_addr, pkt_mod->ipv6, sizeof(pkt_mod->ipv6));
 	}
 	if (ipv6_hdr != NULL) {
-		(void)lf_pktv6_set_cksum(worker_context, m, ether_hdr, ipv6_hdr,
-				LF_OFFLOAD_CKSUM);
+		(void)lf_pktv6_set_cksum(m, ether_hdr, ipv6_hdr, LF_OFFLOAD_CKSUM);
 	}
 #else
 	struct rte_ipv4_hdr *ipv4_hdr = (struct rte_ipv4_hdr *)l3_hdr;
@@ -100,12 +98,9 @@ lf_worker_pkt_mod(const struct lf_worker_context *worker_context,
 		ipv4_hdr->dst_addr = pkt_mod->ip;
 	}
 	if (ipv4_hdr != NULL) {
-		(void)lf_pkt_set_cksum(worker_context, m, ether_hdr, ipv4_hdr,
-				LF_OFFLOAD_CKSUM);
+		(void)lf_pkt_set_cksum(m, ether_hdr, ipv4_hdr, LF_OFFLOAD_CKSUM);
 	}
 #endif /* LF_IPV6 */
-
-	(void)worker_context;
 }
 
 /**
@@ -131,7 +126,7 @@ lf_worker_check_ratelimit(struct lf_worker_context *worker_context,
 	res = lf_ratelimiter_worker_get_pkt_ctx(&worker_context->ratelimiter,
 			src_as, drkey_protocol, rl_pkt_ctx);
 	if (res != 0) {
-		LF_WORKER_LOG(DEBUG,
+		LF_WORKER_LOG_DP(DEBUG,
 				"Failed to get packet rate limit context for " PRIISDAS
 				" and DRKey protocol %u (res = %d).\n",
 				PRIISDAS_VAL(rte_be_to_cpu_64(src_as)),
@@ -142,7 +137,7 @@ lf_worker_check_ratelimit(struct lf_worker_context *worker_context,
 
 	res = lf_ratelimiter_worker_check(rl_pkt_ctx, pkt_len, ns_now);
 	if (likely(res != 0)) {
-		LF_WORKER_LOG(DEBUG,
+		LF_WORKER_LOG_DP(DEBUG,
 				"Rate limit filter check failed for " PRIISDAS
 				" and DRKey protocol %u (res = %d).\n",
 				PRIISDAS_VAL(rte_be_to_cpu_64(src_as)),
@@ -157,7 +152,7 @@ lf_worker_check_ratelimit(struct lf_worker_context *worker_context,
 					ratelimit_system);
 		}
 	} else {
-		LF_WORKER_LOG(DEBUG, "Rate limit check pass (res=%d).\n", res);
+		LF_WORKER_LOG_DP(DEBUG, "Rate limit check pass (res=%d).\n", res);
 	}
 
 	return res;
@@ -171,13 +166,12 @@ lf_worker_check_ratelimit(struct lf_worker_context *worker_context,
  * @param rl_pkt_ctx The rate limiter context for this specific packet.
  */
 static inline void
-lf_worker_consume_ratelimit(struct lf_worker_context *worker_context,
-		uint32_t pkt_len, struct lf_ratelimiter_pkt_ctx *rl_pkt_ctx)
+lf_worker_consume_ratelimit(uint32_t pkt_len,
+		struct lf_ratelimiter_pkt_ctx *rl_pkt_ctx)
 {
 #if LF_WORKER_OMIT_RATELIMIT_CHECK
 	return 0;
 #endif
-	(void)worker_context;
 	lf_ratelimiter_worker_consume(rl_pkt_ctx, pkt_len);
 }
 
@@ -207,7 +201,7 @@ lf_worker_get_drkey(struct lf_worker_context *worker_context, uint64_t src_as,
 			src_as, src_addr, dst_addr, drkey_protocol, timestamp, grace_period,
 			drkey);
 	if (unlikely(res < 0)) {
-		LF_WORKER_LOG(INFO,
+		LF_WORKER_LOG_DP(INFO,
 				"Inbound DRKey not found for AS " PRIISDAS
 				" and drkey_protocol %d (timestamp = %" PRIu64
 				", grace_period = %d, res = %d)\n",
@@ -215,7 +209,7 @@ lf_worker_get_drkey(struct lf_worker_context *worker_context, uint64_t src_as,
 				rte_be_to_cpu_16(drkey_protocol), timestamp, grace_period, res);
 		lf_statistics_worker_counter_inc(worker_context->statistics, no_key);
 	} else {
-		LF_WORKER_LOG(DEBUG,
+		LF_WORKER_LOG_DP(DEBUG,
 				"DRKey [XX]: " PRIIP ",[" PRIISDAS "]:" PRIIP
 				" and drkey_protocol %d (timestamp = %" PRIu64
 				", grace_period = %d) is %x\n",
@@ -255,11 +249,11 @@ lf_worker_check_mac(struct lf_worker_context *worker_context,
 	res = lf_crypto_drkey_check_mac(&worker_context->crypto_drkey_ctx, drkey,
 			auth_data, mac);
 	if (likely(res != 0)) {
-		LF_WORKER_LOG(DEBUG, "MAC check failed.\n");
+		LF_WORKER_LOG_DP(DEBUG, "MAC check failed.\n");
 		lf_statistics_worker_counter_inc(worker_context->statistics,
 				invalid_mac);
 	} else {
-		LF_WORKER_LOG(DEBUG, "MAC check passed.\n");
+		LF_WORKER_LOG_DP(DEBUG, "MAC check passed.\n");
 	}
 
 #if LF_WORKER_IGNORE_MAC_CHECK
@@ -294,11 +288,11 @@ lf_worker_check_timestamp(struct lf_worker_context *worker_context,
 	      timestamp > (ns_now + worker_context->timestamp_threshold);
 
 	if (unlikely(res)) {
-		LF_WORKER_LOG(DEBUG, "Timestamp check failed.\n");
+		LF_WORKER_LOG_DP(DEBUG, "Timestamp check failed.\n");
 		lf_statistics_worker_counter_inc(worker_context->statistics,
 				outdated_timestamp);
 	} else {
-		LF_WORKER_LOG(DEBUG, "Timestamp check passed.\n");
+		LF_WORKER_LOG_DP(DEBUG, "Timestamp check passed.\n");
 	}
 
 #if LF_WORKER_IGNORE_TIMESTAMP_CHECK
@@ -332,10 +326,10 @@ lf_worker_check_duplicate(struct lf_worker_context *worker_context,
 	res = lf_duplicate_filter_apply(worker_context->duplicate_filter, mac,
 			ns_now);
 	if (likely(res != 0)) {
-		LF_WORKER_LOG(DEBUG, "Duplicate check failed.\n");
+		LF_WORKER_LOG_DP(DEBUG, "Duplicate check failed.\n");
 		lf_statistics_worker_counter_inc(worker_context->statistics, duplicate);
 	} else {
-		LF_WORKER_LOG(DEBUG, "Duplicate check passed.\n");
+		LF_WORKER_LOG_DP(DEBUG, "Duplicate check passed.\n");
 	}
 
 #if LF_WORKER_IGNORE_DUPLICATE_CHECK
@@ -416,7 +410,7 @@ lf_worker_check_pkt(struct lf_worker_context *worker_context,
 	 * Rate Limit Update
 	 * Consider the packet to be forwarded and update the rate limiter state.
 	 */
-	lf_worker_consume_ratelimit(worker_context, pkt_data->pkt_len, &rl_pkt_ctx);
+	lf_worker_consume_ratelimit(pkt_data->pkt_len, &rl_pkt_ctx);
 
 	/*
 	 * The Packet has passed all checks and can be considered valid.
@@ -443,13 +437,13 @@ lf_worker_check_best_effort_pkt(struct lf_worker_context *worker_context,
 	res = lf_ratelimiter_worker_apply_best_effort(&worker_context->ratelimiter,
 			pkt_len, ns_now);
 	if (likely(res > 0)) {
-		LF_WORKER_LOG(DEBUG,
+		LF_WORKER_LOG_DP(DEBUG,
 				"Best-effort rate limit filter check failed (res=%d).\n", res);
 		lf_statistics_worker_counter_inc(worker_context->statistics,
 				ratelimit_be);
 		return LF_CHECK_BE_RATELIMITED;
 	} else if (res < 0) {
-		LF_WORKER_LOG(DEBUG,
+		LF_WORKER_LOG_DP(DEBUG,
 				"System rate limit filter check failed (res=%d).\n", res);
 		lf_statistics_worker_counter_inc(worker_context->statistics,
 				ratelimit_system);
@@ -507,7 +501,7 @@ set_distributor_action(struct rte_mbuf *pkt, enum lf_pkt_action pkt_action)
 	default:
 		*lf_distributor_action(pkt) = LF_DISTRIBUTOR_ACTION_DROP;
 		/* TODO: reanable log function after removing worker_context from it. */
-		// LF_WORKER_LOG(ERR, "Unknown packet action (%u)\n", pkt_res[i]);
+		// LF_WORKER_LOG_DP(ERR, "Unknown packet action (%u)\n", pkt_res[i]);
 		break;
 	}
 }
@@ -529,7 +523,7 @@ lf_worker_main_loop(struct lf_worker_context *worker_context)
 	struct lf_time_worker *time = &worker_context->time;
 	struct lf_statistics_worker *stats = worker_context->statistics;
 
-	LF_WORKER_LOG(INFO, "enter main loop\n");
+	LF_WORKER_LOG_DP(INFO, "enter main loop\n");
 	while (likely(!lf_force_quit)) {
 		/*
 		 * Update Quiescent State
@@ -555,7 +549,7 @@ lf_worker_main_loop(struct lf_worker_context *worker_context)
 			continue;
 		}
 
-		LF_WORKER_LOG(DEBUG, "%u packets received\n", nb_rx);
+		LF_WORKER_LOG_DP(DEBUG, "%u packets received\n", nb_rx);
 		(void)lf_statistics_worker_add_burst(stats, nb_rx);
 
 		for (i = 0; i < nb_rx; ++i) {
@@ -583,13 +577,13 @@ int
 lf_worker_run(struct lf_worker_context *worker_context)
 {
 	int res;
-	LF_WORKER_LOG(DEBUG, "run\n");
+	LF_WORKER_LOG_DP(DEBUG, "run\n");
 
 	/* register and start reporting quiescent state */
 	res = rte_rcu_qsbr_thread_register(worker_context->qsv,
 			worker_context->worker_id);
 	if (res != 0) {
-		LF_WORKER_LOG(ERR, "Register for QS Variable failed\n");
+		LF_WORKER_LOG_DP(ERR, "Register for QS Variable failed\n");
 		return -1;
 	}
 	(void)rte_rcu_qsbr_thread_online(worker_context->qsv,
@@ -603,6 +597,6 @@ lf_worker_run(struct lf_worker_context *worker_context)
 	(void)rte_rcu_qsbr_thread_unregister(worker_context->qsv,
 			worker_context->worker_id);
 
-	LF_WORKER_LOG(DEBUG, "terminate\n");
+	LF_WORKER_LOG_DP(DEBUG, "terminate\n");
 	return 0;
 }
