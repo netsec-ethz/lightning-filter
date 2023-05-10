@@ -11,20 +11,17 @@
 #include "../worker.h"
 
 /**
- * Log function for plugin module (not on data path).
- * Format: "Plugins: log message here"
+ * Log function for LF plugin.
+ * The lcore ID is added to each message. Format with lcore ID 1:
+ * Plugin [1]: log message here
  */
-#define LF_PLUGINS_LOG(level, ...)                                 \
-	LF_LOG(level, RTE_FMT("Plugins: " RTE_FMT_HEAD(__VA_ARGS__, ), \
-						  RTE_FMT_TAIL(__VA_ARGS__, )))
+#define LF_PLUGINS_LOG(level, ...)                                     \
+	LF_LOG(level, RTE_FMT("Plugin [%d]: " RTE_FMT_HEAD(__VA_ARGS__, ), \
+						  rte_lcore_id(), RTE_FMT_TAIL(__VA_ARGS__, )))
 
-/**
- * Data path log function for plugin module.
- * Format: "Plugins: log message here"
- */
 #define LF_PLUGINS_LOG_DP(level, ...)                                     \
-	LF_WORKER_LOG(level, RTE_FMT("Plugins: " RTE_FMT_HEAD(__VA_ARGS__, ), \
-								 RTE_FMT_TAIL(__VA_ARGS__, )))
+	LF_LOG_DP(level, RTE_FMT("Plugin [%d]: " RTE_FMT_HEAD(__VA_ARGS__, ), \
+							 rte_lcore_id(), RTE_FMT_TAIL(__VA_ARGS__, )))
 
 int
 lf_dst_ratelimiter_init(uint16_t nb_workers);

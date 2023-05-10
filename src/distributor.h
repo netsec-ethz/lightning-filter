@@ -30,14 +30,15 @@
  * provided that can be enabled to preserve packet order.
  */
 
-#define LF_DISTRIBUTOR_LOG(level, ...) \
-	LF_LOG(level, "Distributor: " __VA_ARGS__)
-
 /**
- * Log function for distributor worker.
- * The worker's lcore ID is added to each message.
- * Format (lcore ID 1): "Distributor [1]: log message here"
+ * Log function for distributor.
+ * The lcore ID is added to each message. Format with lcore ID 1:
+ * Distributor [1]: log message here
  */
+#define LF_DISTRIBUTOR_LOG(level, ...)                                      \
+	LF_LOG(level, RTE_FMT("Distributor [%d]: " RTE_FMT_HEAD(__VA_ARGS__, ), \
+						  rte_lcore_id(), RTE_FMT_TAIL(__VA_ARGS__, )))
+
 #define LF_DISTRIBUTOR_LOG_DP(level, ...)                                      \
 	LF_LOG_DP(level, RTE_FMT("Distributor [%d]: " RTE_FMT_HEAD(__VA_ARGS__, ), \
 							 rte_lcore_id(), RTE_FMT_TAIL(__VA_ARGS__, )))

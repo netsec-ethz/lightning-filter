@@ -31,12 +31,11 @@ struct lf_ip_hdr {
 
 
 static inline unsigned int
-get_lf_hdr(const struct lf_worker_context *worker_context,
-		const struct rte_mbuf *m, unsigned int offset,
+get_lf_hdr(const struct rte_mbuf *m, unsigned int offset,
 		struct lf_ip_hdr **lf_hdr_ptr)
 {
 	if (unlikely(sizeof(struct lf_ip_hdr) > m->data_len - offset)) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Not yet implemented: LF header exceeds first buffer "
 				"segment.\n");
 		return 0;
@@ -46,7 +45,6 @@ get_lf_hdr(const struct lf_worker_context *worker_context,
 	offset += sizeof(struct lf_ip_hdr);
 
 	return offset;
-	(void)worker_context;
 }
 
 /**
@@ -54,9 +52,8 @@ get_lf_hdr(const struct lf_worker_context *worker_context,
  * @return Size of the UDP/LF header construct, which has been removed.
  */
 static inline int
-lf_decapsulate_pkt(__rte_unused struct lf_worker_context *worker_context,
-		struct rte_mbuf *m, unsigned int offset, struct rte_ipv4_hdr *ipv4_hdr,
-		struct lf_ip_hdr *lf_hdr)
+lf_decapsulate_pkt(struct rte_mbuf *m, unsigned int offset,
+		struct rte_ipv4_hdr *ipv4_hdr, struct lf_ip_hdr *lf_hdr)
 {
 	/* reconstruct old IP header */
 	ipv4_hdr->next_proto_id = lf_hdr->next_proto_id;
@@ -94,9 +91,9 @@ lf_decapsulate_pkt(__rte_unused struct lf_worker_context *worker_context,
  * - Negative number if an error occurred.
  */
 static inline int
-lf_add_udp_lf_hdr(struct lf_worker_context *worker_context, struct rte_mbuf *m,
-		unsigned int offset, void *l3_hdr, uint16_t l3_proto,
-		struct rte_udp_hdr **udp_hdr_ptr, struct lf_ip_hdr **lf_hdr_ptr)
+lf_add_udp_lf_hdr(struct rte_mbuf *m, unsigned int offset, void *l3_hdr,
+		uint16_t l3_proto, struct rte_udp_hdr **udp_hdr_ptr,
+		struct lf_ip_hdr **lf_hdr_ptr)
 {
 	struct rte_ipv4_hdr *ipv4_hdr;
 	struct rte_ipv6_hdr *ipv6_hdr;
@@ -106,7 +103,7 @@ lf_add_udp_lf_hdr(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	/* Move packet start. Assume there is enough headroom */
 	char *p = rte_pktmbuf_prepend(m, LF_ENCAPS_HDR_LEN);
 	if (unlikely(p == NULL)) {
-		LF_WORKER_LOG(ERR,
+		LF_WORKER_LOG_DP(ERR,
 				"Not enough headroom to add UDP/LF encapsulation headers.\n");
 		return -1;
 	}
@@ -115,17 +112,17 @@ lf_add_udp_lf_hdr(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	(void)memmove(rte_pktmbuf_mtod(m, uint8_t *),
 			rte_pktmbuf_mtod(m, uint8_t *) + LF_ENCAPS_HDR_LEN, offset);
 	if (unlikely(LF_ENCAPS_HDR_LEN % 2 != 0)) {
-		LF_WORKER_LOG(ERR, "Ether header move ignores alignment of 2!\n");
+		LF_WORKER_LOG_DP(ERR, "Ether header move ignores alignment of 2!\n");
 		return -1;
 	}
 	l3_hdr = (void *)((uint8_t *)l3_hdr - LF_ENCAPS_HDR_LEN);
 
-	offset = lf_get_udp_hdr(worker_context, m, offset, &udp_hdr);
+	offset = lf_get_udp_hdr(m, offset, &udp_hdr);
 	if (unlikely(offset == 0)) {
 		return -1;
 	}
 
-	offset = get_lf_hdr(worker_context, m, offset, &lf_hdr);
+	offset = get_lf_hdr(m, offset, &lf_hdr);
 	if (unlikely(offset == 0)) {
 		return -1;
 	}

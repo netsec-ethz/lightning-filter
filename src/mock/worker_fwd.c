@@ -33,41 +33,41 @@ handle_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m)
 			worker_context->forwarding_direction;
 
 	if (unlikely(m->data_len != m->pkt_len)) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Not yet implemented: buffer with multiple segments "
 				"received.\n");
 		return LF_PKT_UNKNOWN_DROP;
 	}
 
 	offset = 0;
-	offset = lf_get_eth_hdr(worker_context, m, offset, &ether_hdr);
+	offset = lf_get_eth_hdr(m, offset, &ether_hdr);
 	if (offset == 0) {
 		return LF_PKT_UNKNOWN_DROP;
 	}
 
 	if (unlikely(ether_hdr->ether_type !=
 				 rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4))) {
-		LF_WORKER_LOG(NOTICE, "Unsupported packet type: must be IPv4.\n");
+		LF_WORKER_LOG_DP(NOTICE, "Unsupported packet type: must be IPv4.\n");
 		return LF_PKT_UNKNOWN_DROP;
 	}
 
-	offset = lf_get_ip_hdr(worker_context, m, offset, &ipv4_hdr);
+	offset = lf_get_ip_hdr(m, offset, &ipv4_hdr);
 	if (offset == 0) {
 		return LF_PKT_UNKNOWN_DROP;
 	}
 
 	if (forwarding_direction == LF_FORWARDING_DIRECTION_INBOUND) {
-		LF_WORKER_LOG(DEBUG, "Inbound packet\n");
+		LF_WORKER_LOG_DP(DEBUG, "Inbound packet\n");
 		pkt_action = LF_PKT_INBOUND_FORWARD;
 
-		(void)lf_worker_pkt_mod(worker_context, m, ether_hdr, ipv4_hdr,
+		(void)lf_worker_pkt_mod(m, ether_hdr, ipv4_hdr,
 				lf_configmanager_worker_get_inbound_pkt_mod(
 						worker_context->config));
 	} else if (forwarding_direction == LF_FORWARDING_DIRECTION_OUTBOUND) {
-		LF_WORKER_LOG(DEBUG, "Outbound packet\n");
+		LF_WORKER_LOG_DP(DEBUG, "Outbound packet\n");
 		pkt_action = LF_PKT_OUTBOUND_FORWARD;
 
-		(void)lf_worker_pkt_mod(worker_context, m, ether_hdr, ipv4_hdr,
+		(void)lf_worker_pkt_mod(m, ether_hdr, ipv4_hdr,
 				lf_configmanager_worker_get_outbound_pkt_mod(
 						worker_context->config));
 
@@ -75,7 +75,7 @@ handle_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m)
 		/* Consider the packet as inbound if the direction is unknown */
 		pkt_action = LF_PKT_INBOUND_FORWARD;
 
-		(void)lf_worker_pkt_mod(worker_context, m, ether_hdr, ipv4_hdr,
+		(void)lf_worker_pkt_mod(m, ether_hdr, ipv4_hdr,
 				lf_configmanager_worker_get_inbound_pkt_mod(
 						worker_context->config));
 	}

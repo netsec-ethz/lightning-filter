@@ -179,12 +179,11 @@ SCION_ADDR_HDR_LEN(const struct scion_cmn_hdr *scion_cmn_hdr)
 #define SCION_EXT_HDR_LEN(ext_hdr) (((ext_hdr)->ext_len + 1) * 4)
 
 static inline unsigned int
-scion_get_cmn_hdr(const struct lf_worker_context *worker_context,
-		const struct rte_mbuf *m, unsigned int offset,
+scion_get_cmn_hdr(const struct rte_mbuf *m, unsigned int offset,
 		struct scion_cmn_hdr **scion_cmn_hdr)
 {
 	if (unlikely(sizeof(struct scion_cmn_hdr) > m->data_len - offset)) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Not yet implemented: SCION common header exceeds first buffer "
 				"segment.\n");
 		return 0;
@@ -192,7 +191,6 @@ scion_get_cmn_hdr(const struct lf_worker_context *worker_context,
 
 	*scion_cmn_hdr = rte_pktmbuf_mtod_offset(m, struct scion_cmn_hdr *, offset);
 	return offset + sizeof(struct scion_cmn_hdr);
-	(void)worker_context;
 }
 
 /*
@@ -201,19 +199,17 @@ scion_get_cmn_hdr(const struct lf_worker_context *worker_context,
 
 
 static inline unsigned int
-scion_get_addr_ia_hdr(const struct lf_worker_context *worker_context,
-		const struct rte_mbuf *m, unsigned int offset,
+scion_get_addr_ia_hdr(const struct rte_mbuf *m, unsigned int offset,
 		struct scion_addr_ia_hdr **scion_addr_ia_hdr)
 {
 	if (unlikely(sizeof(struct scion_addr_ia_hdr) > m->data_len - offset)) {
-		LF_WORKER_LOG(NOTICE, "Not yet implemented: SCION address IA header "
-							  "exceeds first buffer segment.\n");
+		LF_WORKER_LOG_DP(NOTICE, "Not yet implemented: SCION address IA header "
+								 "exceeds first buffer segment.\n");
 		return 0;
 	}
 	*scion_addr_ia_hdr =
 			rte_pktmbuf_mtod_offset(m, struct scion_addr_ia_hdr *, offset);
 	return offset + sizeof(struct scion_addr_ia_hdr);
-	(void)worker_context;
 }
 
 /**
@@ -288,19 +284,17 @@ scion_get_addr_host_src(struct scion_cmn_hdr *scion_cmn_hdr)
  */
 
 static inline unsigned int
-scion_get_pathmeta_hdr(const struct lf_worker_context *worker_context,
-		const struct rte_mbuf *m, unsigned int offset,
+scion_get_pathmeta_hdr(const struct rte_mbuf *m, unsigned int offset,
 		struct scion_path_meta_hdr **scion_path_meta_hdr)
 {
 	if (unlikely(sizeof(struct scion_path_meta_hdr) > m->data_len - offset)) {
-		LF_WORKER_LOG(NOTICE, "Not yet implemented: SCION PathMeta header "
-							  "exceeds first buffer segment.\n");
+		LF_WORKER_LOG_DP(NOTICE, "Not yet implemented: SCION PathMeta header "
+								 "exceeds first buffer segment.\n");
 		return 0;
 	}
 	*scion_path_meta_hdr =
 			rte_pktmbuf_mtod_offset(m, struct scion_path_meta_hdr *, offset);
 	return offset + sizeof(struct scion_path_meta_hdr);
-	(void)worker_context;
 }
 
 /**
@@ -312,7 +306,7 @@ scion_get_pathmeta_hdr(const struct lf_worker_context *worker_context,
  * Return -2 if an empty segment precedes a non-empty segment.
  */
 static inline int
-scion_path_meta_hdr_get_length(const struct lf_worker_context *worker_context,
+scion_path_meta_hdr_get_length(
 		const struct scion_path_meta_hdr *scion_path_meta_hdr)
 {
 	uint32_t path_header_len;
@@ -328,14 +322,14 @@ scion_path_meta_hdr_get_length(const struct lf_worker_context *worker_context,
 
 	/* Number of hops cannot exceed 64 */
 	if (unlikely(seg0_len + seg1_len + seg2_len > 64)) {
-		LF_WORKER_LOG(NOTICE, "SCION Path contains too many hops\n");
+		LF_WORKER_LOG_DP(NOTICE, "SCION Path contains too many hops\n");
 		return -1;
 	}
 
 	/* An empty segment cannot preced a non-empty segment */
 	if (unlikely((seg2_len != 0 && seg1_len == 0) ||
 				 (seg1_len != 0 && seg0_len == 0))) {
-		LF_WORKER_LOG(NOTICE, "SCION Path invalid\n");
+		LF_WORKER_LOG_DP(NOTICE, "SCION Path invalid\n");
 		return -2;
 	}
 
@@ -353,13 +347,11 @@ scion_path_meta_hdr_get_length(const struct lf_worker_context *worker_context,
 
 	assert(path_header_len <= INT_MAX);
 	return (int)path_header_len;
-	(void)worker_context;
 }
 
 /**
  * Derive path header length.
  *
- * @param worker_context
  * @param m
  * @param offset Offset to the path header.
  * @param path_type SCION path type.
@@ -367,8 +359,8 @@ scion_path_meta_hdr_get_length(const struct lf_worker_context *worker_context,
  * occurred.
  */
 static inline int
-scion_path_hdr_length(const struct lf_worker_context *worker_context,
-		const struct rte_mbuf *m, unsigned int offset, uint8_t path_type)
+scion_path_hdr_length(const struct rte_mbuf *m, unsigned int offset,
+		uint8_t path_type)
 {
 	int res;
 	struct scion_path_meta_hdr *scion_path_meta_hdr;
@@ -377,14 +369,12 @@ scion_path_hdr_length(const struct lf_worker_context *worker_context,
 	case SCION_PATH_TYPE_EMPTY:
 		return 0;
 	case SCION_PATH_TYPE_SCION:
-		offset = scion_get_pathmeta_hdr(worker_context, m, offset,
-				&scion_path_meta_hdr);
+		offset = scion_get_pathmeta_hdr(m, offset, &scion_path_meta_hdr);
 		if (offset == 0) {
 			return -2;
 		}
 
-		res = scion_path_meta_hdr_get_length(worker_context,
-				scion_path_meta_hdr);
+		res = scion_path_meta_hdr_get_length(scion_path_meta_hdr);
 		if (res < 0) {
 			return -3;
 		}
@@ -394,8 +384,8 @@ scion_path_hdr_length(const struct lf_worker_context *worker_context,
 		return (int)(sizeof(struct scion_path_info_hdr) +
 					 2 * sizeof(struct scion_path_hop_hdr));
 	default:
-		LF_WORKER_LOG(NOTICE, "Failed to calculate SCION path header length "
-							  "(unknown type)\n");
+		LF_WORKER_LOG_DP(NOTICE, "Failed to calculate SCION path header length "
+								 "(unknown type)\n");
 		return -1;
 	}
 }
@@ -451,35 +441,31 @@ scion_get_path_timestamp(uint8_t path_type, void *path_hdr,
  */
 
 static inline unsigned int
-scion_get_ext_hdr(const struct lf_worker_context *worker_context,
-		const struct rte_mbuf *m, unsigned int offset,
+scion_get_ext_hdr(const struct rte_mbuf *m, unsigned int offset,
 		struct scion_ext_hdr **scion_ext_hdr)
 {
 	if (unlikely(sizeof(struct scion_ext_hdr) > m->data_len - offset)) {
-		LF_WORKER_LOG(NOTICE, "Not yet implemented: SCION address header "
-							  "exceeds first buffer segment.\n");
+		LF_WORKER_LOG_DP(NOTICE, "Not yet implemented: SCION address header "
+								 "exceeds first buffer segment.\n");
 		return 0;
 	}
 	*scion_ext_hdr = rte_pktmbuf_mtod_offset(m, struct scion_ext_hdr *, offset);
 	return offset + sizeof(struct scion_ext_hdr);
-	(void)worker_context;
 }
 
 static inline unsigned int
-scion_get_spao_hdr(const struct lf_worker_context *worker_context,
-		const struct rte_mbuf *m, unsigned int offset,
+scion_get_spao_hdr(const struct rte_mbuf *m, unsigned int offset,
 		struct scion_packet_authenticator_opt **scion_packet_authenticator_opt)
 {
 	if (unlikely(sizeof(struct scion_packet_authenticator_opt) >
 				 m->data_len - offset)) {
-		LF_WORKER_LOG(NOTICE, "Not yet implemented: SCION address header "
-							  "exceeds first buffer segment.\n");
+		LF_WORKER_LOG_DP(NOTICE, "Not yet implemented: SCION address header "
+								 "exceeds first buffer segment.\n");
 		return 0;
 	}
 	*scion_packet_authenticator_opt = rte_pktmbuf_mtod_offset(m,
 			struct scion_packet_authenticator_opt *, offset);
 	return offset + sizeof(struct scion_packet_authenticator_opt);
-	(void)worker_context;
 }
 
 /**
@@ -491,8 +477,7 @@ scion_get_spao_hdr(const struct lf_worker_context *worker_context,
  * bytes the preceding memory has been moved. Returns -1 if failed.
  */
 static inline int
-scion_add_spao_hdr(const struct lf_worker_context *worker_context,
-		struct rte_mbuf *m, unsigned int offset,
+scion_add_spao_hdr(struct rte_mbuf *m, unsigned int offset,
 		struct scion_cmn_hdr *scion_cmn_hdr,
 		struct scion_packet_authenticator_opt **spao_hdr_ptr)
 {
@@ -511,14 +496,13 @@ scion_add_spao_hdr(const struct lf_worker_context *worker_context,
 
 	/* skip HBH header and adjust next_hdr and offset*/
 	if (scion_cmn_hdr->next_hdr == SCION_PROTOCOL_HBH) {
-		if (scion_get_ext_hdr(worker_context, m, offset, &scion_hbh_ext_hdr) ==
-				0) {
+		if (scion_get_ext_hdr(m, offset, &scion_hbh_ext_hdr) == 0) {
 			return -1;
 		}
 
 		offset += SCION_EXT_HDR_LEN(scion_hbh_ext_hdr);
 		if (offset > m->data_len) {
-			LF_WORKER_LOG(NOTICE,
+			LF_WORKER_LOG_DP(NOTICE,
 					"SCION extension header length (%u) larger than data "
 					"len "
 					"(%u).",
@@ -531,8 +515,8 @@ scion_add_spao_hdr(const struct lf_worker_context *worker_context,
 	/* next_hdr points either to scion_cmn_hdr->next_hdr or
 	 * to scion_ext_hdr->next_hdr of the HBH */
 	if (*next_hdr == SCION_PROTOCOL_E2E) {
-		LF_WORKER_LOG(WARNING, "Not yet implemented: SCION packet already "
-							   "contains E2E header.\n");
+		LF_WORKER_LOG_DP(WARNING, "Not yet implemented: SCION packet already "
+								  "contains E2E header.\n");
 		return -1;
 	}
 
@@ -551,7 +535,7 @@ scion_add_spao_hdr(const struct lf_worker_context *worker_context,
 	/* move everything before the new header entry */
 	char *p = rte_pktmbuf_prepend(m, add_hdr_len);
 	if (unlikely(p == NULL)) {
-		LF_WORKER_LOG(ERR, "Not enough headroom to add SPAO.\n");
+		LF_WORKER_LOG_DP(ERR, "Not enough headroom to add SPAO.\n");
 		return -1;
 	}
 	(void)memmove(rte_pktmbuf_mtod(m, uint8_t *),
@@ -569,11 +553,11 @@ scion_add_spao_hdr(const struct lf_worker_context *worker_context,
 	/*
 	 * add E2E extension header
 	 */
-	offset = scion_get_ext_hdr(worker_context, m, offset, &scion_e2e_ext_hdr);
+	offset = scion_get_ext_hdr(m, offset, &scion_e2e_ext_hdr);
 	if (unlikely(offset == 0)) {
 		/* This should not happen! */
-		LF_WORKER_LOG(ERR, "Could not get SCION E2E extension header after "
-						   "extending packet\n");
+		LF_WORKER_LOG_DP(ERR, "Could not get SCION E2E extension header after "
+							  "extending packet\n");
 		return -1;
 	}
 
@@ -589,10 +573,10 @@ scion_add_spao_hdr(const struct lf_worker_context *worker_context,
 	/*
 	 * add SPAO
 	 */
-	offset = scion_get_spao_hdr(worker_context, m, offset, &spao_hdr);
+	offset = scion_get_spao_hdr(m, offset, &spao_hdr);
 	if (unlikely(offset == 0)) {
 		/* This should not happen! */
-		LF_WORKER_LOG(ERR,
+		LF_WORKER_LOG_DP(ERR,
 				"Could not get SAPO header after extending packet\n");
 		return -1;
 	}
@@ -649,23 +633,22 @@ scion_spao_get_timestamp(struct scion_packet_authenticator_opt *spao_hdr)
  * Otherwise, 0.
  */
 static inline unsigned int
-scion_skip_extension_hdr(const struct lf_worker_context *worker_context,
-		const struct rte_mbuf *m, const struct scion_cmn_hdr *scion_cmn_hdr,
-		unsigned int offset, uint8_t *payload_protocol)
+scion_skip_extension_hdr(const struct rte_mbuf *m,
+		const struct scion_cmn_hdr *scion_cmn_hdr, unsigned int offset,
+		uint8_t *payload_protocol)
 {
 	struct scion_ext_hdr *scion_ext_hdr;
 	uint8_t next_hdr;
 
 	next_hdr = scion_cmn_hdr->next_hdr;
 	if (next_hdr == SCION_PROTOCOL_HBH) {
-		if (unlikely(scion_get_ext_hdr(worker_context, m, offset,
-							 &scion_ext_hdr) == 0)) {
+		if (unlikely(scion_get_ext_hdr(m, offset, &scion_ext_hdr) == 0)) {
 			return 0;
 		}
 		next_hdr = scion_ext_hdr->next_hdr;
 		offset += SCION_EXT_HDR_LEN(scion_ext_hdr);
 		if (unlikely(offset > m->data_len)) {
-			LF_WORKER_LOG(NOTICE,
+			LF_WORKER_LOG_DP(NOTICE,
 					"SCION HBH extension header length (%u) larger than "
 					"data "
 					"len (%u).\n",
@@ -675,14 +658,13 @@ scion_skip_extension_hdr(const struct lf_worker_context *worker_context,
 	}
 
 	if (next_hdr == SCION_PROTOCOL_E2E) {
-		if (unlikely(scion_get_ext_hdr(worker_context, m, offset,
-							 &scion_ext_hdr) == 0)) {
+		if (unlikely(scion_get_ext_hdr(m, offset, &scion_ext_hdr) == 0)) {
 			return 0;
 		}
 		next_hdr = scion_ext_hdr->next_hdr;
 		offset += SCION_EXT_HDR_LEN(scion_ext_hdr);
 		if (unlikely(offset > m->data_len)) {
-			LF_WORKER_LOG(NOTICE,
+			LF_WORKER_LOG_DP(NOTICE,
 					"SCION E2E extension header length (%u) larger than "
 					"data "
 					"len (%u).\n",
@@ -700,20 +682,19 @@ scion_skip_extension_hdr(const struct lf_worker_context *worker_context,
  */
 
 static inline unsigned int
-scion_get_gateway_frame_hdr(const struct lf_worker_context *worker_context,
-		const struct rte_mbuf *m, unsigned int offset,
+scion_get_gateway_frame_hdr(const struct rte_mbuf *m, unsigned int offset,
 		struct scion_gateway_frame_hdr **scion_gateway_frame_hdr)
 {
 	if (unlikely(sizeof(struct scion_gateway_frame_hdr) >
 				 m->data_len - offset)) {
-		LF_WORKER_LOG(NOTICE, "Not yet implemented: SCION gateway frame header "
-							  "exceeds first buffer segment.\n");
+		LF_WORKER_LOG_DP(NOTICE,
+				"Not yet implemented: SCION gateway frame header "
+				"exceeds first buffer segment.\n");
 		return 0;
 	}
 	*scion_gateway_frame_hdr = rte_pktmbuf_mtod_offset(m,
 			struct scion_gateway_frame_hdr *, offset);
 	return offset + sizeof(struct scion_gateway_frame_hdr);
-	(void)worker_context;
 }
 
 /**
@@ -726,9 +707,8 @@ scion_get_gateway_frame_hdr(const struct lf_worker_context *worker_context,
  * when there was a error while parsing (including unsupported packets).
  */
 unsigned int
-scion_skip_gateway_frame_hdr(const struct lf_worker_context *worker_context,
-		const struct rte_mbuf *m, unsigned int offset, uint16_t frame_len,
-		struct rte_ipv4_hdr **enc_ipv4_hdr);
+scion_skip_gateway_frame_hdr(const struct rte_mbuf *m, unsigned int offset,
+		uint16_t frame_len, struct rte_ipv4_hdr **enc_ipv4_hdr);
 
 /**
  * Parse the complete ETH/IPv4/UDP/SCION/UDP(dport=sig_port)/SIG packet.
@@ -740,8 +720,7 @@ scion_skip_gateway_frame_hdr(const struct lf_worker_context *worker_context,
  * when there was a error while parsing (including unsupported packets).
  */
 int
-scion_skip_gateway(const struct lf_worker_context *worker_context,
-		uint16_t sig_port, const struct rte_mbuf *m,
+scion_skip_gateway(uint16_t sig_port, const struct rte_mbuf *m,
 		struct rte_ipv4_hdr **enc_ipv4_hdr);
 
 #endif /* SCION_UTILS_H */

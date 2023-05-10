@@ -33,12 +33,15 @@
 #endif
 
 /**
- * Log function for workers.
- * Requires the worker context to be implicitly defined as `struct
- * *worker_context`. The worker's ID is then printed in each message. Format
- * (for worker with ID 1): "Worker [1]: log message here"
+ * Log function for LF worker.
+ * The lcore ID is added to each message. Format with lcore ID 1:
+ * Worker [1]: log message here
  */
-#define LF_WORKER_LOG(level, ...)                                         \
+#define LF_WORKER_LOG(level, ...)                                      \
+	LF_LOG(level, RTE_FMT("Worker [%d]: " RTE_FMT_HEAD(__VA_ARGS__, ), \
+						  rte_lcore_id(), RTE_FMT_TAIL(__VA_ARGS__, )))
+
+#define LF_WORKER_LOG_DP(level, ...)                                      \
 	LF_LOG_DP(level, RTE_FMT("Worker [%d]: " RTE_FMT_HEAD(__VA_ARGS__, ), \
 							 rte_lcore_id(), RTE_FMT_TAIL(__VA_ARGS__, )))
 
@@ -199,8 +202,7 @@ lf_worker_check_best_effort_pkt(struct lf_worker_context *worker_context,
  * @param pkt_mod The packet modification configuration.
  */
 void
-lf_worker_pkt_mod(const struct lf_worker_context *worker_context,
-		struct rte_mbuf *m, struct rte_ether_hdr *ether_hdr, void *l3_hdr,
-		const struct lf_config_pkt_mod *pkt_mod);
+lf_worker_pkt_mod(struct rte_mbuf *m, struct rte_ether_hdr *ether_hdr,
+		void *l3_hdr, const struct lf_config_pkt_mod *pkt_mod);
 
 #endif /* LF_WORKER_H */

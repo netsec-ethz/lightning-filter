@@ -33,12 +33,11 @@
 			(((ip) >> 24) & 0xFF)
 
 static inline unsigned int
-lf_get_eth_hdr(const struct lf_worker_context *worker_context,
-		const struct rte_mbuf *m, unsigned int offset,
+lf_get_eth_hdr(const struct rte_mbuf *m, unsigned int offset,
 		struct rte_ether_hdr **ether_hdr_ptr)
 {
 	if (unlikely(sizeof(struct rte_ether_hdr) > m->data_len - offset)) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Unsupported packet: Ethernet header exceeds first buffer "
 				"segment.\n");
 		return 0;
@@ -48,7 +47,6 @@ lf_get_eth_hdr(const struct lf_worker_context *worker_context,
 	offset += sizeof(struct rte_ether_hdr);
 
 	return offset;
-	(void)worker_context;
 }
 
 struct lf_ether_hdr_aligned {
@@ -68,12 +66,11 @@ struct lf_ether_hdr_aligned {
 
 
 static inline unsigned int
-lf_get_ipv6_hdr(const struct lf_worker_context *worker_context,
-		const struct rte_mbuf *m, unsigned int offset,
+lf_get_ipv6_hdr(const struct rte_mbuf *m, unsigned int offset,
 		struct rte_ipv6_hdr **ipv6_hdr_ptr)
 {
 	if (unlikely(sizeof(struct rte_ipv6_hdr) > m->data_len - offset)) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Unsupported packet: IPv6 header exceeds first buffer "
 				"segment.\n");
 		return 0;
@@ -82,18 +79,16 @@ lf_get_ipv6_hdr(const struct lf_worker_context *worker_context,
 	*ipv6_hdr_ptr = rte_pktmbuf_mtod_offset(m, struct rte_ipv6_hdr *, offset);
 
 	return offset + sizeof(struct rte_ipv6_hdr);
-	(void)worker_context;
 }
 
 static inline unsigned int
-lf_get_ip_hdr(const struct lf_worker_context *worker_context,
-		const struct rte_mbuf *m, unsigned int offset,
+lf_get_ip_hdr(const struct rte_mbuf *m, unsigned int offset,
 		struct rte_ipv4_hdr **ipv4_hdr_ptr)
 {
 	uint16_t ipv4_hdr_length;
 
 	if (unlikely(sizeof(struct rte_ipv4_hdr) > m->data_len - offset)) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Unsupported packet: IP header exceeds first buffer "
 				"segment.\n");
 		return 0;
@@ -103,12 +98,12 @@ lf_get_ip_hdr(const struct lf_worker_context *worker_context,
 	ipv4_hdr_length = rte_ipv4_hdr_len(*ipv4_hdr_ptr);
 
 	if (unlikely(ipv4_hdr_length < sizeof(struct rte_ipv4_hdr))) {
-		LF_WORKER_LOG(NOTICE, "Invalid IP header: length too small.\n");
+		LF_WORKER_LOG_DP(NOTICE, "Invalid IP header: length too small.\n");
 		return 0;
 	}
 
 	if (unlikely(ipv4_hdr_length > m->data_len - offset)) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Not yet implemented: IP header exceeds first buffer "
 				"segment.\n");
 		return 0;
@@ -117,16 +112,14 @@ lf_get_ip_hdr(const struct lf_worker_context *worker_context,
 	offset += ipv4_hdr_length;
 
 	return offset;
-	(void)worker_context;
 }
 
 static inline unsigned int
-lf_get_udp_hdr(const struct lf_worker_context *worker_context,
-		const struct rte_mbuf *m, unsigned int offset,
+lf_get_udp_hdr(const struct rte_mbuf *m, unsigned int offset,
 		struct rte_udp_hdr **udp_hdr_ptr)
 {
 	if (unlikely(sizeof(struct rte_udp_hdr) > m->data_len - offset)) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Not yet implemented: UDP header exceeds first buffer "
 				"segment.\n");
 		return 0;
@@ -135,16 +128,14 @@ lf_get_udp_hdr(const struct lf_worker_context *worker_context,
 	*udp_hdr_ptr = rte_pktmbuf_mtod_offset(m, struct rte_udp_hdr *, offset);
 	offset += sizeof(struct rte_udp_hdr);
 	return offset;
-	(void)worker_context;
 }
 
 static inline unsigned int
-lf_get_tcp_hdr(const struct lf_worker_context *worker_context,
-		const struct rte_mbuf *m, unsigned int offset,
+lf_get_tcp_hdr(const struct rte_mbuf *m, unsigned int offset,
 		struct rte_tcp_hdr **tcp_hdr_ptr)
 {
 	if (unlikely(sizeof(struct rte_tcp_hdr) > m->data_len - offset)) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Not yet implemented: TCP header exceeds first buffer "
 				"segment.\n");
 		return 0;
@@ -153,7 +144,6 @@ lf_get_tcp_hdr(const struct lf_worker_context *worker_context,
 	*tcp_hdr_ptr = rte_pktmbuf_mtod_offset(m, struct rte_tcp_hdr *, offset);
 	offset += sizeof(struct rte_tcp_hdr);
 	return offset;
-	(void)worker_context;
 }
 
 /**
@@ -162,8 +152,7 @@ lf_get_tcp_hdr(const struct lf_worker_context *worker_context,
  * offloaded to the port.
  */
 static inline void
-lf_pktv6_set_cksum(const struct lf_worker_context *worker_context,
-		struct rte_mbuf *m, const struct rte_ether_hdr *ether_hdr,
+lf_pktv6_set_cksum(struct rte_mbuf *m, const struct rte_ether_hdr *ether_hdr,
 		struct rte_ipv6_hdr *ipv6_hdr, bool offload_cksum)
 {
 	unsigned int offset = sizeof(*ether_hdr) + sizeof(*ipv6_hdr);
@@ -176,7 +165,7 @@ lf_pktv6_set_cksum(const struct lf_worker_context *worker_context,
 
 		if (ipv6_hdr->proto == IP_PROTO_ID_UDP) {
 			struct rte_udp_hdr *udp_hdr;
-			offset = lf_get_udp_hdr(worker_context, m, offset, &udp_hdr);
+			offset = lf_get_udp_hdr(m, offset, &udp_hdr);
 			if (offset == 0) {
 				return;
 			}
@@ -185,7 +174,7 @@ lf_pktv6_set_cksum(const struct lf_worker_context *worker_context,
 			udp_hdr->dgram_cksum = rte_ipv6_phdr_cksum(ipv6_hdr, m->ol_flags);
 		} else if (ipv6_hdr->proto == IP_PROTO_ID_TCP) {
 			struct rte_tcp_hdr *tcp_hdr;
-			offset = lf_get_tcp_hdr(worker_context, m, offset, &tcp_hdr);
+			offset = lf_get_tcp_hdr(m, offset, &tcp_hdr);
 			if (offset == 0) {
 				return;
 			}
@@ -196,7 +185,7 @@ lf_pktv6_set_cksum(const struct lf_worker_context *worker_context,
 	} else {
 		if (ipv6_hdr->proto == IP_PROTO_ID_UDP) {
 			struct rte_udp_hdr *udp_hdr;
-			offset = lf_get_udp_hdr(worker_context, m, offset, &udp_hdr);
+			offset = lf_get_udp_hdr(m, offset, &udp_hdr);
 			if (offset == 0) {
 				return;
 			}
@@ -204,7 +193,7 @@ lf_pktv6_set_cksum(const struct lf_worker_context *worker_context,
 			udp_hdr->dgram_cksum = rte_ipv6_udptcp_cksum(ipv6_hdr, udp_hdr);
 		} else if (ipv6_hdr->proto == IP_PROTO_ID_TCP) {
 			struct rte_tcp_hdr *tcp_hdr;
-			offset = lf_get_tcp_hdr(worker_context, m, offset, &tcp_hdr);
+			offset = lf_get_tcp_hdr(m, offset, &tcp_hdr);
 			if (offset == 0) {
 				return;
 			}
@@ -220,8 +209,7 @@ lf_pktv6_set_cksum(const struct lf_worker_context *worker_context,
  * offloaded to the port.
  */
 static inline void
-lf_pkt_set_cksum(const struct lf_worker_context *worker_context,
-		struct rte_mbuf *m, const struct rte_ether_hdr *ether_hdr,
+lf_pkt_set_cksum(struct rte_mbuf *m, const struct rte_ether_hdr *ether_hdr,
 		struct rte_ipv4_hdr *ipv4_hdr, bool offload_cksum)
 {
 	unsigned int offset = sizeof(*ether_hdr) + rte_ipv4_hdr_len(ipv4_hdr);
@@ -235,7 +223,7 @@ lf_pkt_set_cksum(const struct lf_worker_context *worker_context,
 
 		if (ipv4_hdr->next_proto_id == IP_PROTO_ID_UDP) {
 			struct rte_udp_hdr *udp_hdr;
-			offset = lf_get_udp_hdr(worker_context, m, offset, &udp_hdr);
+			offset = lf_get_udp_hdr(m, offset, &udp_hdr);
 			if (offset == 0) {
 				return;
 			}
@@ -244,7 +232,7 @@ lf_pkt_set_cksum(const struct lf_worker_context *worker_context,
 			udp_hdr->dgram_cksum = rte_ipv4_phdr_cksum(ipv4_hdr, m->ol_flags);
 		} else if (ipv4_hdr->next_proto_id == IP_PROTO_ID_TCP) {
 			struct rte_tcp_hdr *tcp_hdr;
-			offset = lf_get_tcp_hdr(worker_context, m, offset, &tcp_hdr);
+			offset = lf_get_tcp_hdr(m, offset, &tcp_hdr);
 			if (offset == 0) {
 				return;
 			}
@@ -256,7 +244,7 @@ lf_pkt_set_cksum(const struct lf_worker_context *worker_context,
 		ipv4_hdr->hdr_checksum = 0;
 		if (ipv4_hdr->next_proto_id == IP_PROTO_ID_UDP) {
 			struct rte_udp_hdr *udp_hdr;
-			offset = lf_get_udp_hdr(worker_context, m, offset, &udp_hdr);
+			offset = lf_get_udp_hdr(m, offset, &udp_hdr);
 			if (offset == 0) {
 				return;
 			}
@@ -264,7 +252,7 @@ lf_pkt_set_cksum(const struct lf_worker_context *worker_context,
 			udp_hdr->dgram_cksum = rte_ipv4_udptcp_cksum(ipv4_hdr, udp_hdr);
 		} else if (ipv4_hdr->next_proto_id == IP_PROTO_ID_TCP) {
 			struct rte_tcp_hdr *tcp_hdr;
-			offset = lf_get_tcp_hdr(worker_context, m, offset, &tcp_hdr);
+			offset = lf_get_tcp_hdr(m, offset, &tcp_hdr);
 			if (offset == 0) {
 				return;
 			}
@@ -282,12 +270,11 @@ struct lf_icmpv6_hdr {
 };
 
 static inline unsigned int
-lf_get_icmpv6_hdr(const struct lf_worker_context *worker_context,
-		const struct rte_mbuf *m, unsigned int offset,
+lf_get_icmpv6_hdr(const struct rte_mbuf *m, unsigned int offset,
 		struct lf_icmpv6_hdr **icmpv6_hdr_ptr)
 {
 	if (unlikely(sizeof(struct lf_icmpv6_hdr) > m->data_len - offset)) {
-		LF_WORKER_LOG(NOTICE,
+		LF_WORKER_LOG_DP(NOTICE,
 				"Unsupported packet: ICMPv6 header exceeds first buffer "
 				"segment.\n");
 		return 0;
@@ -297,7 +284,6 @@ lf_get_icmpv6_hdr(const struct lf_worker_context *worker_context,
 			rte_pktmbuf_mtod_offset(m, struct lf_icmpv6_hdr *, offset);
 
 	return offset + sizeof(struct lf_icmpv6_hdr);
-	(void)worker_context;
 }
 
 #endif /* LF_UTILS_PACKET_H */
