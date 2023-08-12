@@ -68,11 +68,6 @@ struct lf_params {
 	 */
 	char km_config_file[PATH_MAX];
 	unsigned int km_size;
-
-	/*
-	 * Distributor
-	 */
-	unsigned int dist_cores; /* nb of cores for distributors */
 };
 
 int

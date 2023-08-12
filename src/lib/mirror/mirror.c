@@ -12,7 +12,7 @@
  * Configurable number of RX/TX ring descriptors
  */
 static uint16_t nb_rxd = 1024;
-//static uint16_t nb_txd = 1024;
+// static uint16_t nb_txd = 1024;
 #define LF_MIRROR_RING_SIZE 64
 #define LF_MIRROR_MAX_BURST 32
 
@@ -47,7 +47,7 @@ create_mirror(uint16_t port_id)
 		return -2;
 	}
 
-	return (int) mirror_id;
+	return (int)mirror_id;
 }
 
 int
@@ -88,7 +88,8 @@ close_mirror(struct lf_mirror *mirror_ctx)
 			continue;
 		}
 
-		res = rte_eth_dev_get_name_by_port(mirror_ctx->mirrors[port_id], portname);
+		res = rte_eth_dev_get_name_by_port(mirror_ctx->mirrors[port_id],
+				portname);
 		if (res != 0) {
 			continue;
 		}
@@ -193,11 +194,14 @@ forward_tx_pkts(struct lf_mirror *mirror_ctx)
 			pkts[i]->port = port_id;
 		}
 
-		/* XXX: Packets that are received on the mirror interface are always forwarded to the worker
-		 * with lcore ID 1. We assume that this lcore always exists and always has access to all
-		 * interfaces. However, this assumption might not always be true and this behavior must be
-		 * adjusted, e.g., by keeping a list of workers that can forward packets to the ports. */
-		nb_fwd = rte_ring_enqueue_burst(mirror_ctx->rx_ring[1], (void **)pkts, nb_pkts, NULL);
+		/* XXX: Packets that are received on the mirror interface are always
+		 * forwarded to the worker with lcore ID 1. We assume that this lcore
+		 * always exists and always has access to all interfaces. However, this
+		 * assumption might not always be true and this behavior must be
+		 * adjusted, e.g., by keeping a list of workers that can forward packets
+		 * to the ports. */
+		nb_fwd = rte_ring_enqueue_burst(mirror_ctx->rx_ring[1], (void **)pkts,
+				nb_pkts, NULL);
 		if (nb_pkts - nb_fwd > 0) {
 			rte_pktmbuf_free_bulk(&pkts[nb_fwd], nb_pkts - nb_fwd);
 		}
@@ -205,8 +209,8 @@ forward_tx_pkts(struct lf_mirror *mirror_ctx)
 }
 
 static void
-forward_pkts_to_mirror(struct lf_mirror *mirror_ctx,
-		struct rte_mbuf *rx_pkts[], uint16_t nb_rx)
+forward_pkts_to_mirror(struct lf_mirror *mirror_ctx, struct rte_mbuf *rx_pkts[],
+		uint16_t nb_rx)
 {
 	int i;
 	uint16_t mirror_id;

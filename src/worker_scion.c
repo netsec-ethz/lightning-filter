@@ -1077,8 +1077,6 @@ preprocess_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	uint64_t dst_ia;
 	uint64_t src_ia;
 
-	const enum lf_forwarding_direction forwarding_direction =
-			worker_context->forwarding_direction;
 	const uint64_t local_isd_as =
 			lf_configmanager_worker_get_local_as(worker_context->config);
 
@@ -1100,46 +1098,21 @@ preprocess_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	 * With the src/dst AS address, it is determined
 	 * if the packet is an inbound or an outbound packet.
 	 */
-	switch (forwarding_direction) {
-	case LF_FORWARDING_DIRECTION_INBOUND:
-		if (likely(dst_ia == local_isd_as)) {
-			LF_WORKER_LOG_DP(DEBUG, "Inbound packet\n");
-			return PKT_INBOUND;
-		}
-		LF_WORKER_LOG_DP(DEBUG,
-				"Expected inbound packet but destination IA (" PRIISDAS
-				") is not local IA (" PRIISDAS ").\n",
-				PRIISDAS_VAL(rte_be_to_cpu_64(dst_ia)),
-				PRIISDAS_VAL(rte_be_to_cpu_64(local_isd_as)));
-		return PKT_UNEXPECTED;
-	case LF_FORWARDING_DIRECTION_OUTBOUND:
-		if (likely(src_ia == local_isd_as)) {
-			LF_WORKER_LOG_DP(DEBUG, "Outbound packet\n");
-			return PKT_OUTBOUND;
-		}
-		LF_WORKER_LOG_DP(DEBUG,
-				"Expected outbound packet but source IA (" PRIISDAS
-				") is not local IA (" PRIISDAS ").\n",
-				PRIISDAS_VAL(rte_be_to_cpu_64(dst_ia)),
-				PRIISDAS_VAL(rte_be_to_cpu_64(local_isd_as)));
-		return PKT_UNEXPECTED;
-	default: // LF_FORWARDING_DIRECTION_BOTH
-		if (dst_ia == local_isd_as) {
-			LF_WORKER_LOG_DP(DEBUG, "Inbound packet\n");
-			return PKT_INBOUND;
-		}
-		if (src_ia == local_isd_as) {
-			LF_WORKER_LOG_DP(DEBUG, "Outbound packet\n");
-			return PKT_OUTBOUND;
-		}
-		LF_WORKER_LOG_DP(DEBUG,
-				"Neither source IA (" PRIISDAS ") nor destination IA (" PRIISDAS
-				") correspond to local IA (" PRIISDAS ").\n",
-				PRIISDAS_VAL(rte_be_to_cpu_64(src_ia)),
-				PRIISDAS_VAL(rte_be_to_cpu_64(dst_ia)),
-				PRIISDAS_VAL(rte_be_to_cpu_64(local_isd_as)));
-		return PKT_UNEXPECTED;
+	if (dst_ia == local_isd_as) {
+		LF_WORKER_LOG_DP(DEBUG, "Inbound packet\n");
+		return PKT_INBOUND;
 	}
+	if (src_ia == local_isd_as) {
+		LF_WORKER_LOG_DP(DEBUG, "Outbound packet\n");
+		return PKT_OUTBOUND;
+	}
+	LF_WORKER_LOG_DP(DEBUG,
+			"Neither source IA (" PRIISDAS ") nor destination IA (" PRIISDAS
+			") correspond to local IA (" PRIISDAS ").\n",
+			PRIISDAS_VAL(rte_be_to_cpu_64(src_ia)),
+			PRIISDAS_VAL(rte_be_to_cpu_64(dst_ia)),
+			PRIISDAS_VAL(rte_be_to_cpu_64(local_isd_as)));
+	return PKT_UNEXPECTED;
 }
 
 static enum lf_pkt_action

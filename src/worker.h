@@ -15,7 +15,6 @@
 #include <rte_mempool.h>
 
 #include "config.h"
-#include "distributor.h"
 #include "keymanager.h"
 #include "lf.h"
 #include "lib/crypto/crypto.h"
@@ -27,10 +26,6 @@
  * The worker implements the LightningFilter pipeline and processes packets
  * (inbound as well as outbound).
  */
-
-#if LF_DISTRIBUTOR
-#include "distributor.h"
-#endif
 
 /**
  * Log function for LF worker.
@@ -46,12 +41,21 @@
 							 rte_lcore_id(), RTE_FMT_TAIL(__VA_ARGS__, )))
 
 struct lf_worker_context {
-	uint16_t worker_id;
 	uint16_t lcore_id;
 
-	struct lf_distributor_worker distributor;
+	uint16_t nb_rx_tx, current_rx;
+	uint16_t rx_port_id[RTE_MAX_ETHPORTS];
+	uint16_t rx_queue_id[RTE_MAX_ETHPORTS];
+	uint16_t tx_port_id[RTE_MAX_ETHPORTS];
+	uint16_t tx_queue_id[RTE_MAX_ETHPORTS];
+	uint16_t tx_queue_id_by_port[RTE_MAX_ETHPORTS];
+	struct rte_eth_dev_tx_buffer *tx_buffer[RTE_MAX_ETHPORTS];
+	struct rte_eth_dev_tx_buffer *tx_buffer_by_port[RTE_MAX_ETHPORTS];
 
-	enum lf_forwarding_direction forwarding_direction;
+
+	/* Forwarding port pair */
+	/* TODO: replace with a ip lookup struct for proper l3 forwarding */
+	uint16_t port_pair[RTE_MAX_ETHPORTS];
 
 	/* Timestamp threshold in nanoseconds */
 	uint64_t timestamp_threshold;
@@ -70,6 +74,7 @@ struct lf_worker_context {
 
 	/* Quiescent State Variable */
 	struct rte_rcu_qsbr *qsv;
+	unsigned int qsv_id;
 } __rte_cache_aligned;
 
 /**
@@ -141,22 +146,22 @@ enum lf_check_state {
 };
 
 /**
- * Initialize worker contexts by setting all fields to 0.
- * Only the worker_id and lcore_id are populated with the according value.
+ * Initialize worker contexts for all lcores that run a worker.
+ * The initialization sets all fields but the lcore_id field to 0.
+ * The lcore_id field is set approapriately.
  *
- * @param nb_workers Number of workers contexts to be initialized.
- * @param worker_lcores Array of nb_workers lcores, providing the lcore of each
- * worker.
- * @param worker_contexts Array of nb_workers worker contexts to be initialized.
+ * @param worker_lcores The lcore boolean map for workers, that indicates which
+ * cores run a worker.
+ * @param worker_contexts Array of worker contexts.
  * @return 0 on success.
  */
 int
-lf_worker_init(uint16_t nb_workers, uint16_t *worker_lcores,
-		struct lf_worker_context *worker_contexts);
+lf_worker_init(bool worker_lcores[RTE_MAX_LCORE],
+		struct lf_worker_context worker_contexts[RTE_MAX_LCORE]);
 
 /**
  * Launch function for the workers.
- * @param worker_context The worker context, which is unique for each worker.
+ * @param worker_context The worker context.
  * @return Returns 0.
  */
 int

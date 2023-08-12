@@ -98,6 +98,10 @@ lf_time_worker_update(struct lf_time_worker *ctx)
 	uint64_t current_tsc;
 	uint64_t current_ns;
 
+#if LF_WORKER_OMIT_TIME_UPDATE
+	return 0;
+#endif
+
 	current_tsc = rte_rdtsc();
 	if (unlikely(current_tsc - ctx->last_update_tsc >=
 				 ctx->update_interval_tsc)) {

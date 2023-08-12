@@ -43,8 +43,6 @@
 
 #define LF_VERSION_FEATURE_OPTIONS(M) \
 	M(LF_IPV6)                        \
-	M(LF_DISTRIBUTOR)                 \
-	M(LF_DISTRIBUTOR_REORDER)         \
 	M(LF_OFFLOAD_CKSUM)               \
 	M(LF_JUMBO_FRAME)
 #define LF_VERSION_FEATURE_OPTIONS_STRING \

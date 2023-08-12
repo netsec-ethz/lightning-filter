@@ -42,7 +42,8 @@ lf_mirror_worker_rx(struct lf_mirror_worker *mirror_ctx,
 {
 	uint16_t nb_fwd;
 
-	nb_fwd = rte_ring_enqueue_burst(mirror_ctx->rx_ring, (void **)pkts, nb_pkts, NULL);
+	nb_fwd = rte_ring_enqueue_burst(mirror_ctx->rx_ring, (void **)pkts, nb_pkts,
+			NULL);
 	if (nb_pkts - nb_fwd > 0) {
 		rte_pktmbuf_free_bulk(&pkts[nb_fwd], nb_pkts - nb_fwd);
 	}
@@ -53,7 +54,8 @@ lf_mirror_worker_rx(struct lf_mirror_worker *mirror_ctx,
  * Get packets from the mirror.
  */
 static inline int
-lf_mirror_worker_tx(struct lf_mirror_worker *mirror_ctx, struct rte_mbuf *pkts[], int n)
+lf_mirror_worker_tx(struct lf_mirror_worker *mirror_ctx,
+		struct rte_mbuf *pkts[], int n)
 {
 	return rte_ring_dequeue_bulk(mirror_ctx->tx_ring, (void **)pkts, n, NULL);
 }

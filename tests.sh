@@ -106,7 +106,7 @@ fi
 
 test_label="lf_fwd"
 make_artifacts_dir
-cmake_args="-D LF_WORKER=FWD -D LF_DRKEY_FETCHER=MOCK -D LF_DISTRIBUTOR=ON"
+cmake_args="-D LF_WORKER=FWD -D LF_DRKEY_FETCHER=MOCK"
 build_test
 if [ $? -eq 0 ]
 then

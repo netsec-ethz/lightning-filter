@@ -146,6 +146,8 @@ init_test1_config(struct lf_config *config)
 	config->peers = peer0;
 	peer0->next = peer1;
 	peer1->next = NULL;
+
+	return 0;
 }
 
 int

@@ -19,45 +19,27 @@
 /**
  * Struct for a port/queue transmit pair.
  */
-struct lf_setup_port_queue {
-	uint16_t rx_port_id;
+struct lf_setup_port_queue_pair {
 	uint8_t rx_queue_id;
-	uint16_t tx_port_id;
 	uint8_t tx_queue_id;
 
-	enum lf_forwarding_direction forwarding_direction;
+	struct rte_eth_dev_tx_buffer *tx_buffer;
 };
 
-/**
- * Control traffic (ct) queues for each port and the port ID of the vdev, to
- * which the control traffic is forwarded.
- */
-struct lf_setup_ct_port_queue {
-	uint32_t portmask;
-	uint8_t rx_queue_id[RTE_MAX_ETHPORTS];
-	uint8_t tx_queue_id[RTE_MAX_ETHPORTS];
-	uint16_t vport_id[RTE_MAX_ETHPORTS];
-};
+#define LF_SETUP_INVALID_ID (uint8_t) ~0
 
 /**
  * The setup function is responsible to prepare the memory pools, ports and
  * rx/tx queues. After running this function, the active ports are started.
- * @param nb_port_queues Number of queue pairs to be initiated.
- * @param lcores Maping between the queue pairs and lcores that handle the
- * queues. E.g., the lcores of the workers, which are responsible to handle the
- * queue pairs. If the queue pairs are located on another socket than the
- * handler, which is identified by the given, a warning is issued.
+ * @param workers Array defining for which workers queues have to be setup.
  * @param params LF parameters.
- * @param port_queues Return the initiated queue pairs.
- * @param ct_port_queue If not NULL, returns the control traffic port queues and
- * the control traffic filter is setup. of each enabled port.
+ * @param port_queues Return the initiated queues for each worker for each port.
  * @return 0 on success.
  */
 int
-lf_setup_ports(uint16_t nb_port_queues, const uint16_t lcores[LF_MAX_WORKER],
-		const struct lf_params *params,
-		struct lf_setup_port_queue port_queues[LF_MAX_WORKER],
-		struct lf_setup_ct_port_queue *ct_port_queue);
+lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
+		struct lf_setup_port_queue_pair port_queues[RTE_MAX_LCORE]
+												   [RTE_MAX_ETHPORTS]);
 
 /**
  * Terminates, i.e., stops, all ports which have been started according to the

@@ -4,6 +4,7 @@
 
 #include <rte_common.h>
 #include <rte_ethdev.h>
+#include <rte_lcore.h>
 #include <rte_malloc.h>
 
 #include "lf.h"
@@ -87,15 +88,6 @@ static const struct port_queues_conf default_port_queues_conf = {
 	.nb_tx_queue = 0,
 };
 
-static const struct lf_setup_port_queue default_port_queue = {
-	.rx_port_id = RTE_MAX_ETHPORTS,
-	.rx_queue_id = LF_SETUP_MAX_QUEUE,
-	.tx_port_id = RTE_MAX_ETHPORTS,
-	.tx_queue_id = LF_SETUP_MAX_QUEUE,
-
-	.forwarding_direction = LF_FORWARDING_DIRECTION_BOTH,
-};
-
 uint32_t
 calculate_nb_mbufs(uint16_t nb_rx_ports, uint16_t nb_tx_ports,
 		uint16_t nb_lcores, uint16_t nb_rxq, uint_fast16_t nb_txq)
@@ -119,7 +111,8 @@ pool_init(int32_t socket_id, uint32_t nb_mbuf, struct rte_mempool **mb_pool)
 			LF_SETUP_METADATA_SIZE, LF_SETUP_BUF_SIZE, socket_id);
 
 	if (*mb_pool == NULL) {
-		LF_LOG(ERR, "Cannot init mbuf pool on socket %u\n", socket_id);
+		LF_LOG(ERR, "Cannot init mbuf pool %s. socket_id: %u, nb_mbuf %u\n", s,
+				socket_id, nb_mbuf);
 		return -1;
 	} else {
 		LF_LOG(INFO, "Allocated mbuf pool on socket %u\n", socket_id);
@@ -150,246 +143,21 @@ get_mbuf_pool(int32_t socket_id)
 	return pktmbuf_pool[socket_id];
 }
 
-/**
- * Set the provided flow rule if possible.
- *
- * @param port_id ID of port on which flow rule should be created.
- * @param attr Flow rule attribute.
- * @param pattern Flow rule pattern.
- * @param action Flow rule action.
- * @return int Returns 0 on success.
- */
-int
-set_flow_rule(uint16_t port_id, struct rte_flow_attr *attr,
-		struct rte_flow_item pattern[], struct rte_flow_action action[])
+static struct rte_eth_dev_tx_buffer *
+new_tx_buffer(uint16_t socket)
 {
-	int res;
-	struct rte_flow *flow;
-	struct rte_flow_error error;
-	res = rte_flow_validate(port_id, attr, pattern, action, &error);
-	if (res != 0) {
-		LF_LOG(ERR, "create_arp_flow error: %s\n", error.message);
-		return -1;
+	struct rte_eth_dev_tx_buffer *tx_buffer;
+
+	/* Initialize TX buffers */
+	tx_buffer = rte_zmalloc_socket("tx_buffer",
+			RTE_ETH_TX_BUFFER_SIZE(LF_MAX_PKT_BURST), 0, socket);
+	if (tx_buffer == NULL) {
+		LF_LOG(ERR, "Cannot allocate tx buffer\n");
+		return NULL;
 	}
 
-	flow = rte_flow_create(port_id, attr, pattern, action, &error);
-	if (flow == NULL) {
-		LF_LOG(ERR, "create_arp_flow error: %s\n", error.message);
-		return -1;
-	}
-	return 0;
-}
-
-/**
- * Clears all flow rules on the port.
- *
- * @param port_id ID of port.
- * @return int Returns 0 if no error has occurred.
- */
-int
-clear_flow_rules(uint16_t port_id)
-{
-	int res;
-	struct rte_flow_error error;
-	res = rte_flow_flush(port_id, &error);
-	if (res != 0) {
-		LF_LOG(WARNING, "Error while flushing flow rules: %s\n", error.message);
-		return -1;
-	}
-	return 0;
-}
-
-/**
- * Create the control traffic flow rules and apply them to the port.
- * The control traffic flow rule forwards the following packets to the control
- * traffic queue. ETH/ARP, ETH/LLDP, ETH/IPV6/ICMP
- *
- * @param port_id ID of the port.
- * @param queue_index Index of queue to forward control traffic to.
- * @return int
- */
-int
-set_ct_flow_rules(uint16_t port_id, uint16_t queue_index)
-{
-	/*
-	 * Test with testpmd:
-	 * IPv4 ARP:
-	 *		flow validate 0 ingress pattern eth type is 0x0806 / end actions
-	 *		queue index 0 / end
-	 *
-	 * IPv6 Neighbor Discovery:
-	 * 		flow validate 0 ingress pattern eth / ipv6 proto is 58 / end actions
-	 *		queue index 0 / end
-	 */
-	int res;
-	struct rte_flow_attr attr;
-	struct rte_flow_item pattern[3];
-	struct rte_flow_action action[2];
-	struct rte_flow_item_eth item_eth_mask = {};
-	struct rte_flow_item_eth item_eth_spec = {};
-	struct rte_flow_item_ipv6 item_ipv6_mask = {};
-	struct rte_flow_item_ipv6 item_ipv6_spec = {};
-	struct rte_flow_action_queue queue = { .index = queue_index };
-
-	memset(&attr, 0, sizeof(struct rte_flow_attr));
-	memset(action, 0, sizeof(action));
-	memset(pattern, 0, sizeof(pattern));
-
-	attr.ingress = 1;
-
-	/* action: move packet to queue */
-	action[0].type = RTE_FLOW_ACTION_TYPE_QUEUE;
-	action[0].conf = &queue;
-	action[1].type = RTE_FLOW_ACTION_TYPE_END;
-
-	/* pattern: ETH/ARP */
-	LF_LOG(DEBUG, "Setup flow rule for port %d: ETH/ARP -> rx %d\n", port_id,
-			queue);
-	item_eth_spec.hdr.ether_type = RTE_BE16(RTE_ETHER_TYPE_ARP);
-	item_eth_mask.hdr.ether_type = RTE_BE16(0xFFFF);
-	pattern[0].type = RTE_FLOW_ITEM_TYPE_ETH;
-	pattern[0].mask = &item_eth_mask;
-	pattern[0].spec = &item_eth_spec;
-	pattern[1].type = RTE_FLOW_ITEM_TYPE_END;
-	res = set_flow_rule(port_id, &attr, pattern, action);
-	if (res != 0) {
-		return -1;
-	}
-
-	/* pattern: ETH/LLDP */
-	LF_LOG(DEBUG, "Setup flow rule for port %d: ETH/LLDP -> rx %d\n", port_id,
-			queue);
-	item_eth_spec.hdr.ether_type = RTE_BE16(RTE_ETHER_TYPE_LLDP);
-	res = set_flow_rule(port_id, &attr, pattern, action);
-	if (res != 0) {
-		return -1;
-	}
-
-	/* pattern: ETH/IPV6/ICMP */
-	/* TODO: this will not allow IPV6 ICMP packets to pass through LF! */
-	LF_LOG(DEBUG, "Setup flow rule for port %d: ETH/IPV6/ICMP -> rx %d\n",
-			port_id, queue);
-	item_ipv6_spec.hdr.proto = IP_PROTO_ID_ICMP6;
-	item_ipv6_mask.hdr.proto = 0xFF;
-	pattern[0].type = RTE_FLOW_ITEM_TYPE_ETH;
-	pattern[0].mask = NULL;
-	pattern[0].spec = NULL;
-	pattern[1].type = RTE_FLOW_ITEM_TYPE_IPV6;
-	pattern[1].mask = &item_ipv6_mask;
-	pattern[1].spec = &item_ipv6_spec;
-	pattern[2].type = RTE_FLOW_ITEM_TYPE_END;
-	res = set_flow_rule(port_id, &attr, pattern, action);
-	if (res != 0) {
-		return -1;
-	}
-
-	return 0;
-}
-
-/**
- * Create and initialize vdev for control traffic from a specific port.
- *
- * @param port_id ID of port.
- * @param vport_id Returns ID of vdev.
- * @return int Returns 0 on success.
- */
-static int
-setup_ct_vdev(uint16_t port_id, uint16_t *vport_id)
-{
-	int res;
-	char portname[32];
-	char portargs[256];
-	struct rte_ether_addr addr = { 0 };
-
-	/* get MAC address of physical port to use as MAC of virtio_user port */
-	rte_eth_macaddr_get(port_id, &addr);
-
-	/* set the name and arguments */
-	snprintf(portname, sizeof(portname), "virtio_user%u", port_id);
-	snprintf(portargs, sizeof(portargs),
-			"path=/dev/"
-			"vhost-net,queues=1,queue_size=%u,iface=%s,"
-			"mac=" RTE_ETHER_ADDR_PRT_FMT,
-			nb_rxd, portname, RTE_ETHER_ADDR_BYTES(&addr));
-
-	res = rte_eal_hotplug_add("vdev", portname, portargs);
-	if (res < 0) {
-		LF_LOG(ERR, "Cannot create paired port for port %u\n", port_id);
-		return -1;
-	}
-	res = rte_eth_dev_get_port_by_name(portname, vport_id);
-	if (res != 0) {
-		return -1;
-	}
-
-	return 0;
-}
-
-/**
- * Create RSS rule and apply it to port.
- * This RSS rule adopts the current RSS rule such that packets are distributed
- * only to a limited number of queues. More specifically, only the queues [0,
- * queue_num[ are considered.
- *
- * @param port_id ID of the port.
- * @param queue_num Number of queues.
- * @return int Return 0 on success.
- */
-int
-setup_rss_flow_rule(uint16_t port_id, uint16_t queue_num)
-{
-	int res;
-	int i;
-	struct rte_flow_attr attr;
-	struct rte_flow_item pattern[3];
-	struct rte_flow_action action[2];
-	uint16_t queue[RTE_MAX_QUEUES_PER_PORT];
-	uint8_t rss_key[64];
-	struct rte_eth_rss_conf rss_conf = {
-		.rss_key = rss_key,
-		.rss_key_len = sizeof(rss_key),
-	};
-	struct rte_flow_action_rss action_rss;
-
-	memset(&attr, 0, sizeof(struct rte_flow_attr));
-	memset(action, 0, sizeof(action));
-	memset(pattern, 0, sizeof(pattern));
-
-	attr.ingress = 1;
-
-	/*
-	 * create the action sequence.
-	 * apply RSS and distribute packets among queues [0, queue_num[
-	 */
-	res = rte_eth_dev_rss_hash_conf_get(port_id, &rss_conf);
-	if (res != 0) {
-		LF_LOG(ERR, "rte_eth_dev_rss_hash_conf_get: res=%d\n", res);
-		return -1;
-	}
-	for (i = 0; i < queue_num; i++) {
-		queue[i] = i;
-	}
-	action_rss = (struct rte_flow_action_rss){
-		.types = rss_conf.rss_hf,
-		.key_len = rss_conf.rss_key_len,
-		.queue_num = queue_num,
-		.key = rss_key,
-		.queue = queue,
-	};
-	action[0].type = RTE_FLOW_ACTION_TYPE_RSS;
-	action[0].conf = &action_rss;
-	action[1].type = RTE_FLOW_ACTION_TYPE_END;
-
-	/*
-	 * create pattern sequence
-	 */
-	pattern[0].type = RTE_FLOW_ITEM_TYPE_END;
-	res = set_flow_rule(port_id, &attr, pattern, action);
-	if (res != 0) {
-		return -1;
-	}
-
-	return 0;
+	rte_eth_tx_buffer_init(tx_buffer, LF_MAX_PKT_BURST);
+	return tx_buffer;
 }
 
 /**
@@ -660,229 +428,100 @@ check_all_ports_link_status(uint32_t port_mask)
 }
 
 int
-lf_setup_ports(uint16_t nb_port_queues, const uint16_t lcores[LF_MAX_WORKER],
-		const struct lf_params *params,
-		struct lf_setup_port_queue port_queues[LF_MAX_WORKER],
-		struct lf_setup_ct_port_queue *ct_port_queue)
+lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
+		struct lf_setup_port_queue_pair port_queues[RTE_MAX_LCORE]
+												   [RTE_MAX_ETHPORTS])
 {
 	int res;
-	uint16_t worker_id, lcore_id, socket_id, port_id, tx_port_id;
-	uint16_t nb_worker_per_port;
-	uint16_t nb_rx_ports, nb_tx_ports;
-	uint16_t nb_queues_per_port, queue_counter;
-	uint16_t rx_queue, tx_queue;
-	uint32_t rx_portmask, tx_portmask;
+	uint16_t nb_workers, nb_ports;
+	uint16_t lcore_id, socket_id, port_id;
+	uint16_t queue_counter;
 	struct port_queues_conf port_queues_conf[RTE_MAX_ETHPORTS];
-	struct port_queues_conf *port_conf, *tx_port_conf;
+	struct port_queues_conf *port_conf;
 
 	const uint32_t portmask = params->portmask;
-	const uint16_t *dst_port = params->dst_port;
-	const enum lf_forwarding_direction *forwarding_direction =
-			params->forwarding_direction;
 	unsigned int mtu = params->mtu;
 
-	/* create rx and tx portmasks */
-	rx_portmask = 0;
-	tx_portmask = 0;
-	for (port_id = 0; port_id < RTE_MAX_ETHPORTS; ++port_id) {
-		if (dst_port[port_id] == RTE_MAX_ETHPORTS) {
-			continue;
+	nb_workers = 0;
+	RTE_LCORE_FOREACH(lcore_id) {
+		if (workers[lcore_id]) {
+			nb_workers++;
 		}
-
-		rx_portmask |= (1 << port_id);
-		tx_portmask |= (1 << dst_port[port_id]);
 	}
 
-	/* number of worker lcores */
-	nb_rx_ports = __builtin_popcount(rx_portmask);
-	nb_tx_ports = __builtin_popcount(tx_portmask);
-	if (nb_rx_ports != nb_tx_ports) {
-		LF_LOG(ERR, "Invalid parameters: number of rx ports must be equal to "
-					"number tx ports\n");
+	if (nb_workers == 0) {
+		LF_LOG(ERR, "Invalid parameters: number of workers is zero\n");
 		return -1;
 	}
 
-	if (nb_port_queues == 0) {
-		LF_LOG(ERR, "Invalid parameters: number of port queues is zero\n");
-		return -1;
+	nb_ports = 0;
+	RTE_ETH_FOREACH_DEV(port_id) {
+		if ((portmask & (1 << port_id)) != 0) {
+			nb_ports++;
+		}
 	}
 
-	if (nb_port_queues % nb_rx_ports) {
-		LF_LOG(ERR, "Invalid parameters: number of port queues can not be "
-					"divided evenly among receiving ports\n");
-		return -1;
-	}
-
-	/* each port has the same number of queues */
-	nb_worker_per_port = nb_port_queues / nb_rx_ports;
-	nb_queues_per_port = nb_worker_per_port + (ct_port_queue ? 1 : 0);
-	if (nb_queues_per_port > LF_SETUP_MAX_QUEUE) {
-		LF_LOG(ERR,
-				"Invalid parameters: number of queues per port is not "
-				"supported. Requested = %d, Max = %d\n",
-				nb_queues_per_port, LF_SETUP_MAX_QUEUE);
-		return -1;
-	}
-
-	/*
-	 * Initialize a memory pool for each socket on which a worker is running.
-	 */
-	LF_LOG(INFO, "Initialize memory pools\n");
 	for (socket_id = 0; socket_id < MAX_NB_SOCKETS; ++socket_id) {
 		pktmbuf_pool[socket_id] = NULL;
 	}
-	pktmbuf_pool_size = calculate_nb_mbufs(nb_rx_ports, nb_rx_ports,
-			nb_port_queues, nb_queues_per_port, nb_queues_per_port);
-
-
-	/*
-	 * distribute lcores among ports
-	 */
+	pktmbuf_pool_size = calculate_nb_mbufs(nb_ports, 1, 1, 1, nb_workers);
 
 	/* set port configurations to default */
-	for (port_id = 0; port_id < RTE_MAX_ETHPORTS; ++port_id) {
+	RTE_ETH_FOREACH_DEV(port_id) {
 		port_queues_conf[port_id] = default_port_queues_conf;
 	}
-	/* set lcore configurations to default */
-	for (worker_id = 0; worker_id < nb_port_queues; ++worker_id) {
-		port_queues[worker_id] = default_port_queue;
+	/* set port queue pairs to default */
+	for (lcore_id = 0; lcore_id < RTE_MAX_LCORE; lcore_id++) {
+		for (port_id = 0; port_id < RTE_MAX_ETHPORTS; port_id++) {
+			port_queues[lcore_id][port_id].rx_queue_id = LF_SETUP_INVALID_ID;
+			port_queues[lcore_id][port_id].tx_queue_id = LF_SETUP_INVALID_ID;
+			port_queues[lcore_id][port_id].tx_buffer = NULL;
+		}
 	}
 
-	worker_id = 0;
 	RTE_ETH_FOREACH_DEV(port_id) {
 		/* skip ports that are not enabled */
 		if ((portmask & (1 << port_id)) == 0) {
 			continue;
 		}
 
-		/* skip ports that are not receiving ports */
-		if ((rx_portmask & (1 << port_id)) == 0) {
-			continue;
-		}
-
-		/* get tx port (tx_port_id) corresponding to the rx port (port_id) */
-		tx_port_id = dst_port[port_id];
-		if ((portmask & (1 << tx_port_id)) == 0 ||
-				(tx_portmask & (1 << tx_port_id)) == 0) {
-			LF_LOG(ERR, "TX port is not enabled.\n");
-			return -1;
-		}
-
-		LF_LOG(INFO, "RX Port %d --> TX Port %d: %d queues, %s direction\n",
-				port_id, tx_port_id, nb_worker_per_port,
-				lf_forwarding_direction_str[forwarding_direction[port_id]]);
-
 		port_conf = &port_queues_conf[port_id];
-		tx_port_conf = &port_queues_conf[tx_port_id];
 
-		/* Assign each rx queue to one worker. */
-		for (queue_counter = 0; queue_counter < nb_worker_per_port;
-				queue_counter++) {
-			lcore_id = lcores[worker_id];
+		port_conf->nb_rx_queue = nb_workers;
+		port_conf->nb_tx_queue = nb_workers;
 
+		/* Assign one rx queue to each worker. */
+		queue_counter = 0;
+		RTE_LCORE_FOREACH(lcore_id) {
+			if (!workers[lcore_id]) {
+				continue;
+			}
 			socket_id = rte_lcore_to_socket_id(lcore_id);
 
 			/* check if worker runs on a different socket than the receiving
 			 * port */
 			if (socket_id != rte_eth_dev_socket_id(port_id)) {
 				LF_LOG(WARNING,
-						"Worker and port on different sockets: worker %d on "
-						"socket "
-						"%d (lcore %d), port %d on socket %d\n",
-						worker_id, socket_id, lcore_id, port_id,
+						"Worker and port on different sockets: lcore_id %d on "
+						"socket, port %d on socket %d\n",
+						lcore_id, socket_id, port_id,
 						rte_eth_dev_socket_id(port_id));
 			}
 
-			LF_LOG(INFO, "worker %d (lcore %d): RX Queue %d --> TX Queue %d\n",
-					worker_id, lcore_id, queue_counter, queue_counter);
-
-			/* assign core's socket memory pool*/
-			port_conf->rx_mbuf_pool[queue_counter] = get_mbuf_pool(socket_id);
-
-			/* assign socket to rx queue and increase rx queue number */
+			/* assign core's socket to queues and memory pool*/
 			port_conf->rx_sockets[queue_counter] = socket_id;
-			++port_conf->nb_rx_queue;
-
-			/* assign socket for tx queue and increase tx queue number */
-			tx_port_conf->tx_sockets[queue_counter] = socket_id;
-			++tx_port_conf->nb_tx_queue;
+			port_conf->tx_sockets[queue_counter] = socket_id;
+			port_conf->rx_mbuf_pool[queue_counter] = get_mbuf_pool(socket_id);
 
 			/*
 			 * set worker values
 			 */
-			port_queues[worker_id].rx_port_id = port_id;
-			port_queues[worker_id].rx_queue_id = queue_counter;
-			port_queues[worker_id].tx_port_id = tx_port_id;
-			port_queues[worker_id].tx_queue_id = queue_counter;
-			port_queues[worker_id].forwarding_direction =
-					forwarding_direction[port_id];
+			port_queues[lcore_id][port_id].rx_queue_id = queue_counter;
+			port_queues[lcore_id][port_id].tx_queue_id = queue_counter;
+			port_queues[lcore_id][port_id].tx_buffer = new_tx_buffer(socket_id);
+			/* TODO: error handling in case new_tx_buffer fails */
 
-			/* increase worker_id and lcore_id */
-			++worker_id;
-		}
-
-		if (queue_counter != nb_worker_per_port) {
-			LF_LOG(ERR, "Expected queue_counter to be %d but got %d!\n",
-					nb_worker_per_port, queue_counter);
-			return -1;
-		}
-	}
-
-	/* all workers have been assigned a receiving port */
-	assert(worker_id == nb_port_queues);
-
-	if (ct_port_queue) {
-		LF_LOG(DEBUG, "Initialize signal ports...\n");
-		ct_port_queue->portmask = portmask;
-		RTE_ETH_FOREACH_DEV(port_id) {
-			/* skip ports that are not enabled */
-			if ((portmask & (1 << port_id)) == 0) {
-				continue;
-			}
-			rx_queue = port_queues_conf[port_id].nb_rx_queue;
-			tx_queue = port_queues_conf[port_id].nb_tx_queue;
-
-			ct_port_queue->rx_queue_id[port_id] = rx_queue;
-			ct_port_queue->tx_queue_id[port_id] = tx_queue;
-
-			/* assign the ports socket to the queue */
-			/* TODO: ensure that mbuf for socket is allocated! */
-			port_queues_conf[port_id].rx_sockets[rx_queue] =
-					rte_eth_dev_socket_id(port_id);
-			port_queues_conf[port_id].tx_sockets[tx_queue] =
-					rte_eth_dev_socket_id(port_id);
-			port_queues_conf[port_id].rx_mbuf_pool[rx_queue] =
-					get_mbuf_pool(rte_eth_dev_socket_id(port_id));
-			port_queues_conf[port_id].nb_rx_queue++;
-			port_queues_conf[port_id].nb_tx_queue++;
-
-			/* Setup and add vdev */
-			res = setup_ct_vdev(port_id, &ct_port_queue->vport_id[port_id]);
-			if (res != 0) {
-				return -1;
-			}
-
-			port_queues_conf[ct_port_queue->vport_id[port_id]].nb_rx_queue = 1;
-			port_queues_conf[ct_port_queue->vport_id[port_id]].nb_tx_queue = 1;
-			port_queues_conf[ct_port_queue->vport_id[port_id]].rx_sockets[0] =
-					0;
-			port_queues_conf[ct_port_queue->vport_id[port_id]].rx_mbuf_pool[0] =
-					get_mbuf_pool(0);
-
-			res = port_init(ct_port_queue->vport_id[port_id],
-					&port_queues_conf[ct_port_queue->vport_id[port_id]], 0, 0,
-					mtu);
-			if (res != 0) {
-				LF_LOG(ERR, "Port initialization failed\n");
-				return -1;
-			}
-
-			res = rte_eth_dev_start(ct_port_queue->vport_id[port_id]);
-			if (res < 0) {
-				LF_LOG(ERR, "rte_eth_dev_start: err=%d, port=%d\n", res,
-						port_id);
-				return -1;
-			}
+			queue_counter++;
 		}
 	}
 
@@ -904,31 +543,6 @@ lf_setup_ports(uint16_t nb_port_queues, const uint16_t lcores[LF_MAX_WORKER],
 		/* skip ports that are not enabled */
 		if ((portmask & (1 << port_id)) == 0) {
 			continue;
-		}
-
-		if (ct_port_queue) {
-
-			(void)clear_flow_rules(port_id);
-			res = setup_rss_flow_rule(port_id,
-					ct_port_queue->rx_queue_id[port_id]);
-			if (res != 0) {
-				LF_LOG(INFO,
-						"On port %d, failed to exclude the signal queue from "
-						"RSS.\n",
-						port_id, ct_port_queue->rx_queue_id[port_id]);
-				return -1;
-			}
-
-			res = set_ct_flow_rules(port_id,
-					ct_port_queue->rx_queue_id[port_id]);
-			if (res != 0) {
-				LF_LOG(INFO, "On port %d, failed to set the signal queue %d.\n",
-						port_id, ct_port_queue->rx_queue_id[port_id]);
-				return -1;
-			} else {
-				LF_LOG(INFO, "On port %d, the signal queue is %d.\n", port_id,
-						ct_port_queue->rx_queue_id[port_id]);
-			}
 		}
 
 		res = rte_eth_dev_start(port_id);
@@ -961,8 +575,6 @@ lf_setup_terminate(uint32_t portmask)
 			continue;
 		}
 
-		(void)clear_flow_rules(port_id);
-
 		LF_LOG(INFO, "Closing port %d...\n", port_id);
 		res = rte_eth_dev_stop(port_id);
 		if (res != 0) {
@@ -970,6 +582,8 @@ lf_setup_terminate(uint32_t portmask)
 		}
 		(void)rte_eth_dev_close(port_id);
 	}
+
+	/* TODO: free tx buffer */
 
 	return 0;
 }

@@ -25,7 +25,6 @@ function lf_up() {
 		--bf-period 500 \
 		--bf-hashes 7 \
 		--bf-bytes 131072 \
-		--dist-cores 2 \
 		&> $log_file \
 		&
 	lf_pid=$!
