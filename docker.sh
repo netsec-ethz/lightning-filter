@@ -21,7 +21,7 @@ cmd_image () {
 }
 
 cmd_create () {
-    docker create --name lf-container --privileged --net=host \
+    docker create --name lf-container --privileged --net=host --entrypoint="sleep infinity" \
     -v $PWD:/home/$CONTAINER_USER/lightning-filter/ \
     -v /dev/hugepages:/dev/hugepages -v /sys/bus/pci/devices:/sys/bus/pci/devices \
     lf-builder
@@ -56,7 +56,7 @@ cmd_dev_create () {
     docker create --name lf-dev-container --privileged --net=host \
     -v $PWD:/home/$CONTAINER_USER/lightning-filter/ \
     -v /dev/hugepages:/dev/hugepages -v /sys/bus/pci/devices:/sys/bus/pci/devices \
-    lf-developer
+    lf-developer sleep infinity
 }
 
 cmd_dev_up () {
