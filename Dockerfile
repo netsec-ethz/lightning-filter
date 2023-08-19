@@ -40,12 +40,10 @@ WORKDIR /home/$USER
 # Container for developing (building, linting, testing)
 FROM lf-builder AS lf-developer
 
-# When started, the container runs indefinitely.
-CMD ["tail", "-f", "/dev/null"]
-
-# Add packages for linting and testing
+# Add packages for developing, linting, and testing
 RUN sudo apt-get update && \
     sudo apt-get install -y \
+    bash-completion \
     clang-tidy clang-format iproute2 iputils-ping \
     python3-pip supervisor net-tools && \
     sudo rm -rf /var/lib/apt/lists/* && \
@@ -64,3 +62,5 @@ ENV SCION_BIN=/home/$USER/scion/bin
 
 # Set the working directory for the user
 WORKDIR /home/$USER
+USER $USER
+ENV USER $USER
