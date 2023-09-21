@@ -29,17 +29,6 @@ See [docs/Installation.md](docs/Installation.md) for detailed information.
 There are mainly two possibilities to build LightingFilter: with the help of a docker container or natively on a machine.
 Both of the options rely on Ubuntu 22.04.
 
-## Docker Container
-
-Install docker and add the user to the docker group.
-Then run the `docker.sh` script to create the docker image and container that builds LightningFilter.
-
-```
-./docker.sh build <CMAKE_ARGS>
-```
-
-> Note: Once a CMake flag is set for a build, it does not change its value for the following build calls.
-
 ## Native
 
 To install dependencies, we use the script provided in `usertools` and then set the required environment variables:
