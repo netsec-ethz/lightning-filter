@@ -20,12 +20,12 @@ TODO (addresses)
 
 To setup the network run
 ```
-./testnet-up.sh
+./testnet.sh up
 ```
 
 To remove the network run
 ```
-./testnet-down.sh
+./testnet.sh down
 ```
 
 ## SCION
