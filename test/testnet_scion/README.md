@@ -173,7 +173,7 @@ Note that the SCION configuration is always freshly generated.
 E.g.:
 
 ```
-./integration_test.sh ~/scion/
+./integration_test.sh ../../build/src/lf ~/scion/
 ```
 
 ## Troubleshooting
