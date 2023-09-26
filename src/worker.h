@@ -20,6 +20,7 @@
 #include "lib/crypto/crypto.h"
 #include "lib/log/log.h"
 #include "lib/time/time.h"
+#include "lib/mirror/mirror.h"
 #include "ratelimiter.h"
 
 /**
@@ -71,6 +72,7 @@ struct lf_worker_context {
 	struct lf_time_worker time;
 	struct lf_crypto_hash_ctx crypto_hash_ctx;
 	struct lf_crypto_drkey_ctx crypto_drkey_ctx;
+	struct lf_mirror_worker *mirror_ctx;
 
 	/* Quiescent State Variable */
 	struct rte_rcu_qsbr *qsv;

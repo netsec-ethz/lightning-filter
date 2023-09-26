@@ -26,6 +26,7 @@
 #include "lf.h"
 #include "lib/ipc/ipc.h"
 #include "lib/log/log.h"
+#include "lib/mirror/mirror.h"
 #include "lib/time/time.h"
 #include "params.h"
 #include "plugins/plugins.h"
@@ -54,6 +55,7 @@ static struct lf_statistics statistics;
 static struct lf_keymanager keymanager;
 static struct lf_ratelimiter ratelimiter;
 static struct lf_duplicate_filter duplicate_filter;
+static struct lf_mirror mirror_ctx;
 
 /**
  * Global force quit flag.
@@ -219,7 +221,7 @@ setup_rx_tx(struct lf_params *params)
 	struct lf_setup_port_queue_pair port_queues[RTE_MAX_LCORE]
 											   [RTE_MAX_ETHPORTS];
 
-	res = lf_setup_ports(lf_worker_lcores, params, port_queues);
+	res = lf_setup_ports(lf_worker_lcores, params, port_queues, &mirror_ctx);
 	if (res < 0) {
 		LF_LOG(ERR, "Port setup failed\n");
 		return -1;
@@ -249,10 +251,11 @@ setup_rx_tx(struct lf_params *params)
 
 			w_ctx->nb_rx_tx++;
 		}
-		LF_LOG(DEBUG, "worker: lcore %u, nb_rx_tx %u\n", lcore_id,
+		LF_LOG(DEBUG, "lcore %u, nb_rx_tx %u\n", lcore_id,
 				w_ctx->nb_rx_tx);
-	}
 
+		w_ctx->mirror_ctx = &mirror_ctx.workers[lcore_id];
+	}
 	return 0;
 }
 
@@ -647,7 +650,7 @@ main(int argc, char **argv)
 	rte_pdump_uninit();
 #endif
 
-	(void)lf_setup_terminate(params.portmask);
+	(void)lf_setup_terminate(params.portmask, &mirror_ctx);
 
 	lf_duplicate_filter_close(&duplicate_filter);
 	lf_ratelimiter_close(&ratelimiter);

@@ -9,6 +9,7 @@
 
 #include "lf.h"
 #include "lib/log/log.h"
+#include "lib/mirror/mirror.h"
 #include "lib/utils/packet.h"
 #include "params.h"
 #include "setup.h"
@@ -36,8 +37,6 @@
  * Port Constants
  */
 #define LF_SETUP_MAX_QUEUE   32
-#define LF_SETUP_MAX_RX_DESC 1024
-#define LF_SETUP_MAX_TX_DESC 1024
 
 struct port_queues_conf {
 	uint16_t rx_sockets[LF_SETUP_MAX_QUEUE];
@@ -50,8 +49,8 @@ struct port_queues_conf {
 /*
  * Configurable number of RX/TX ring descriptors
  */
-static uint16_t nb_rxd = LF_SETUP_MAX_RX_DESC;
-static uint16_t nb_txd = LF_SETUP_MAX_TX_DESC;
+static uint16_t nb_rxd = 2048;
+static uint16_t nb_txd = 2048;
 
 static const struct rte_eth_conf global_port_conf = {
 	.rxmode = {
@@ -93,9 +92,9 @@ calculate_nb_mbufs(uint16_t nb_rx_ports, uint16_t nb_tx_ports,
 		uint16_t nb_lcores, uint16_t nb_rxq, uint_fast16_t nb_txq)
 {
 	/* clang-format off */
-	return RTE_MAX(nb_rx_ports * nb_rxq * LF_SETUP_MAX_RX_DESC +
+	return RTE_MAX(nb_rx_ports * nb_rxq +
 			nb_rx_ports * nb_lcores * LF_MAX_PKT_BURST +
-			nb_tx_ports * nb_txq * LF_SETUP_MAX_TX_DESC +
+			nb_tx_ports * nb_txq +
 			nb_lcores * LF_SETUP_MEMPOOL_CACHE_SIZE,
 			8192U);
 	/* clang-format on */
@@ -167,7 +166,7 @@ new_tx_buffer(uint16_t socket)
  * flags can be set (especially usefull when different kind of ports are used).
  * The return value is 0 if the port initialization succeeds, -1 otherwise.
  */
-int
+static int
 port_init(uint16_t port_id, struct port_queues_conf *port_conf,
 		uint64_t req_rx_offloads, uint64_t req_tx_offloads, uint32_t mtu)
 {
@@ -364,7 +363,7 @@ lf_rte_eth_link_to_str(char *str, size_t len,
 
 /* Check the link status of all ports in up to 9s, and print them finally */
 static void
-check_all_ports_link_status(uint32_t port_mask)
+check_all_ports_link_status()
 {
 #define CHECK_INTERVAL 100 /* 100ms */
 #define MAX_CHECK_TIME 90  /* 9s (90 * 100ms) in total */
@@ -383,9 +382,6 @@ check_all_ports_link_status(uint32_t port_mask)
 		RTE_ETH_FOREACH_DEV(port_id) {
 			if (lf_force_quit) {
 				return;
-			}
-			if ((port_mask & (1 << port_id)) == 0) {
-				continue;
 			}
 			(void)memset(&link, 0, sizeof(link));
 			res = rte_eth_link_get_nowait(port_id, &link);
@@ -429,8 +425,8 @@ check_all_ports_link_status(uint32_t port_mask)
 
 int
 lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
-		struct lf_setup_port_queue_pair port_queues[RTE_MAX_LCORE]
-												   [RTE_MAX_ETHPORTS])
+		struct lf_setup_port_queue_pair port_queues[RTE_MAX_LCORE][RTE_MAX_ETHPORTS],
+		struct lf_mirror *mirror_ctx)
 {
 	int res;
 	uint16_t nb_workers, nb_ports;
@@ -464,7 +460,7 @@ lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
 	for (socket_id = 0; socket_id < MAX_NB_SOCKETS; ++socket_id) {
 		pktmbuf_pool[socket_id] = NULL;
 	}
-	pktmbuf_pool_size = calculate_nb_mbufs(nb_ports, 1, 1, 1, nb_workers);
+	pktmbuf_pool_size = calculate_nb_mbufs(nb_ports, nb_ports, nb_workers, nb_workers, nb_workers);
 
 	/* set port configurations to default */
 	RTE_ETH_FOREACH_DEV(port_id) {
@@ -536,12 +532,24 @@ lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
 			LF_LOG(ERR, "Port initialization failed\n");
 			return -1;
 		}
+
+		/* enable promiscuous mode on port */
+		if ((params->promiscuous & (1 << port_id)) == 0) {
+			(void)rte_eth_promiscuous_enable(port_id);
+		}
+	}
+
+	/* setup port mirrors */
+	res = lf_mirror_init(mirror_ctx, portmask, workers, &get_mbuf_pool);
+	if (res != 0) {
+		LF_LOG(ERR, "Mirror initialization failed\n");
+		return -1;
 	}
 
 	/* start ports */
 	RTE_ETH_FOREACH_DEV(port_id) {
 		/* skip ports that are not enabled */
-		if ((portmask & (1 << port_id)) == 0) {
+		if (((portmask & (1 << port_id)) == 0)) {
 			continue;
 		}
 
@@ -551,20 +559,24 @@ lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
 			return -1;
 		}
 
-		/* enable promiscuous mode on port */
-		if ((params->promiscuous & (1 << port_id)) == 0) {
-			(void)rte_eth_promiscuous_enable(port_id);
+		/* start mirrors */
+		res = rte_eth_dev_start(mirror_ctx->mirrors[port_id]);
+		if (res < 0) {
+			LF_LOG(ERR,
+					"rte_eth_dev_start of mirror: err=%d, port=%d, mirror\n",
+					res, port_id, mirror_ctx->mirrors[port_id]);
+			return -1;
 		}
 	}
 
-	/* check link status of all enabled ports */
-	check_all_ports_link_status(portmask);
+	/* check link status of all ports */
+	check_all_ports_link_status();
 
 	return 0;
 }
 
 int
-lf_setup_terminate(uint32_t portmask)
+lf_setup_terminate(uint32_t portmask, struct lf_mirror *mirror_ctx)
 {
 	int res;
 	uint16_t port_id;
@@ -582,6 +594,8 @@ lf_setup_terminate(uint32_t portmask)
 		}
 		(void)rte_eth_dev_close(port_id);
 	}
+
+	lf_mirror_close(mirror_ctx);
 
 	/* TODO: free tx buffer */
 

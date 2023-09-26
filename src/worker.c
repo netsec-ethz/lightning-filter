@@ -18,6 +18,7 @@
 #include "duplicate_filter.h"
 #include "lf.h"
 #include "lib/log/log.h"
+#include "lib/mirror/mirror.h"
 #include "lib/utils/packet.h"
 #include "plugins/plugins.h"
 #include "ratelimiter.h"
@@ -498,21 +499,85 @@ set_pkt_action(struct rte_mbuf *pkt, enum lf_pkt_action pkt_action)
 }
 
 inline static int
+mirror_filter(struct lf_worker_context *worker, uint16_t port_id,
+		uint16_t nb_pkts, struct rte_mbuf *pkts[LF_MAX_PKT_BURST],
+		struct rte_mbuf *filtered_pkts[LF_MAX_PKT_BURST])
+{
+	bool res;
+	int i, nb_filtered_pkts, nb_mirrored_pkts, nb_fwd;
+	unsigned int offset;
+	struct rte_mbuf *m;
+	struct rte_mbuf *mirrored_pkts[LF_MAX_PKT_BURST];
+	struct rte_ether_hdr *ether_hdr;
+	struct rte_ipv6_hdr *ipv6_hdr;
+
+	nb_filtered_pkts = 0;
+	nb_mirrored_pkts = 0;
+	for (i = 0; i < nb_pkts; i++) {
+		offset = 0;
+		m = pkts[i];
+		res = false;
+
+		offset = lf_get_eth_hdr(m, offset, &ether_hdr);
+		if (unlikely(offset == 0)) {
+			goto next;
+		}
+
+		res = (ether_hdr->ether_type == rte_cpu_to_be_16(RTE_ETHER_TYPE_ARP)) |
+		      (ether_hdr->ether_type == rte_cpu_to_be_16(RTE_ETHER_TYPE_LLDP));
+
+		if (ether_hdr->ether_type == rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV6)) {
+			offset = lf_get_ipv6_hdr(m, offset, &ipv6_hdr);
+			if (unlikely(offset == 0)) {
+				goto next;
+			}
+			res = res | (ipv6_hdr->proto == IP_PROTO_ID_ICMP6);
+		}
+
+	next:
+		if (res) {
+			mirrored_pkts[nb_mirrored_pkts] = m;
+			nb_mirrored_pkts++;
+		} else {
+			filtered_pkts[nb_filtered_pkts] = m;
+			nb_filtered_pkts++;
+		}
+	}
+
+	nb_fwd = lf_mirror_worker_tx(worker->mirror_ctx, port_id, mirrored_pkts,
+			nb_mirrored_pkts);
+	if (nb_fwd < nb_mirrored_pkts) {
+		rte_pktmbuf_free_bulk(mirrored_pkts, nb_mirrored_pkts - nb_fwd);
+	}
+
+	return nb_filtered_pkts;
+}
+
+
+inline static int
 lf_worker_rx(struct lf_worker_context *worker,
 		struct rte_mbuf *pkts[LF_MAX_PKT_BURST])
 {
 	uint16_t rx_port_id, rx_queue_id;
-	uint16_t nb_rx;
+	uint16_t nb_rx, nb_pkts;
+	struct rte_mbuf *rx_pkts[LF_MAX_PKT_BURST];
 
 	// Port (and queue) to fetch packets from in this iteration.
 	rx_port_id = worker->rx_port_id[worker->current_rx];
 	rx_queue_id = worker->rx_queue_id[worker->current_rx];
+	LF_WORKER_LOG_DP(DEBUG, "rx packet (port %u, queue %u)\n", rx_port_id,
+			rx_queue_id);
 
-	nb_rx = rte_eth_rx_burst(rx_port_id, rx_queue_id, pkts, LF_MAX_PKT_BURST);
+	nb_rx = rte_eth_rx_burst(rx_port_id, rx_queue_id, rx_pkts,
+			LF_MAX_PKT_BURST);
 	if (nb_rx > 0) {
 		LF_WORKER_LOG_DP(DEBUG, "%u packets received (port %u, queue %u)\n",
 				nb_rx, rx_port_id, rx_queue_id);
+		(void)lf_statistics_worker_add_burst(worker->statistics, nb_rx);
 	}
+
+	nb_pkts = mirror_filter(worker, rx_port_id, nb_rx, rx_pkts, pkts);
+
 
 	// Increase rx index for next iteration.
 	worker->current_rx++;
@@ -520,7 +585,7 @@ lf_worker_rx(struct lf_worker_context *worker,
 		worker->current_rx = 0;
 	}
 
-	return nb_rx;
+	return nb_pkts;
 }
 
 inline static int
@@ -607,7 +672,6 @@ lf_worker_main_loop(struct lf_worker_context *worker_context)
 			continue;
 		}
 
-		LF_WORKER_LOG_DP(DEBUG, "%u packets received\n", nb_rx);
 		(void)lf_statistics_worker_add_burst(stats, nb_rx);
 
 		for (i = 0; i < nb_rx; ++i) {

@@ -34,12 +34,15 @@ struct lf_setup_port_queue_pair {
  * @param workers Array defining for which workers queues have to be setup.
  * @param params LF parameters.
  * @param port_queues Return the initiated queues for each worker for each port.
+ * @param mirror_ctx Return the initiated mirror context, which is initiated for
+ * all ports.
  * @return 0 on success.
  */
 int
 lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
 		struct lf_setup_port_queue_pair port_queues[RTE_MAX_LCORE]
-												   [RTE_MAX_ETHPORTS]);
+												   [RTE_MAX_ETHPORTS],
+		struct lf_mirror *mirror_ctx);
 
 /**
  * Terminates, i.e., stops, all ports which have been started according to the
@@ -48,9 +51,10 @@ lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
  * ports are properly reset.
  *
  * @param portmask Port mask indicating the ports to be stoped.
+ * @param mirror_ctx Mirror context, which is also gonna be closed.
  * @return 0 on success.
  */
 int
-lf_setup_terminate(uint32_t portmask);
+lf_setup_terminate(uint32_t portmask, struct lf_mirror *mirror_ctx);
 
 #endif /* LF_SETUP_H */

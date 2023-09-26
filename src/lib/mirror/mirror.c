@@ -9,15 +9,161 @@
 #include "mirror.h"
 
 /*
- * Configurable number of RX/TX ring descriptors
+ * Number of RX/TX ring descriptors
  */
 static uint16_t nb_rxd = 1024;
-// static uint16_t nb_txd = 1024;
-#define LF_MIRROR_RING_SIZE 64
-#define LF_MIRROR_MAX_BURST 32
+static uint16_t nb_txd = 1024;
+
+static const struct rte_eth_conf mirror_port_conf = {
+	.rxmode = {
+		.split_hdr_size = 0,
+		/* TODO: make mtu configurable on the mirror. */
+		.mtu = 1500,
+	},
+	.txmode = {
+		.mq_mode = RTE_ETH_MQ_TX_NONE,
+#if LF_OFFLOAD_CKSUM
+		.offloads = RTE_ETH_TX_OFFLOAD_UDP_CKSUM |
+				    RTE_ETH_TX_OFFLOAD_TCP_CKSUM,
+#endif /* LF_OFFLOAD_CKSUM */
+	},
+};
+
+static int
+port_init(uint16_t port_id, uint16_t nb_queues, struct rte_mempool *mb_pool)
+{
+	int res;
+	uint16_t rx_queue_id, tx_queue_id, socket_id;
+	struct rte_eth_dev_info dev_info;
+	struct rte_eth_conf local_port_conf = mirror_port_conf;
+	struct rte_eth_rxconf rxq_conf;
+	struct rte_eth_txconf txq_conf;
+
+	LF_LOG(INFO, "Configuring device port %u:\n", port_id);
+
+	socket_id = rte_eth_dev_socket_id(port_id);
+
+	res = rte_eth_dev_info_get(port_id, &dev_info);
+	if (res != 0) {
+		LF_LOG(ERR, "Could not retrive device (port %u) info: %s\n", port_id,
+				strerror(-res));
+		return -1;
+	}
+
+
+	/* check that number of queues are supported */
+	if (nb_queues > dev_info.max_rx_queues) {
+		LF_LOG(ERR, "Port %u required %u rx queues (max rx queue is %u)\n",
+				port_id, nb_queues, dev_info.max_rx_queues);
+		return -1;
+	}
+
+	if (nb_queues > dev_info.max_tx_queues) {
+		LF_LOG(ERR, "Port %u required %u tx queues (max tx queue is %u)\n",
+				port_id, nb_queues, dev_info.max_tx_queues);
+		return -1;
+	}
+
+	LF_LOG(INFO,
+			"Creating queues: nb_rx_queue=%d nb_tx_queue=%u (max_rx_queue: %d, "
+			"mx_tx_queue: %d)...\n",
+			nb_queues, nb_queues, dev_info.max_rx_queues,
+			dev_info.max_tx_queues);
+
+	/* Check that all required capabilities are supported */
+	if ((local_port_conf.rxmode.offloads & dev_info.rx_offload_capa) !=
+			local_port_conf.rxmode.offloads) {
+		LF_LOG(ERR,
+				"Port %u required RX offloads: 0x%" PRIx64
+				", available RX offloads: 0x%" PRIx64 "\n",
+				port_id, local_port_conf.rxmode.offloads,
+				dev_info.rx_offload_capa);
+		return -1;
+	}
+
+	if ((local_port_conf.txmode.offloads & dev_info.tx_offload_capa) !=
+			local_port_conf.txmode.offloads) {
+		LF_LOG(ERR,
+				"Port %u required TX offloads: 0x%" PRIx64
+				", available TX offloads: 0x%" PRIx64 "\n",
+				port_id, local_port_conf.txmode.offloads,
+				dev_info.tx_offload_capa);
+		return -1;
+	}
+
+	local_port_conf.rx_adv_conf.rss_conf.rss_hf &=
+			dev_info.flow_type_rss_offloads;
+	if (local_port_conf.rx_adv_conf.rss_conf.rss_hf !=
+			mirror_port_conf.rx_adv_conf.rss_conf.rss_hf) {
+		LF_LOG(WARNING,
+				"Port %u modified RSS hash function based on hardware support, "
+				"requested:%#" PRIx64 " configured:%#" PRIx64 "\n",
+				port_id, mirror_port_conf.rx_adv_conf.rss_conf.rss_hf,
+				local_port_conf.rx_adv_conf.rss_conf.rss_hf);
+		if (local_port_conf.rx_adv_conf.rss_conf.rss_hf == 0) {
+			LF_LOG(WARNING, "Port %u does not use RSS!\n", port_id);
+			local_port_conf.rxmode.mq_mode = ETH_MQ_RX_NONE;
+		}
+	}
+
+	/* configure port */
+	LF_LOG(INFO,
+			"Port %u configuring rx_offloads=0x%" PRIx64
+			", tx_offloads=0x%" PRIx64 "\n",
+			port_id, local_port_conf.rxmode.offloads,
+			local_port_conf.txmode.offloads);
+
+	res = rte_eth_dev_configure(port_id, nb_queues, nb_queues,
+			&local_port_conf);
+
+	if (res < 0) {
+		LF_LOG(ERR, "Cannot configure device: err=%d, port=%d\n", res, port_id);
+		return -1;
+	}
+
+	res = rte_eth_dev_adjust_nb_rx_tx_desc(port_id, &nb_rxd, &nb_txd);
+	if (res < 0) {
+		LF_LOG(WARNING,
+				"Cannot adjust number of descriptors: err=%d, port=%d\n", res,
+				port_id);
+	}
+
+	/* init RX queues */
+	for (rx_queue_id = 0; rx_queue_id < nb_queues; ++rx_queue_id) {
+		LF_LOG(INFO, "Setup rxq=%d,socket_id=%d,mempoo=%p\n", rx_queue_id,
+				socket_id, mb_pool);
+
+		rxq_conf = dev_info.default_rxconf;
+		rxq_conf.offloads = local_port_conf.rxmode.offloads;
+		res = rte_eth_rx_queue_setup(port_id, rx_queue_id, nb_rxd, socket_id,
+				&rxq_conf, mb_pool);
+		if (res < 0) {
+			LF_LOG(ERR, "rte_eth_rx_queue_setup: err=%d, port=%d\n", res,
+					port_id);
+			return -1;
+		}
+	}
+
+	/* init TX queues */
+	for (tx_queue_id = 0; tx_queue_id < nb_queues; ++tx_queue_id) {
+		LF_LOG(INFO, "Setup txq: tx_queue_id=%d, socket_id=%d\n", tx_queue_id, socket_id);
+
+		txq_conf = dev_info.default_txconf;
+		txq_conf.offloads = local_port_conf.txmode.offloads;
+		res = rte_eth_tx_queue_setup(port_id, tx_queue_id, nb_txd, socket_id,
+				&txq_conf);
+		if (res < 0) {
+			LF_LOG(ERR, "rte_eth_tx_queue_setup: err=%d, port=%d\n", res,
+					port_id);
+			return -1;
+		}
+	}
+
+	return 0;
+}
 
 int
-create_mirror(uint16_t port_id)
+create_mirror(uint16_t port_id, uint16_t nb_queues)
 {
 	int res;
 	uint16_t mirror_id;
@@ -29,12 +175,12 @@ create_mirror(uint16_t port_id)
 	rte_eth_macaddr_get(port_id, &addr);
 
 	/* set the name and arguments */
-	snprintf(portname, sizeof(portname), "mirror_%u", port_id);
+	snprintf(portname, sizeof(portname), "virtio_user%u", port_id);
 	snprintf(portargs, sizeof(portargs),
 			"path=/dev/"
-			"vhost-net,queues=1,queue_size=%u,iface=%s,"
+			"vhost-net,queues=%d,queue_size=%u,iface=%s,"
 			"mac=" RTE_ETHER_ADDR_PRT_FMT,
-			nb_rxd, portname, RTE_ETHER_ADDR_BYTES(&addr));
+			nb_queues, nb_rxd, portname, RTE_ETHER_ADDR_BYTES(&addr));
 
 	res = rte_eal_hotplug_add("vdev", portname, portargs);
 	if (res < 0) {
@@ -51,26 +197,33 @@ create_mirror(uint16_t port_id)
 }
 
 int
-init_mirrors(struct lf_mirror *mirror_ctx, uint32_t portmask)
+init_mirrors(struct lf_mirror *mirror_ctx, uint32_t portmask,
+		uint16_t nb_queues, lf_mirror_mbuf_pool_get get_pool)
 {
 	int res;
 	uint16_t port_id;
 
+	/* Reset values */
+	for (port_id = 0; port_id < RTE_MAX_ETHPORTS; port_id++) {
+		mirror_ctx->mirrors[port_id] = 0;
+		mirror_ctx->mirror_to_port[port_id] = 0;
+	}
+
 
 	RTE_ETH_FOREACH_DEV(port_id) {
-		mirror_ctx->mirrors[port_id] = 0;
-
 		/* skip ports that are not enabled */
 		if ((portmask & (1 << port_id)) == 0) {
 			continue;
 		}
 
-		res = create_mirror(port_id);
+		res = create_mirror(port_id, nb_queues);
 		if (res < 0) {
 			LF_LOG(ERR, "Failed to create mirror");
 			return -1;
 		}
+		port_init(res, nb_queues, get_pool(0));
 		mirror_ctx->mirrors[port_id] = res;
+		mirror_ctx->mirror_to_port[res] = port_id;
 	}
 
 	return 0;
@@ -102,54 +255,27 @@ close_mirror(struct lf_mirror *mirror_ctx)
 }
 
 int
-init_worker_rings(struct lf_mirror *mirror_ctx)
-{
-	uint16_t lcore_id, socket_id;
-	char ring_name[RTE_RING_NAMESIZE];
-
-	RTE_LCORE_FOREACH(lcore_id) {
-		socket_id = rte_lcore_to_socket_id(lcore_id);
-		(void)snprintf(ring_name, sizeof(ring_name), "mirror_%u", lcore_id);
-		mirror_ctx->rx_ring[lcore_id] = rte_ring_create(ring_name,
-				LF_MIRROR_RING_SIZE, socket_id, RING_F_SC_DEQ | RING_F_SP_ENQ);
-		if (mirror_ctx->rx_ring[lcore_id] == NULL) {
-			return -1;
-		}
-	}
-
-	return 0;
-}
-
-void
-close_worker_rings(struct lf_mirror *mirror_ctx)
-{
-	uint16_t lcore_id;
-
-	for (lcore_id = 0; lcore_id < LF_MAX_WORKER; lcore_id++) {
-		if (mirror_ctx->rx_ring[lcore_id] == NULL) {
-			continue;
-		}
-
-		rte_ring_free(mirror_ctx->rx_ring[lcore_id]);
-	}
-}
-
-int
-lf_mirror_init(struct lf_mirror *mirror_ctx, uint32_t portmask)
+lf_mirror_init(struct lf_mirror *mirror_ctx, uint32_t portmask,
+		bool lcores[RTE_MAX_LCORE], lf_mirror_mbuf_pool_get get_pool)
 {
 	int res;
+	uint16_t nb_queues = 0;
 
 	(void)memset(mirror_ctx, 0, sizeof *mirror_ctx);
 
 	mirror_ctx->portmask = portmask;
 
-	res = init_mirrors(mirror_ctx, portmask);
-	if (res != 0) {
-		lf_mirror_close(mirror_ctx);
-		return -1;
+	for (int i = 0; i < RTE_MAX_LCORE; i++) {
+		mirror_ctx->workers[i].queue = -1;
+		if (!lcores[i]) {
+			continue;
+		}
+		mirror_ctx->workers[i].queue = nb_queues;
+		mirror_ctx->workers[i].ctx = mirror_ctx;
+		nb_queues++;
 	}
 
-	res = init_worker_rings(mirror_ctx);
+	res = init_mirrors(mirror_ctx, portmask, nb_queues, get_pool);
 	if (res != 0) {
 		lf_mirror_close(mirror_ctx);
 		return -1;
@@ -161,112 +287,6 @@ lf_mirror_init(struct lf_mirror *mirror_ctx, uint32_t portmask)
 void
 lf_mirror_close(struct lf_mirror *mirror_ctx)
 {
-	mirror_ctx->portmask = 0;
 	close_mirror(mirror_ctx);
-	close_worker_rings(mirror_ctx);
-}
-
-
-static void
-forward_tx_pkts(struct lf_mirror *mirror_ctx)
-{
-	uint16_t port_id;
-	uint16_t mirror_id;
-	uint16_t nb_pkts, nb_fwd;
-	struct rte_mbuf *pkts[LF_MAX_PKT_BURST];
-
-	RTE_ETH_FOREACH_DEV(port_id) {
-		/* skip ports that are not enabled */
-		if ((mirror_ctx->portmask & (1 << port_id)) == 0) {
-			continue;
-		}
-
-		mirror_id = mirror_ctx->mirrors[port_id];
-		if (mirror_id == 0) {
-			continue;
-		}
-
-		nb_pkts = rte_eth_rx_burst(mirror_id, /*queue_id*/ 0, pkts,
-				LF_MAX_PKT_BURST);
-
-		/* Replace the mirror's port ID with the ID of the actual port */
-		for (int i = 0; i < nb_pkts; i++) {
-			pkts[i]->port = port_id;
-		}
-
-		/* XXX: Packets that are received on the mirror interface are always
-		 * forwarded to the worker with lcore ID 1. We assume that this lcore
-		 * always exists and always has access to all interfaces. However, this
-		 * assumption might not always be true and this behavior must be
-		 * adjusted, e.g., by keeping a list of workers that can forward packets
-		 * to the ports. */
-		nb_fwd = rte_ring_enqueue_burst(mirror_ctx->rx_ring[1], (void **)pkts,
-				nb_pkts, NULL);
-		if (nb_pkts - nb_fwd > 0) {
-			rte_pktmbuf_free_bulk(&pkts[nb_fwd], nb_pkts - nb_fwd);
-		}
-	}
-}
-
-static void
-forward_pkts_to_mirror(struct lf_mirror *mirror_ctx, struct rte_mbuf *rx_pkts[],
-		uint16_t nb_rx)
-{
-	int i;
-	uint16_t mirror_id;
-	uint16_t nb_fwd;
-	struct rte_mbuf *pkt;
-
-	for (i = 0; i < nb_rx; i++) {
-		pkt = rx_pkts[i];
-		mirror_id = mirror_ctx->mirrors[pkt->port];
-		nb_fwd = rte_eth_tx_burst(mirror_id, /*queue_id*/ 0, &rx_pkts[i], 1);
-		if (nb_fwd != 1) {
-			rte_pktmbuf_free(rx_pkts[i]);
-		}
-	}
-}
-
-static void
-forward_rx_pkts(struct lf_mirror *mirror_ctx)
-{
-	uint16_t lcore_id;
-	struct rte_ring *rx_ring;
-	uint16_t nb_rx;
-	struct rte_mbuf *rx_pkts[LF_MIRROR_MAX_BURST];
-
-	RTE_LCORE_FOREACH(lcore_id) {
-		rx_ring = mirror_ctx->rx_ring[lcore_id];
-		nb_rx = rte_ring_dequeue_burst(rx_ring, (void **)(rx_pkts),
-				LF_MIRROR_MAX_BURST, NULL);
-		forward_pkts_to_mirror(mirror_ctx, rx_pkts, nb_rx);
-	}
-}
-
-int
-lf_mirror_main_loop(struct lf_mirror *mirror_ctx)
-{
-	while (likely(!lf_force_quit)) {
-		forward_rx_pkts(mirror_ctx);
-		forward_tx_pkts(mirror_ctx);
-	}
-
-	return 0;
-}
-
-
-int
-lf_mirror_worker_init(struct lf_mirror *mirror_ctx,
-		struct lf_mirror_worker *mirror_worker, uint16_t lcore_id)
-{
-	mirror_worker->rx_ring = mirror_ctx->rx_ring[lcore_id];
-	if (mirror_worker->rx_ring == NULL) {
-		return -1;
-	}
-	mirror_worker->tx_ring = mirror_ctx->tx_ring[lcore_id];
-	if (mirror_worker->tx_ring == NULL) {
-		return -1;
-	}
-
-	return 0;
+	mirror_ctx->portmask = 0;
 }
