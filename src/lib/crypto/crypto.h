@@ -28,7 +28,6 @@ struct lf_crypto_drkey_ctx {
 #else
 	EVP_CIPHER_CTX *mdctx;
 #endif
-
 };
 
 /*
@@ -40,7 +39,6 @@ struct lf_crypto_drkey {
 #ifdef LF_CBCMAC_AESNI
 	uint8_t roundkey[LF_CRYPTO_DRKEY_ROUNDKEY_SIZE];
 #endif
-
 };
 
 /**
