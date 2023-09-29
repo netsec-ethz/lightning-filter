@@ -88,7 +88,7 @@ E.g., with `sudo -u $USER ...` or by using `nsenter` with `setuid` and `setguid`
 
 
 ## LightningFilter
-To run LF in the corresponding namespaces the script ``run_lf.sh`` can be used.
+To run LF in the corresponding namespaces the script ``run_lf.sh`` can be used. NOTE that your system should have at least 4 cores s.t. each LF can have its own core and you can still perform pings. If the logs say that there are no cores available then this might be the issue.
 ```
 ./run_lf.sh <path/to/lf_exec>
 ```
