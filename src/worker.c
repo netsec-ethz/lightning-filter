@@ -503,7 +503,7 @@ mirror_filter(struct lf_worker_context *worker, uint16_t port_id,
 		uint16_t nb_pkts, struct rte_mbuf *pkts[LF_MAX_PKT_BURST],
 		struct rte_mbuf *filtered_pkts[LF_MAX_PKT_BURST])
 {
-	bool res;
+	bool forward_to_mirror;
 	int i, nb_filtered_pkts, nb_mirrored_pkts, nb_fwd;
 	unsigned int offset;
 	struct rte_mbuf *m;
@@ -516,14 +516,19 @@ mirror_filter(struct lf_worker_context *worker, uint16_t port_id,
 	for (i = 0; i < nb_pkts; i++) {
 		offset = 0;
 		m = pkts[i];
-		res = false;
+		forward_to_mirror = false;
+
+		if (m == NULL) {
+			LF_WORKER_LOG_DP(ERR, "Packet is NULL\n");
+			continue;
+		}
 
 		offset = lf_get_eth_hdr(m, offset, &ether_hdr);
 		if (unlikely(offset == 0)) {
 			goto next;
 		}
 
-		res = (ether_hdr->ether_type == rte_cpu_to_be_16(RTE_ETHER_TYPE_ARP)) |
+		forward_to_mirror = (ether_hdr->ether_type == rte_cpu_to_be_16(RTE_ETHER_TYPE_ARP)) |
 		      (ether_hdr->ether_type == rte_cpu_to_be_16(RTE_ETHER_TYPE_LLDP));
 
 		if (ether_hdr->ether_type == rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV6)) {
@@ -531,11 +536,11 @@ mirror_filter(struct lf_worker_context *worker, uint16_t port_id,
 			if (unlikely(offset == 0)) {
 				goto next;
 			}
-			res = res | (ipv6_hdr->proto == IP_PROTO_ID_ICMP6);
+			forward_to_mirror = forward_to_mirror | (ipv6_hdr->proto == IP_PROTO_ID_ICMP6);
 		}
 
 	next:
-		if (res) {
+		if (forward_to_mirror) {
 			mirrored_pkts[nb_mirrored_pkts] = m;
 			nb_mirrored_pkts++;
 		} else {
@@ -544,12 +549,18 @@ mirror_filter(struct lf_worker_context *worker, uint16_t port_id,
 		}
 	}
 
+	if (nb_mirrored_pkts > 0) {
+		LF_WORKER_LOG_DP(DEBUG, "%u packets to be forwarded to mirror (port %u)\n", nb_mirrored_pkts,
+				port_id);
+	}
+
 	nb_fwd = lf_mirror_worker_tx(worker->mirror_ctx, port_id, mirrored_pkts,
 			nb_mirrored_pkts);
 	if (nb_fwd < nb_mirrored_pkts) {
 		rte_pktmbuf_free_bulk(mirrored_pkts, nb_mirrored_pkts - nb_fwd);
+		LF_WORKER_LOG_DP(DEBUG, "%u packets dropped instead forwarded to mirror (port %u)\n",
+				nb_mirrored_pkts - nb_fwd, port_id);
 	}
-
 	return nb_filtered_pkts;
 }
 
@@ -562,11 +573,15 @@ lf_worker_rx(struct lf_worker_context *worker,
 	uint16_t nb_rx, nb_pkts;
 	struct rte_mbuf *rx_pkts[LF_MAX_PKT_BURST];
 
+	/* Increase current rx/tx iteration index and reset it at max */
+	worker->current_rx_tx_index++;
+	if (worker->current_rx_tx_index >= worker->max_rx_tx_index) {
+		worker->current_rx_tx_index = 0;
+	}
+
 	// Port (and queue) to fetch packets from in this iteration.
-	rx_port_id = worker->rx_port_id[worker->current_rx];
-	rx_queue_id = worker->rx_queue_id[worker->current_rx];
-	LF_WORKER_LOG_DP(DEBUG, "rx packet (port %u, queue %u)\n", rx_port_id,
-			rx_queue_id);
+	rx_port_id = worker->rx_port_id[worker->current_rx_tx_index];
+	rx_queue_id = worker->rx_queue_id[worker->current_rx_tx_index];
 
 	nb_rx = rte_eth_rx_burst(rx_port_id, rx_queue_id, rx_pkts,
 			LF_MAX_PKT_BURST);
@@ -578,11 +593,9 @@ lf_worker_rx(struct lf_worker_context *worker,
 
 	nb_pkts = mirror_filter(worker, rx_port_id, nb_rx, rx_pkts, pkts);
 
-
-	// Increase rx index for next iteration.
-	worker->current_rx++;
-	if (worker->current_rx >= worker->nb_rx_tx) {
-		worker->current_rx = 0;
+	if (nb_pkts > 0) {
+		LF_WORKER_LOG_DP(DEBUG, "%u packets to be processed (port %u, queue %u)\n",
+				nb_pkts, rx_port_id, rx_queue_id);
 	}
 
 	return nb_pkts;
@@ -624,7 +637,7 @@ lf_worker_tx(struct lf_worker_context *worker,
 	}
 
 	/* flush all tx buffers */
-	for (i = 0; i < worker->nb_rx_tx; i++) {
+	for (i = 0; i < worker->max_rx_tx_index; i++) {
 		nb_sent = rte_eth_tx_buffer_flush(worker->tx_port_id[i],
 				worker->tx_queue_id[i], worker->tx_buffer[i]);
 		LF_WORKER_LOG_DP(DEBUG, "%u packets sent (port %u, queue %u)\n",
@@ -638,6 +651,7 @@ lf_worker_tx(struct lf_worker_context *worker,
 static void
 lf_worker_main_loop(struct lf_worker_context *worker_context)
 {
+	int res;
 	unsigned int i;
 	uint16_t nb_rx;
 
@@ -649,6 +663,7 @@ lf_worker_main_loop(struct lf_worker_context *worker_context)
 	struct rte_rcu_qsbr *qsv = worker_context->qsv;
 	struct lf_time_worker *time = &worker_context->time;
 	struct lf_statistics_worker *stats = worker_context->statistics;
+	uint64_t ns_now, ns_last_log = 0;
 
 	LF_WORKER_LOG_DP(INFO, "enter main loop\n");
 	while (likely(!lf_force_quit)) {
@@ -665,6 +680,17 @@ lf_worker_main_loop(struct lf_worker_context *worker_context)
 		 * updates it.
 		 */
 		(void)lf_time_worker_update(time);
+
+		/* Log every 10 seconds that the worker is still alive */
+		res = lf_time_worker_get(time, &ns_now);
+		if (unlikely(res != 0)) {
+			LF_WORKER_LOG_DP(ERR, "Failed to get current time\n");
+			continue;
+		}
+		if (ns_now - ns_last_log > 10 * LF_TIME_NS_IN_S) {
+			LF_WORKER_LOG_DP(INFO, "worker is alive\n");
+			ns_last_log = ns_now;
+		}
 
 		nb_rx = lf_worker_rx(worker_context, rx_pkts);
 

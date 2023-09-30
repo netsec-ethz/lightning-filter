@@ -44,7 +44,7 @@
 struct lf_worker_context {
 	uint16_t lcore_id;
 
-	uint16_t nb_rx_tx, current_rx;
+	uint16_t max_rx_tx_index, current_rx_tx_index;
 	uint16_t rx_port_id[RTE_MAX_ETHPORTS];
 	uint16_t rx_queue_id[RTE_MAX_ETHPORTS];
 	uint16_t tx_port_id[RTE_MAX_ETHPORTS];

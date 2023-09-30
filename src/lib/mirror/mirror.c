@@ -11,8 +11,10 @@
 /*
  * Number of RX/TX ring descriptors
  */
-static uint16_t nb_rxd = 1024;
-static uint16_t nb_txd = 1024;
+static uint16_t nb_rxd = 512;
+static uint16_t nb_txd = 512;
+
+#define MAX_NB_SOCKETS 8
 
 static const struct rte_eth_conf mirror_port_conf = {
 	.rxmode = {
@@ -29,8 +31,52 @@ static const struct rte_eth_conf mirror_port_conf = {
 	},
 };
 
+
 static int
-port_init(uint16_t port_id, uint16_t nb_queues, struct rte_mempool *mb_pool)
+init_mbuf_pool(int32_t socket_id, uint32_t nb_mbuf, struct rte_mempool **mb_pool)
+{
+	char s[64];
+
+	(void)snprintf(s, sizeof(s) - 1, "mbuf_pool_mirror_%u", socket_id);
+	LF_LOG(INFO, "Creating mbuf pool '%s' on socket %u with %u mbufs\n", s,
+			socket_id, nb_mbuf);
+	*mb_pool = rte_pktmbuf_pool_create(s, nb_mbuf, 0, 0, 2048, socket_id);
+
+	if (*mb_pool == NULL) {
+		/* log error from rte_errno */
+		LF_LOG(ERR, "Cannot create mbuf pool on socket %u: %s (%d)\n",
+				socket_id, rte_strerror(rte_errno), rte_errno);
+		return -1;
+	} else {
+		return 0;
+	}
+}
+
+static struct rte_mempool *pktmbuf_pool[MAX_NB_SOCKETS];
+static uint32_t pktmbuf_pool_size = 1012;
+static struct rte_mempool *
+get_mbuf_pool(int32_t socket_id)
+{
+	int res;
+	if (socket_id > MAX_NB_SOCKETS) {
+		LF_LOG(ERR, "Socket ID too large socket_id = %d)\n", socket_id);
+		return NULL;
+	}
+
+	/* initialize pool if not yet done */
+	if (pktmbuf_pool[socket_id] == NULL) {
+		res = init_mbuf_pool(socket_id, pktmbuf_pool_size, &pktmbuf_pool[socket_id]);
+		if (res != 0 || pktmbuf_pool[socket_id] == NULL) {
+			LF_LOG(ERR, "Failed to init mbuf pool %d\n", socket_id);
+			return NULL;
+		}
+	}
+
+	return pktmbuf_pool[socket_id];
+}
+
+static int
+configure_port(uint16_t port_id, uint16_t nb_queues, struct rte_mempool *mb_pool)
 {
 	int res;
 	uint16_t rx_queue_id, tx_queue_id, socket_id;
@@ -130,7 +176,7 @@ port_init(uint16_t port_id, uint16_t nb_queues, struct rte_mempool *mb_pool)
 
 	/* init RX queues */
 	for (rx_queue_id = 0; rx_queue_id < nb_queues; ++rx_queue_id) {
-		LF_LOG(INFO, "Setup rxq=%d,socket_id=%d,mempoo=%p\n", rx_queue_id,
+		LF_LOG(INFO, "Setup rxq=%d,socket_id=%d,mempool=%p\n", rx_queue_id,
 				socket_id, mb_pool);
 
 		rxq_conf = dev_info.default_rxconf;
@@ -146,7 +192,8 @@ port_init(uint16_t port_id, uint16_t nb_queues, struct rte_mempool *mb_pool)
 
 	/* init TX queues */
 	for (tx_queue_id = 0; tx_queue_id < nb_queues; ++tx_queue_id) {
-		LF_LOG(INFO, "Setup txq: tx_queue_id=%d, socket_id=%d\n", tx_queue_id, socket_id);
+		LF_LOG(INFO, "Setup txq: tx_queue_id=%d, socket_id=%d\n", tx_queue_id,
+				socket_id);
 
 		txq_conf = dev_info.default_txconf;
 		txq_conf.offloads = local_port_conf.txmode.offloads;
@@ -197,8 +244,60 @@ create_mirror(uint16_t port_id, uint16_t nb_queues)
 }
 
 int
+lf_mirror_add_port(struct lf_mirror *mirror_ctx, uint16_t port_id,
+		bool lcores[RTE_MAX_LCORE])
+{
+	int res;
+	int mirror_id;
+	uint16_t lcore;
+	uint16_t nb_queues = 0;
+	struct rte_mempool *mb_pool;
+	if (mirror_ctx->mirrors[port_id] != RTE_MAX_ETHPORTS) {
+		LF_LOG(ERR, "Mirror for port %u already exists\n", port_id);
+		return -1;
+	}
+
+	RTE_LCORE_FOREACH(lcore) {
+		if (lcores[lcore] == false) {
+			continue;
+		}
+		mirror_ctx->workers[lcore].queue[port_id] = nb_queues;
+		nb_queues++;
+	}
+
+	if (nb_queues == 0) {
+		LF_LOG(ERR, "No queues selected for port %u\n", port_id);
+		return -1;
+	}
+
+	mirror_id = create_mirror(port_id, nb_queues);
+	if (mirror_id < 0) {
+		LF_LOG(ERR, "Failed to create mirror\n");
+		return -1;
+	}
+
+	// Get memory pool from the port's socket.
+	mb_pool = get_mbuf_pool(rte_eth_dev_socket_id(port_id));
+	if (mb_pool == NULL) {
+		LF_LOG(ERR, "Failed to get memory pool\n");
+		return -1;
+	}
+
+	res = configure_port(mirror_id, nb_queues, mb_pool);
+	if (res < 0) {
+		LF_LOG(ERR, "Failed to init mirror\n");
+		return -1;
+	}
+
+	mirror_ctx->mirrors[port_id] = mirror_id;
+	mirror_ctx->mirror_to_port[mirror_id] = port_id;
+
+	return 0;
+}
+
+int
 init_mirrors(struct lf_mirror *mirror_ctx, uint32_t portmask,
-		uint16_t nb_queues, lf_mirror_mbuf_pool_get get_pool)
+		uint16_t nb_queues)
 {
 	int res;
 	uint16_t port_id;
@@ -218,10 +317,10 @@ init_mirrors(struct lf_mirror *mirror_ctx, uint32_t portmask,
 
 		res = create_mirror(port_id, nb_queues);
 		if (res < 0) {
-			LF_LOG(ERR, "Failed to create mirror");
+			LF_LOG(ERR, "Failed to create mirror\n");
 			return -1;
 		}
-		port_init(res, nb_queues, get_pool(0));
+		configure_port(res, nb_queues, get_mbuf_pool(0));
 		mirror_ctx->mirrors[port_id] = res;
 		mirror_ctx->mirror_to_port[res] = port_id;
 	}
@@ -237,7 +336,7 @@ close_mirror(struct lf_mirror *mirror_ctx)
 	char portname[32];
 
 	for (port_id = 0; port_id < RTE_MAX_ETHPORTS; port_id++) {
-		if (mirror_ctx->mirrors[port_id] == 0) {
+		if (mirror_ctx->mirrors[port_id] == RTE_MAX_ETHPORTS) {
 			continue;
 		}
 
@@ -255,30 +354,23 @@ close_mirror(struct lf_mirror *mirror_ctx)
 }
 
 int
-lf_mirror_init(struct lf_mirror *mirror_ctx, uint32_t portmask,
-		bool lcores[RTE_MAX_LCORE], lf_mirror_mbuf_pool_get get_pool)
+lf_mirror_init(struct lf_mirror *mirror_ctx)
 {
-	int res;
-	uint16_t nb_queues = 0;
-
 	(void)memset(mirror_ctx, 0, sizeof *mirror_ctx);
 
-	mirror_ctx->portmask = portmask;
-
-	for (int i = 0; i < RTE_MAX_LCORE; i++) {
-		mirror_ctx->workers[i].queue = -1;
-		if (!lcores[i]) {
-			continue;
+	for (int j = 0; j < RTE_MAX_ETHPORTS; j++) {
+		/* Set invalid mirror port number for all ports */
+		mirror_ctx->mirrors[j] = RTE_MAX_ETHPORTS;
+		/* Set invalid port number for all mirror ports */
+		mirror_ctx->mirror_to_port[j] = RTE_MAX_ETHPORTS;
+		for (int i = 0; i < RTE_MAX_LCORE; i++) {
+			// Set invalid queue number for all queues.
+			mirror_ctx->workers[i].queue[j] = RTE_MAX_QUEUES_PER_PORT;
 		}
-		mirror_ctx->workers[i].queue = nb_queues;
-		mirror_ctx->workers[i].ctx = mirror_ctx;
-		nb_queues++;
 	}
 
-	res = init_mirrors(mirror_ctx, portmask, nb_queues, get_pool);
-	if (res != 0) {
-		lf_mirror_close(mirror_ctx);
-		return -1;
+	for (int i = 0; i < RTE_MAX_LCORE; i++) {
+		mirror_ctx->workers[i].ctx = mirror_ctx;
 	}
 
 	return 0;
@@ -288,5 +380,4 @@ void
 lf_mirror_close(struct lf_mirror *mirror_ctx)
 {
 	close_mirror(mirror_ctx);
-	mirror_ctx->portmask = 0;
 }

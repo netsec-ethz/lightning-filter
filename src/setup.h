@@ -20,13 +20,12 @@
  * Struct for a port/queue transmit pair.
  */
 struct lf_setup_port_queue_pair {
-	uint8_t rx_queue_id;
-	uint8_t tx_queue_id;
-
+	uint16_t rx_queue_id;
+	uint16_t tx_queue_id;
 	struct rte_eth_dev_tx_buffer *tx_buffer;
 };
 
-#define LF_SETUP_INVALID_ID (uint8_t) ~0
+#define LF_SETUP_INVALID_ID (uint16_t) ~0
 
 /**
  * The setup function is responsible to prepare the memory pools, ports and

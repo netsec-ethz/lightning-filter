@@ -116,6 +116,8 @@ register_dynfield()
 		LF_LOG(ERR, "Failed to register mbuf dynfield field (%d)\n", rte_errno);
 		return -1;
 	}
+	LF_LOG(DEBUG, "Registered mbuf dynfield field at offset %d\n",
+			lf_pkt_action_dynfield_offset);
 	return 0;
 }
 
@@ -223,36 +225,38 @@ setup_rx_tx(struct lf_params *params)
 
 	res = lf_setup_ports(lf_worker_lcores, params, port_queues, &mirror_ctx);
 	if (res < 0) {
-		LF_LOG(ERR, "Port setup failed\n");
+		LF_LOG(ERR, "Failed to setup ports\n");
 		return -1;
 	}
+	LF_LOG(DEBUG, "Setup ports done\n");
 
 	RTE_LCORE_FOREACH(lcore_id) {
 		w_ctx = &worker_contexts[lcore_id];
-		w_ctx->nb_rx_tx = 0;
+		w_ctx->max_rx_tx_index = 0;
+		w_ctx->current_rx_tx_index = 0;
 		RTE_ETH_FOREACH_DEV(port_id) {
 			if (port_queues[lcore_id][port_id].rx_queue_id ==
 					LF_SETUP_INVALID_ID) {
 				continue;
 			}
-			w_ctx->rx_port_id[w_ctx->nb_rx_tx] = port_id;
-			w_ctx->tx_port_id[w_ctx->nb_rx_tx] = port_id;
-			w_ctx->rx_queue_id[w_ctx->nb_rx_tx] =
+			w_ctx->rx_port_id[w_ctx->max_rx_tx_index] = port_id;
+			w_ctx->tx_port_id[w_ctx->max_rx_tx_index] = port_id;
+			w_ctx->rx_queue_id[w_ctx->max_rx_tx_index] =
 					port_queues[lcore_id][port_id].rx_queue_id;
-			w_ctx->tx_queue_id[w_ctx->nb_rx_tx] =
+			w_ctx->tx_queue_id[w_ctx->max_rx_tx_index] =
 					port_queues[lcore_id][port_id].tx_queue_id;
 			w_ctx->tx_queue_id_by_port[port_id] =
 					port_queues[lcore_id][port_id].tx_queue_id;
 
-			w_ctx->tx_buffer[w_ctx->nb_rx_tx] =
+			w_ctx->tx_buffer[w_ctx->max_rx_tx_index] =
 					port_queues[lcore_id][port_id].tx_buffer;
 			w_ctx->tx_buffer_by_port[port_id] =
 					port_queues[lcore_id][port_id].tx_buffer;
 
-			w_ctx->nb_rx_tx++;
+			w_ctx->max_rx_tx_index++;
 		}
 		LF_LOG(DEBUG, "lcore %u, nb_rx_tx %u\n", lcore_id,
-				w_ctx->nb_rx_tx);
+				w_ctx->max_rx_tx_index);
 
 		w_ctx->mirror_ctx = &mirror_ctx.workers[lcore_id];
 	}
