@@ -17,7 +17,7 @@ function lf_up() {
 		--vdev=net_tap1,remote=$lfx1 \
 		--file-prefix=$file_prefix \
 		--log-level lf:debug \
-		--\
+		-- \
 		--version \
 		-p 0x3 \
 		--portmap "(0,1,o),(1,0,i)" \
@@ -25,6 +25,7 @@ function lf_up() {
 		--bf-period 500 \
 		--bf-hashes 7 \
 		--bf-bytes 131072 \
+		--disable-mirrors \
 		&> $log_file \
 		&
 	lf_pid=$!

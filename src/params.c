@@ -23,11 +23,12 @@ static const struct lf_params default_params = {
 	/* config */
 	.config_file = "",
 
-	/* setup (port and queues) */
+	/* setup (port, queues, and mirrors) */
 	.portmask = 0,
 	.rx_portmask = 0,
 	.tx_portmask = 0,
 	.mtu = 1500,
+	.disable_mirrors = false,
 
 	/* timestamp filter */
 	.tf_threshold = 1000,
@@ -45,9 +46,6 @@ static const struct lf_params default_params = {
 	/* keymanager */
 	.km_config_file = "",
 	.km_size = 1024,
-
-	/* control traffic worker */
-	.ct_worker_enabled = false,
 };
 
 #define LF_MAX_PORTPAIRS (2 * RTE_MAX_ETHPORTS)
@@ -80,7 +78,7 @@ static const char short_options[] = "v:" /* version */
 #define CMD_LINE_OPT_RL_SIZE        "rl-size"
 #define CMD_LINE_OPT_KM_CONFIG_FILE "km-config-file"
 #define CMD_LINE_OPT_KM_SIZE        "km-size"
-#define CMD_LINE_OPT_CT_WORKER      "ct-worker"
+#define CMD_LINE_OPT_DISABLE_MIRRORS      "disable-mirrors"
 
 /* map long options to number */
 enum {
@@ -102,7 +100,7 @@ enum {
 	CMD_LINE_OPT_RL_SIZE_NUM,
 	CMD_LINE_OPT_KM_CONFIG_FILE_NUM,
 	CMD_LINE_OPT_KM_SIZE_NUM,
-	CMD_LINE_OPT_CT_WORKER_NUM,
+	CMD_LINE_OPT_DISABLE_MIRRORS_NUM,
 };
 
 static const struct option long_options[] = {
@@ -128,7 +126,7 @@ static const struct option long_options[] = {
 	{ CMD_LINE_OPT_KM_CONFIG_FILE, required_argument, 0,
 			CMD_LINE_OPT_KM_CONFIG_FILE_NUM },
 	{ CMD_LINE_OPT_KM_SIZE, required_argument, 0, CMD_LINE_OPT_KM_SIZE_NUM },
-	{ CMD_LINE_OPT_CT_WORKER, no_argument, 0, CMD_LINE_OPT_CT_WORKER_NUM },
+	{ CMD_LINE_OPT_DISABLE_MIRRORS, no_argument, 0, CMD_LINE_OPT_DISABLE_MIRRORS_NUM },
 	{ NULL, 0, 0, 0 },
 };
 
@@ -175,8 +173,8 @@ lf_usage(const char *prgname)
 			"         configuration file to be loaded for the keymanager\n"
 			"  --km-size=NUM\n"
 			"         Size of keymanager hash table.\n"
-			"  --ct_worker\n"
-			"         Enables control traffic worker.\n",
+			"  --disable-mirrors\n"
+			"         Disables mirrors for all ports.\n",
 			prgname);
 }
 
@@ -547,9 +545,9 @@ lf_params_parse(int argc, char **argv, struct lf_params *params)
 				return -1;
 			}
 			break;
-		/* control traffic worker enabled */
-		case CMD_LINE_OPT_CT_WORKER_NUM:
-			params->ct_worker_enabled = true;
+		/* disable mirrors for all ports */
+		case CMD_LINE_OPT_DISABLE_MIRRORS_NUM:
+			params->disable_mirrors = true;
 			break;
 		/* unknown option */
 		default:

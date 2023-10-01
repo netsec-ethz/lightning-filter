@@ -470,7 +470,8 @@ lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
 			pktmbuf_pool[port_id][socket_id] = NULL;
 		}
 	}
-	pktmbuf_pool_size = 8096; //calculate_nb_mbufs(1, nb_ports, nb_workers, 2048, 2048);
+	// TODO: fix calculation of nb_mbufs
+	pktmbuf_pool_size = 4048; // calculate_nb_mbufs(1, nb_ports, nb_workers, 2048, 2048);
 
 	/* initialize mirror context */
 	res = lf_mirror_init(mirror_ctx);
@@ -502,11 +503,13 @@ lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
 		port_conf->nb_rx_queue = nb_workers;
 		port_conf->nb_tx_queue = nb_workers;
 
-		/* add mirror for port */
-		res = lf_mirror_add_port(mirror_ctx, port_id, workers);
-		if (res != 0) {
-			LF_LOG(ERR, "Failed to add mirror for port %d\n", port_id);
-			return -1;
+		if (!params->disable_mirrors){
+			/* add mirror for port */
+			res = lf_mirror_add_port(mirror_ctx, port_id, workers);
+			if (res != 0) {
+				LF_LOG(ERR, "Failed to add mirror for port %d\n", port_id);
+				return -1;
+			}
 		}
 
 		/* Assign one rx queue to each worker. */
@@ -531,6 +534,11 @@ lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
 			port_conf->rx_sockets[queue_counter] = socket_id;
 			port_conf->tx_sockets[queue_counter] = socket_id;
 			port_conf->rx_mbuf_pool[queue_counter] = get_mbuf_pool(port_id, socket_id);
+
+			if (port_conf->rx_mbuf_pool[queue_counter] == NULL) {
+				LF_LOG(ERR, "Failed to get mbuf pool for port %d\n", port_id);
+				return -1;
+			}
 
 			/*
 			 * set worker values
@@ -575,13 +583,15 @@ lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
 			return -1;
 		}
 
-		/* start mirrors */
-		res = rte_eth_dev_start(mirror_ctx->mirrors[port_id]);
-		if (res < 0) {
-			LF_LOG(ERR,
-					"rte_eth_dev_start of mirror: err=%d, port=%d, mirror\n",
-					res, port_id, mirror_ctx->mirrors[port_id]);
-			return -1;
+		/* start mirror of port if it exists */
+		if (lf_mirror_exists(mirror_ctx, port_id)){
+			res = rte_eth_dev_start(mirror_ctx->mirrors[port_id]);
+			if (res < 0) {
+				LF_LOG(ERR,
+						"rte_eth_dev_start of mirror: err=%d, port=%d, mirror=%d\n",
+						res, port_id, mirror_ctx->mirrors[port_id]);
+				return -1;
+			}
 		}
 	}
 

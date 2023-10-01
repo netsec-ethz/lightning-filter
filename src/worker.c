@@ -570,8 +570,9 @@ lf_worker_rx(struct lf_worker_context *worker,
 		struct rte_mbuf *pkts[LF_MAX_PKT_BURST])
 {
 	uint16_t rx_port_id, rx_queue_id;
-	uint16_t nb_rx, nb_pkts;
+	uint16_t nb_rx, nb_fwd, nb_pkts;
 	struct rte_mbuf *rx_pkts[LF_MAX_PKT_BURST];
+	struct rte_mbuf *rx_mirror_pkts[LF_MAX_PKT_BURST];
 
 	/* Increase current rx/tx iteration index and reset it at max */
 	worker->current_rx_tx_index++;
@@ -583,6 +584,23 @@ lf_worker_rx(struct lf_worker_context *worker,
 	rx_port_id = worker->rx_port_id[worker->current_rx_tx_index];
 	rx_queue_id = worker->rx_queue_id[worker->current_rx_tx_index];
 
+	/* Forward packets from the mirror to its port. */
+	if (lf_mirror_exists(worker->mirror_ctx->ctx, rx_port_id)) {
+		nb_rx = lf_mirror_worker_rx(worker->mirror_ctx, rx_port_id,
+			rx_mirror_pkts, LF_MAX_PKT_BURST);
+		if (nb_rx > 0) {
+			LF_WORKER_LOG_DP(DEBUG, "%u packets received from mirror (port %u)\n",
+					nb_rx, rx_port_id);
+		}
+		nb_fwd = rte_eth_tx_burst(rx_port_id, worker->tx_queue_id_by_port[rx_port_id],
+				rx_mirror_pkts, nb_rx);
+		if (nb_fwd < nb_rx) {
+			rte_pktmbuf_free_bulk(rx_mirror_pkts, nb_rx - nb_fwd);
+			LF_WORKER_LOG_DP(DEBUG, "%u packets dropped instead forwarded to mirror (port %u)\n",
+					nb_rx - nb_fwd, rx_port_id);
+		}
+	}
+
 	nb_rx = rte_eth_rx_burst(rx_port_id, rx_queue_id, rx_pkts,
 			LF_MAX_PKT_BURST);
 	if (nb_rx > 0) {
@@ -591,7 +609,15 @@ lf_worker_rx(struct lf_worker_context *worker,
 		(void)lf_statistics_worker_add_burst(worker->statistics, nb_rx);
 	}
 
-	nb_pkts = mirror_filter(worker, rx_port_id, nb_rx, rx_pkts, pkts);
+	/* Apply mirror filter only if mirror exists for the port. */
+	if (lf_mirror_exists(worker->mirror_ctx->ctx, rx_port_id)) {
+		nb_pkts = mirror_filter(worker, rx_port_id, nb_rx, rx_pkts, pkts);
+	} else {
+		nb_pkts = nb_rx;
+		for (int i = 0; i < nb_rx; i++) {
+			pkts[i] = rx_pkts[i];
+		}
+	}
 
 	if (nb_pkts > 0) {
 		LF_WORKER_LOG_DP(DEBUG, "%u packets to be processed (port %u, queue %u)\n",

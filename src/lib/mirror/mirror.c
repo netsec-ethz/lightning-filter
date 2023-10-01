@@ -8,13 +8,18 @@
 #include "../log/log.h"
 #include "mirror.h"
 
+
+#define MAX_NB_SOCKETS 8
+
+/* mbuf pools used for the mirrors */
+static struct rte_mempool *pktmbuf_pool[MAX_NB_SOCKETS];
+static uint32_t pktmbuf_pool_size = 1024;
+
 /*
  * Number of RX/TX ring descriptors
  */
 static uint16_t nb_rxd = 512;
 static uint16_t nb_txd = 512;
-
-#define MAX_NB_SOCKETS 8
 
 static const struct rte_eth_conf mirror_port_conf = {
 	.rxmode = {
@@ -52,8 +57,6 @@ init_mbuf_pool(int32_t socket_id, uint32_t nb_mbuf, struct rte_mempool **mb_pool
 	}
 }
 
-static struct rte_mempool *pktmbuf_pool[MAX_NB_SOCKETS];
-static uint32_t pktmbuf_pool_size = 1012;
 static struct rte_mempool *
 get_mbuf_pool(int32_t socket_id)
 {

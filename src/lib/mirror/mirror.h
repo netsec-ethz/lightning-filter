@@ -75,4 +75,13 @@ lf_mirror_worker_rx(struct lf_mirror_worker *mirror_ctx, uint16_t port_id,
 	return rte_eth_rx_burst(mirror_id, mirror_ctx->queue[port_id], pkts, n);
 }
 
+/**
+ * Check if a mirror exists for a ethernet port.
+ * @param port_id: Port ID of ethernet port.
+ */
+static inline bool
+lf_mirror_exists(struct lf_mirror *mirror_ctx, uint16_t port_id) {
+	return mirror_ctx->mirrors[port_id] != RTE_MAX_ETHPORTS;
+}
+
 #endif /* LF_MIRROR_H */
