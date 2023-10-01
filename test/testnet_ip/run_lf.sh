@@ -36,7 +36,7 @@ function lfs_up() {
 	lfx0=$lf00
 	lfx1=$lf01
 	lf_config="config/lf1.json"
-	lcores="(0-5)@0"
+	lcores="(0-3)@0"
 	file_prefix="lf0"
 	log_file="${log_dir}/lf0.log"
 
@@ -48,7 +48,7 @@ function lfs_up() {
 	lfx0=$lf10
 	lfx1=$lf11
 	lf_config="config/lf2.json"
-	lcores="(0-5)@1"
+	lcores="(0-3)@1"
 	file_prefix="lf1"
 	log_file="${log_dir}/lf1.log"
 
