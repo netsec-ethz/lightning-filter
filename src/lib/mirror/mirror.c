@@ -38,7 +38,8 @@ static const struct rte_eth_conf mirror_port_conf = {
 
 
 static int
-init_mbuf_pool(int32_t socket_id, uint32_t nb_mbuf, struct rte_mempool **mb_pool)
+init_mbuf_pool(int32_t socket_id, uint32_t nb_mbuf,
+		struct rte_mempool **mb_pool)
 {
 	char s[64];
 
@@ -68,7 +69,8 @@ get_mbuf_pool(int32_t socket_id)
 
 	/* initialize pool if not yet done */
 	if (pktmbuf_pool[socket_id] == NULL) {
-		res = init_mbuf_pool(socket_id, pktmbuf_pool_size, &pktmbuf_pool[socket_id]);
+		res = init_mbuf_pool(socket_id, pktmbuf_pool_size,
+				&pktmbuf_pool[socket_id]);
 		if (res != 0 || pktmbuf_pool[socket_id] == NULL) {
 			LF_LOG(ERR, "Failed to init mbuf pool %d\n", socket_id);
 			return NULL;
@@ -79,7 +81,8 @@ get_mbuf_pool(int32_t socket_id)
 }
 
 static int
-configure_port(uint16_t port_id, uint16_t nb_queues, struct rte_mempool *mb_pool)
+configure_port(uint16_t port_id, uint16_t nb_queues,
+		struct rte_mempool *mb_pool)
 {
 	int res;
 	uint16_t rx_queue_id, tx_queue_id, socket_id;

@@ -528,15 +528,18 @@ mirror_filter(struct lf_worker_context *worker, uint16_t port_id,
 			goto next;
 		}
 
-		forward_to_mirror = (ether_hdr->ether_type == rte_cpu_to_be_16(RTE_ETHER_TYPE_ARP)) |
-		      (ether_hdr->ether_type == rte_cpu_to_be_16(RTE_ETHER_TYPE_LLDP));
+		forward_to_mirror = (ether_hdr->ether_type ==
+									rte_cpu_to_be_16(RTE_ETHER_TYPE_ARP)) |
+		                    (ether_hdr->ether_type ==
+									rte_cpu_to_be_16(RTE_ETHER_TYPE_LLDP));
 
 		if (ether_hdr->ether_type == rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV6)) {
 			offset = lf_get_ipv6_hdr(m, offset, &ipv6_hdr);
 			if (unlikely(offset == 0)) {
 				goto next;
 			}
-			forward_to_mirror = forward_to_mirror | (ipv6_hdr->proto == IP_PROTO_ID_ICMP6);
+			forward_to_mirror =
+					forward_to_mirror | (ipv6_hdr->proto == IP_PROTO_ID_ICMP6);
 		}
 
 	next:
@@ -550,15 +553,17 @@ mirror_filter(struct lf_worker_context *worker, uint16_t port_id,
 	}
 
 	if (nb_mirrored_pkts > 0) {
-		LF_WORKER_LOG_DP(DEBUG, "%u packets to be forwarded to mirror (port %u)\n", nb_mirrored_pkts,
-				port_id);
+		LF_WORKER_LOG_DP(DEBUG,
+				"%u packets to be forwarded to mirror (port %u)\n",
+				nb_mirrored_pkts, port_id);
 	}
 
 	nb_fwd = lf_mirror_worker_tx(worker->mirror_ctx, port_id, mirrored_pkts,
 			nb_mirrored_pkts);
 	if (nb_fwd < nb_mirrored_pkts) {
 		rte_pktmbuf_free_bulk(mirrored_pkts, nb_mirrored_pkts - nb_fwd);
-		LF_WORKER_LOG_DP(DEBUG, "%u packets dropped instead forwarded to mirror (port %u)\n",
+		LF_WORKER_LOG_DP(DEBUG,
+				"%u packets dropped instead forwarded to mirror (port %u)\n",
 				nb_mirrored_pkts - nb_fwd, port_id);
 	}
 	return nb_filtered_pkts;
@@ -587,16 +592,19 @@ lf_worker_rx(struct lf_worker_context *worker,
 	/* Forward packets from the mirror to its port. */
 	if (lf_mirror_exists(worker->mirror_ctx->ctx, rx_port_id)) {
 		nb_rx = lf_mirror_worker_rx(worker->mirror_ctx, rx_port_id,
-			rx_mirror_pkts, LF_MAX_PKT_BURST);
+				rx_mirror_pkts, LF_MAX_PKT_BURST);
 		if (nb_rx > 0) {
-			LF_WORKER_LOG_DP(DEBUG, "%u packets received from mirror (port %u)\n",
-					nb_rx, rx_port_id);
+			LF_WORKER_LOG_DP(DEBUG,
+					"%u packets received from mirror (port %u)\n", nb_rx,
+					rx_port_id);
 		}
-		nb_fwd = rte_eth_tx_burst(rx_port_id, worker->tx_queue_id_by_port[rx_port_id],
-				rx_mirror_pkts, nb_rx);
+		nb_fwd = rte_eth_tx_burst(rx_port_id,
+				worker->tx_queue_id_by_port[rx_port_id], rx_mirror_pkts, nb_rx);
 		if (nb_fwd < nb_rx) {
 			rte_pktmbuf_free_bulk(rx_mirror_pkts, nb_rx - nb_fwd);
-			LF_WORKER_LOG_DP(DEBUG, "%u packets dropped instead forwarded to mirror (port %u)\n",
+			LF_WORKER_LOG_DP(DEBUG,
+					"%u packets dropped instead forwarded to mirror "
+					"(port %u)\n",
 					nb_rx - nb_fwd, rx_port_id);
 		}
 	}
@@ -620,8 +628,9 @@ lf_worker_rx(struct lf_worker_context *worker,
 	}
 
 	if (nb_pkts > 0) {
-		LF_WORKER_LOG_DP(DEBUG, "%u packets to be processed (port %u, queue %u)\n",
-				nb_pkts, rx_port_id, rx_queue_id);
+		LF_WORKER_LOG_DP(DEBUG,
+				"%u packets to be processed (port %u, queue %u)\n", nb_pkts,
+				rx_port_id, rx_queue_id);
 	}
 
 	return nb_pkts;

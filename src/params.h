@@ -42,7 +42,7 @@ struct lf_params {
 	enum lf_forwarding_direction
 			forwarding_direction[RTE_MAX_ETHPORTS]; /* rx packet direction */
 	unsigned int mtu;                               /* tx MTU */
-	bool disable_mirrors;                         /* disable mirrors for all ports */
+	bool disable_mirrors; /* disable mirrors for all ports */
 
 	/*
 	 * Timestamp Filter

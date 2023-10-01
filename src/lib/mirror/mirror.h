@@ -38,7 +38,8 @@ void
 lf_mirror_close(struct lf_mirror *mirror_ctx);
 
 int
-lf_mirror_add_port(struct lf_mirror *mirror_ctx, uint16_t port_id, bool lcore[RTE_MAX_LCORE]);
+lf_mirror_add_port(struct lf_mirror *mirror_ctx, uint16_t port_id,
+		bool lcore[RTE_MAX_LCORE]);
 
 int
 lf_mirror_main_loop(struct lf_mirror *mirror_ctx);
@@ -56,7 +57,8 @@ lf_mirror_worker_tx(struct lf_mirror_worker *mirror_ctx, uint16_t port_id,
 		LF_LOG_DP(ERR, "Mirror for port %u does not exist\n", port_id);
 		return 0;
 	}
-	return rte_eth_tx_burst(mirror_id, mirror_ctx->queue[port_id], pkts, nb_pkts);
+	return rte_eth_tx_burst(mirror_id, mirror_ctx->queue[port_id], pkts,
+			nb_pkts);
 }
 
 /**
@@ -80,7 +82,8 @@ lf_mirror_worker_rx(struct lf_mirror_worker *mirror_ctx, uint16_t port_id,
  * @param port_id: Port ID of ethernet port.
  */
 static inline bool
-lf_mirror_exists(struct lf_mirror *mirror_ctx, uint16_t port_id) {
+lf_mirror_exists(struct lf_mirror *mirror_ctx, uint16_t port_id)
+{
 	return mirror_ctx->mirrors[port_id] != RTE_MAX_ETHPORTS;
 }
 

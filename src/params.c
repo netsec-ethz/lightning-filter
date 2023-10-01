@@ -63,22 +63,22 @@ static const char short_options[] = "v:" /* version */
 		;
 
 /* long options */
-#define CMD_LINE_OPT_VERSION        "version"
-#define CMD_LINE_OPT_CONFIG_FILE    "config-file"
-#define CMD_LINE_OPT_PORTMASK       "portmask"
-#define CMD_LINE_OPT_PROMISCUOUS    "promiscuous"
-#define CMD_LINE_OPT_PORTMAP        "portmap"
-#define CMD_LINE_OPT_MTU            "mtu"
-#define CMD_LINE_OPT_TF_THRESHOLD   "tf-threshold"
-#define CMD_LINE_OPT_BF_NB          "bf-nb"
-#define CMD_LINE_OPT_BF_PERIOD      "bf-period"
-#define CMD_LINE_OPT_BF_HASHES      "bf-hashes"
-#define CMD_LINE_OPT_BF_BYTES       "bf-bytes"
-#define CMD_LINE_OPT_RL_CONFIG_FILE "rl-config-file"
-#define CMD_LINE_OPT_RL_SIZE        "rl-size"
-#define CMD_LINE_OPT_KM_CONFIG_FILE "km-config-file"
-#define CMD_LINE_OPT_KM_SIZE        "km-size"
-#define CMD_LINE_OPT_DISABLE_MIRRORS      "disable-mirrors"
+#define CMD_LINE_OPT_VERSION         "version"
+#define CMD_LINE_OPT_CONFIG_FILE     "config-file"
+#define CMD_LINE_OPT_PORTMASK        "portmask"
+#define CMD_LINE_OPT_PROMISCUOUS     "promiscuous"
+#define CMD_LINE_OPT_PORTMAP         "portmap"
+#define CMD_LINE_OPT_MTU             "mtu"
+#define CMD_LINE_OPT_TF_THRESHOLD    "tf-threshold"
+#define CMD_LINE_OPT_BF_NB           "bf-nb"
+#define CMD_LINE_OPT_BF_PERIOD       "bf-period"
+#define CMD_LINE_OPT_BF_HASHES       "bf-hashes"
+#define CMD_LINE_OPT_BF_BYTES        "bf-bytes"
+#define CMD_LINE_OPT_RL_CONFIG_FILE  "rl-config-file"
+#define CMD_LINE_OPT_RL_SIZE         "rl-size"
+#define CMD_LINE_OPT_KM_CONFIG_FILE  "km-config-file"
+#define CMD_LINE_OPT_KM_SIZE         "km-size"
+#define CMD_LINE_OPT_DISABLE_MIRRORS "disable-mirrors"
 
 /* map long options to number */
 enum {
@@ -126,7 +126,8 @@ static const struct option long_options[] = {
 	{ CMD_LINE_OPT_KM_CONFIG_FILE, required_argument, 0,
 			CMD_LINE_OPT_KM_CONFIG_FILE_NUM },
 	{ CMD_LINE_OPT_KM_SIZE, required_argument, 0, CMD_LINE_OPT_KM_SIZE_NUM },
-	{ CMD_LINE_OPT_DISABLE_MIRRORS, no_argument, 0, CMD_LINE_OPT_DISABLE_MIRRORS_NUM },
+	{ CMD_LINE_OPT_DISABLE_MIRRORS, no_argument, 0,
+			CMD_LINE_OPT_DISABLE_MIRRORS_NUM },
 	{ NULL, 0, 0, 0 },
 };
 

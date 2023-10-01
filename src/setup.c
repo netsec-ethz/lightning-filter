@@ -103,7 +103,8 @@ calculate_nb_mbufs(uint16_t nb_rx_ports, uint16_t nb_tx_ports,
 }
 
 static int
-init_mbuf_pool(uint16_t port_id, int32_t socket_id, uint32_t nb_mbuf, struct rte_mempool **mb_pool)
+init_mbuf_pool(uint16_t port_id, int32_t socket_id, uint32_t nb_mbuf,
+		struct rte_mempool **mb_pool)
 {
 	char s[64];
 
@@ -136,7 +137,8 @@ get_mbuf_pool(uint16_t port_id, uint16_t socket_id)
 
 	/* initialize pool if not yet done */
 	if (pktmbuf_pool[port_id][socket_id] == NULL) {
-		res = init_mbuf_pool(port_id, socket_id, pktmbuf_pool_size, &pktmbuf_pool[port_id][socket_id]);
+		res = init_mbuf_pool(port_id, socket_id, pktmbuf_pool_size,
+				&pktmbuf_pool[port_id][socket_id]);
 		if (res != 0 || pktmbuf_pool[port_id][socket_id] == NULL) {
 			LF_LOG(ERR, "Failed to init mbuf pool %d\n", socket_id);
 			return NULL;
@@ -429,7 +431,8 @@ check_all_ports_link_status()
 
 int
 lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
-		struct lf_setup_port_queue_pair port_queues[RTE_MAX_LCORE][RTE_MAX_ETHPORTS],
+		struct lf_setup_port_queue_pair port_queues[RTE_MAX_LCORE]
+												   [RTE_MAX_ETHPORTS],
 		struct lf_mirror *mirror_ctx)
 {
 	int res;
@@ -464,14 +467,15 @@ lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
 	for (port_id = 0; port_id < RTE_MAX_ETHPORTS; port_id++) {
 		port_queues_conf[port_id] = default_port_queues_conf;
 	}
-	
+
 	for (port_id = 0; port_id < RTE_MAX_ETHPORTS; port_id++) {
 		for (socket_id = 0; socket_id < MAX_NB_SOCKETS; ++socket_id) {
 			pktmbuf_pool[port_id][socket_id] = NULL;
 		}
 	}
 	// TODO: fix calculation of nb_mbufs
-	pktmbuf_pool_size = 4048; // calculate_nb_mbufs(1, nb_ports, nb_workers, 2048, 2048);
+	pktmbuf_pool_size =
+			4048; // calculate_nb_mbufs(1, nb_ports, nb_workers, 2048, 2048);
 
 	/* initialize mirror context */
 	res = lf_mirror_init(mirror_ctx);
@@ -503,7 +507,7 @@ lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
 		port_conf->nb_rx_queue = nb_workers;
 		port_conf->nb_tx_queue = nb_workers;
 
-		if (!params->disable_mirrors){
+		if (!params->disable_mirrors) {
 			/* add mirror for port */
 			res = lf_mirror_add_port(mirror_ctx, port_id, workers);
 			if (res != 0) {
@@ -533,7 +537,8 @@ lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
 			/* assign core's socket to queues and memory pool*/
 			port_conf->rx_sockets[queue_counter] = socket_id;
 			port_conf->tx_sockets[queue_counter] = socket_id;
-			port_conf->rx_mbuf_pool[queue_counter] = get_mbuf_pool(port_id, socket_id);
+			port_conf->rx_mbuf_pool[queue_counter] =
+					get_mbuf_pool(port_id, socket_id);
 
 			if (port_conf->rx_mbuf_pool[queue_counter] == NULL) {
 				LF_LOG(ERR, "Failed to get mbuf pool for port %d\n", port_id);
@@ -584,11 +589,12 @@ lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
 		}
 
 		/* start mirror of port if it exists */
-		if (lf_mirror_exists(mirror_ctx, port_id)){
+		if (lf_mirror_exists(mirror_ctx, port_id)) {
 			res = rte_eth_dev_start(mirror_ctx->mirrors[port_id]);
 			if (res < 0) {
 				LF_LOG(ERR,
-						"rte_eth_dev_start of mirror: err=%d, port=%d, mirror=%d\n",
+						"rte_eth_dev_start of mirror: "
+						"err=%d, port=%d, mirror=%d\n",
 						res, port_id, mirror_ctx->mirrors[port_id]);
 				return -1;
 			}
