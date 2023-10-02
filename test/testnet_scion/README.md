@@ -111,22 +111,21 @@ Install the scion module:
 go build -o ./bin/ ./go/scion/
 ```
 
-Ping with LF using IPv4:
+SCION ping (IPv4) with LF:
 ```
 sudo ip netns exec far-0 /home/ubuntu/scion/bin/scion ping --sciond 10.248.3.1:30255 --dispatcher /run/shm/dispatcher/endhost1-ff00_0_111.sock 1-ff00:0:112,10.248.5.2
 
 sudo ip netns exec far-1 /home/ubuntu/scion/bin/scion ping --sciond 10.248.6.1:30255 --dispatcher /run/shm/dispatcher/endhost1-ff00_0_112.sock 1-ff00:0:111,10.248.2.2
 ```
 
-Ping with LF using IPv6:
+SCION ping (IPv6) with LF:
 ```
 sudo ip netns exec far-0 /home/ubuntu/scion/bin/scion ping --sciond [fd00:f00d:cafe::3:1]:30255 --dispatcher /run/shm/dispatcher/endhost1-ff00_0_111.sock 1-ff00:0:112,[fd00:f00d:cafe::5:2]
 
 sudo ip netns exec far-1 /home/ubuntu/scion/bin/scion ping --sciond [fd00:f00d:cafe::6:1]:30255 --dispatcher /run/shm/dispatcher/endhost1-ff00_0_112.sock 1-ff00:0:111,[fd00:f00d:cafe::2:2]
 ```
 
-
-Ping without LF (only in main namespace) using IPv4:
+SCION ping (IPv4) without LF (only in main namespace):
 ```
 # from main AS 1-ff00:0:110
 ~/scion/bin/scion ping --sciond 127.0.0.13:30255 --dispatcher /run/shm/dispatcher/default.sock 1-ff00:0:112,10.248.4.1
@@ -137,7 +136,7 @@ Ping without LF (only in main namespace) using IPv4:
 ~/scion/bin/scion ping --sciond 127.0.0.20:30255 --dispatcher /run/shm/dispatcher/default.sock 1-ff00:0:111,10.248.1.1
 ```
 
-Ping without LF (only in main namespace) using IPv6:
+SCION ping (IPv6) without LF (only in main namespace):
 ```
 # from main AS 1-ff00:0:110
 ~/scion/bin/scion ping --sciond [fd00:f00d:cafe::7f00:d]:30255 --dispatcher /run/shm/dispatcher/default.sock 1-ff00:0:112,[fd00:f00d:cafe::4:1]
