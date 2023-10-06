@@ -101,7 +101,7 @@ then
     run_integration_test test/testnet_scion/integration_test.sh $LF_EXEC $SCION_DIR
 fi
 
-cmake_args="-D LF_WORKER=SCION -D LF_DRKEY_FETCHER=SCION -D LF_CBCMAC=OPENSSL -D CMAKE_BUILD_TYPE=Release"
+cmake_args="-D LF_WORKER=SCION -D LF_DRKEY_FETCHER=SCION -D LF_CBCMAC=AESNI -D CMAKE_BUILD_TYPE=Release"
 build_test
 if [ $? -eq 0 ]
 then
