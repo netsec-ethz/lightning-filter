@@ -7,62 +7,58 @@ import (
 	"C"
 	"unsafe"
 
-	"context"
-	"fmt"
-	"time"
-
-	drkeyctrl "github.com/scionproto/scion/control/drkey"
-	"github.com/scionproto/scion/pkg/addr"
 	"github.com/scionproto/scion/pkg/drkey"
-	cppb "github.com/scionproto/scion/pkg/proto/control_plane"
-
-	"google.golang.org/grpc"
 )
 
 //export GetASASKey
 func GetASASKey(sciondAddr *C.char, fastIA, slowIA uint64, drkeyProtocol uint16, valTime int64,
 	validityNotBefore, validityNotAfter *int64, keyPtr unsafe.Pointer) int {
 
-	meta := drkey.Lvl1Meta{
-		ProtoId:  drkey.Protocol(drkeyProtocol),
-		Validity: time.Unix(valTime/1000, 0).UTC(),
-		SrcIA:    addr.IA(fastIA),
-		DstIA:    addr.IA(slowIA),
-	}
+	/*
+		meta := drkey.Lvl1Meta{
+			ProtoId:  drkey.Protocol(drkeyProtocol),
+			Validity: time.Unix(valTime/1000, 0).UTC(),
+			SrcIA:    addr.IA(fastIA),
+			DstIA:    addr.IA(slowIA),
+		}
 
-	ctx, cancelF := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancelF()
+		ctx, cancelF := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancelF()
 
-	// Dial
-	conn, err := grpc.DialContext(ctx, C.GoString(sciondAddr), grpc.WithInsecure())
-	if err != nil {
-		fmt.Println("DialContext failed")
-		return -1
-	}
+		// Dial
+		conn, err := grpc.DialContext(ctx, C.GoString(sciondAddr), grpc.WithInsecure())
+		if err != nil {
+			fmt.Println("DialContext failed")
+			return -1
+		}
 
-	defer conn.Close()
-	client := cppb.NewDRKeyIntraServiceClient(conn)
-	protoReq, err := drkeyctrl.IntraLvl1ToProtoRequest(meta)
-	if err != nil {
-		fmt.Println("IntraLvl1ToProtoRequest failed")
-		return -1
-	}
+		defer conn.Close()
+		client := cppb.NewDRKeyIntraServiceClient(conn)
 
-	rep, err := client.IntraLvl1(ctx, protoReq)
-	if err != nil {
-		fmt.Println("IntraLvl1 failed")
-		return -1
-	}
 
-	key, err := drkeyctrl.GetASASKeyFromReply(meta, rep)
-	if err != nil {
-		fmt.Println("GetASASKeyFromReply failed")
-		return -1
-	}
+			protoReq, err := drkeyctrl.IntraLvl1ToProtoRequest(meta)
+			if err != nil {
+				fmt.Println("IntraLvl1ToProtoRequest failed")
+				return -1
+			}
 
-	*validityNotBefore = key.Epoch.NotBefore.Unix() * 1000
-	*validityNotAfter = key.Epoch.NotAfter.Unix() * 1000
-	copy((*[16]byte)(keyPtr)[:], key.Key[:])
+			rep, err := client.IntraLvl1(ctx, protoReq)
+			if err != nil {
+				fmt.Println("IntraLvl1 failed")
+				return -1
+			}
+
+			key, err := drkeyctrl.GetASASKeyFromReply(meta, rep)
+			if err != nil {
+				fmt.Println("GetASASKeyFromReply failed")
+				return -1
+			}
+	*/
+
+	*validityNotBefore = 0 * 1000
+	*validityNotAfter = 1700000000 * 1000
+	key := new(drkey.Key)[:]
+	copy((*[16]byte)(keyPtr)[:], key[:])
 
 	return 0
 }
