@@ -182,7 +182,7 @@ sudo ./integration_test.sh ../../build/src/lf
 
 ## Test Script
 
-To run all of the unit and integration tests with different settings (compilation configurations), run the script `run_tests.sh`.
+To run all of the unit and integration tests with different settings (compilation configurations), run the script `tests.sh`.
 
 ## Performance Tests
 
