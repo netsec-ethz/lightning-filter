@@ -11,10 +11,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/scionproto/scion/go/lib/addr"
-	drkeyctrl "github.com/scionproto/scion/go/lib/ctrl/drkey"
-	"github.com/scionproto/scion/go/lib/drkey"
-	cppb "github.com/scionproto/scion/go/pkg/proto/control_plane"
+	drkeyctrl "github.com/scionproto/scion/control/drkey"
+	"github.com/scionproto/scion/pkg/addr"
+	"github.com/scionproto/scion/pkg/drkey"
+	cppb "github.com/scionproto/scion/pkg/proto/control_plane"
 
 	"google.golang.org/grpc"
 )
