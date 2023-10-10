@@ -35,7 +35,9 @@ The Grafana web server is reachable on port `3000`. Per default, use username `a
 ### Ports
 
 Telegraf (Prometheus Client): 9273
+
 Prometheus (HTTP): 9090
+
 Grafana (HTTP): 3000
 
 ## Installation

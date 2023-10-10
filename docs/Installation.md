@@ -58,7 +58,7 @@ sudo apt update
 sudo apt -y install git
 
 ## Get LF source
-git clone https://gitlab.inf.ethz.ch/OU-PERRIG/lightning-filter/lightning-filter.git
+git clone https://github.com/netsec-ethz/lightning-filter.git
 pushd lightning-filter
 git checkout fstreun/main_dev
 
