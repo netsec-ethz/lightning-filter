@@ -24,7 +24,6 @@ function lf_up() {
 		--bf-period 500 \
 		--bf-hashes 7 \
 		--bf-bytes 131072 \
-		--disable-mirrors \
 		&> $log_file \
 		&
 	lf_pid=$!

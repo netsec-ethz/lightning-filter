@@ -25,7 +25,6 @@ function lf_up() {
 		--bf-period 500 \
 		--bf-hashes 7 \
 		--bf-bytes 131072 \
-		--disable-mirrors \
 		&> $log_file \
 		&
 	lf_pid=$!
@@ -36,7 +35,7 @@ function lfs_up() {
 	lfx0=$lf00
 	lfx1=$lf01
 	lf_config="config/lf1.json"
-	lcores="(0-3)@0"
+	lcores="(0-3)@(0-3)"
 	file_prefix="lf0"
 	log_file="${log_dir}/lf0.log"
 
@@ -48,7 +47,7 @@ function lfs_up() {
 	lfx0=$lf10
 	lfx1=$lf11
 	lf_config="config/lf2.json"
-	lcores="(0-3)@1"
+	lcores="(0-3)@(4-7)"
 	file_prefix="lf1"
 	log_file="${log_dir}/lf1.log"
 

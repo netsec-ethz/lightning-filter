@@ -52,7 +52,7 @@ static inline int
 lf_mirror_worker_tx(struct lf_mirror_worker *mirror_ctx, uint16_t port_id,
 		struct rte_mbuf *pkts[], uint16_t nb_pkts)
 {
-	uint16_t mirror_id = mirror_ctx->queue[port_id];
+	uint16_t mirror_id = mirror_ctx->ctx->mirrors[port_id];
 	if (mirror_id == RTE_MAX_ETHPORTS) {
 		LF_LOG_DP(ERR, "Mirror for port %u does not exist\n", port_id);
 		return 0;
@@ -69,7 +69,7 @@ static inline int
 lf_mirror_worker_rx(struct lf_mirror_worker *mirror_ctx, uint16_t port_id,
 		struct rte_mbuf *pkts[], uint16_t n)
 {
-	uint16_t mirror_id = mirror_ctx->queue[port_id];
+	uint16_t mirror_id = mirror_ctx->ctx->mirrors[port_id];
 	if (mirror_id == RTE_MAX_QUEUES_PER_PORT) {
 		LF_LOG_DP(ERR, "Mirror for port %u does not exist\n", port_id);
 		return 0;
