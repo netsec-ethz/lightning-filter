@@ -686,7 +686,6 @@ lf_worker_tx(struct lf_worker_context *worker,
 static void
 lf_worker_main_loop(struct lf_worker_context *worker_context)
 {
-	int res;
 	unsigned int i;
 	uint16_t nb_rx;
 
@@ -698,7 +697,6 @@ lf_worker_main_loop(struct lf_worker_context *worker_context)
 	struct rte_rcu_qsbr *qsv = worker_context->qsv;
 	struct lf_time_worker *time = &worker_context->time;
 	struct lf_statistics_worker *stats = worker_context->statistics;
-	uint64_t ns_now, ns_last_log = 0;
 
 	LF_WORKER_LOG_DP(INFO, "enter main loop\n");
 	while (likely(!lf_force_quit)) {
@@ -715,18 +713,6 @@ lf_worker_main_loop(struct lf_worker_context *worker_context)
 		 * updates it.
 		 */
 		(void)lf_time_worker_update(time);
-
-		/* Log every 10 seconds that the worker is still alive */
-		res = lf_time_worker_get(time, &ns_now);
-		if (unlikely(res != 0)) {
-			LF_WORKER_LOG_DP(ERR, "Failed to get current time\n");
-			continue;
-		}
-		if (ns_now - ns_last_log > 10 * LF_TIME_NS_IN_S) {
-			LF_WORKER_LOG_DP(INFO, "worker is alive\n");
-			ns_last_log = ns_now;
-		}
-
 		nb_rx = lf_worker_rx(worker_context, rx_pkts);
 
 		if (unlikely(nb_rx <= 0)) {
