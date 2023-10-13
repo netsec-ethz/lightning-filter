@@ -23,7 +23,7 @@ ENV PATH /usr/local/go/bin:$PATH
 RUN curl -LO https://fast.dpdk.org/rel/dpdk-21.11.tar.xz && \
     echo "58660bbbe9e95abce86e47692b196555 dpdk-21.11.tar.xz" | md5sum -c && \
     tar xJf dpdk-21.11.tar.xz && cd dpdk-21.11 && \
-    meson configure -Dplatform=generic && meson build && cd build && ninja && ninja install
+    meson configure -Dmachine=default && meson build && cd build && ninja && ninja install
 
 # Allow the lf-build user to use sudo without a password
 RUN groupadd --gid $GID --non-unique $USER && \
