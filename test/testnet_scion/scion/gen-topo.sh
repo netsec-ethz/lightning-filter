@@ -16,7 +16,7 @@ export PYTHONPATH=.
 printf '#!/bin/bash\necho "0.0.0.0"' > tools/docker-ip
 
 echo "Create topology, configuration, and execution files."
-python/topology/generator.py -c $SCRIPTPATH/tiny.topo -o $SCRIPTPATH/tmp
+tools/topogen.py -c $SCRIPTPATH/tiny.topo -o $SCRIPTPATH/tmp
 
 popd > /dev/null
 
