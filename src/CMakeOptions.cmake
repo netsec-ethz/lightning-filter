@@ -34,7 +34,7 @@ endif()
 add_compile_definitions(LF_DRKEY_FETCHER=${LF_DRKEY_FETCHER})
 add_compile_definitions(LF_DRKEY_FETCHER_${LF_DRKEY_FETCHER}=1)
 
-set(LF_CBCMAC "OPENSSL" CACHE STRING "CBC MAC implementation (OPENSSL, AESNI).")
+set(LF_CBCMAC "OPENSSL" CACHE STRING "CBC MAC implementation (OPENSSL, AESNI). AESNI available on x86 machines as performance optimization.")
 if(LF_CBCMAC STREQUAL "AESNI")
     add_subdirectory(lib/aesni/)
     target_link_libraries(${EXEC}  PRIVATE aesni)
