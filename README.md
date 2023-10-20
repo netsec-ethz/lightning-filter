@@ -4,7 +4,7 @@ LightningFilter is a high-speed traffic filtering mechanism that performs authen
 LightningFilter uses the DPDK framework, enabling high-speed packet processing.
 
 This repository contains the open-source version, which offers at least the core functionalities of a LightningFilter.
-The closed-source version provides additional functionalities and better performance (~5x throughput).
+The closed-source version provides additional functionalities.
 
 ## License
 
@@ -171,7 +171,7 @@ sudo ./integration_test.sh ../../build/src/lf
 
 ## Test Script
 
-To run all of the unit and integration tests with different settings (compilation configurations), run the script `run_tests.sh`.
+To run all of the unit and integration tests with different settings (compilation configurations), run the script `tests.sh`.
 
 ## Performance Tests
 

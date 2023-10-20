@@ -41,6 +41,7 @@ The following presents an incomplete list:
 LF_WORKER={SCION,IPV4,FWD}
 LF_DRKEY_FETCHER={SCION,MOCK}
 LF_LOG_DP_LEVEL={MIN,MAX,EMERG,ALERT,CRIT,ERR,WARNING,NOTICE,INFO,DEBUG}
+LF_CBCMAC={OPENSSL,AESNI}
 ```
 
 Set CMake variables as follows:

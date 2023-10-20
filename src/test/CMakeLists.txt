@@ -60,6 +60,10 @@ target_link_libraries(keymanager_test PRIVATE ${DPDK_STATIC_LDFLAGS})
 target_link_libraries(keymanager_test PRIVATE jsonparser)
 # Crypto
 target_link_libraries(keymanager_test  PRIVATE OpenSSL::SSL)
+if(LF_CBCMAC STREQUAL "AESNI")
+    target_link_libraries(keymanager_test  PRIVATE aesni)
+endif()
+
 # Copy configuration file to the build directory
 add_custom_target(keymanager_test_file
     ${CMAKE_COMMAND} -E
