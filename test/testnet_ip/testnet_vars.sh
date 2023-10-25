@@ -8,6 +8,12 @@ set -Eeuo pipefail
 eh0_address="10.248.1.1"
 eh1_address="10.248.2.1"
 
+# lf address
+lf00_address="10.248.1.10"
+lf01_address="10.248.100.10"
+lf10_address="10.248.2.10"
+lf11_address="10.248.100.11"
+
 # mac addresses of interfaces
 eh0mac="00:76:65:74:68:13"
 lf00mac="00:76:65:74:68:12"

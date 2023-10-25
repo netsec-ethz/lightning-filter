@@ -28,12 +28,28 @@ function lf_up() {
 		&> $log_file \
 		&
 	lf_pid=$!
+
+	# wait for the application to start and confgure the mirror interfaces
+	sleep 1
+
+	# configure the mirror interfaces:
+	# - rename them to virtio_$lfx0 and virtio_$lfx1
+	# - set them up
+	# - assign IP addresses
+	sudo ip -n $lfxns link set dev virtio_user0 name virtio_$lfx0
+	sudo ip -n $lfxns link set dev virtio_user1 name virtio_$lfx1
+	sudo ip -n $lfxns link set dev virtio_$lfx0 up
+	sudo ip -n $lfxns link set dev virtio_$lfx1 up
+	sudo ip -n $lfxns address add $lfx0_address/24 dev virtio_$lfx0
+	sudo ip -n $lfxns address add $lfx1_address/24 dev virtio_$lfx1
 }
 
 function lfs_up() {
 	lfxns=$lf0ns
 	lfx0=$lf00
 	lfx1=$lf01
+	lfx0_address=$lf00_address
+	lfx1_address=$lf01_address
 	lf_config="config/lf1.json"
 	lcores="(0-3)@(0-3)"
 	file_prefix="lf0"
@@ -46,6 +62,8 @@ function lfs_up() {
 	lfxns=$lf1ns
 	lfx0=$lf10
 	lfx1=$lf11
+	lfx0_address=$lf10_address
+	lfx1_address=$lf11_address
 	lf_config="config/lf2.json"
 	lcores="(0-3)@(4-7)"
 	file_prefix="lf1"
