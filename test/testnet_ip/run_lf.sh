@@ -29,8 +29,14 @@ function lf_up() {
 		&
 	lf_pid=$!
 
-	# wait for the application to start and confgure the mirror interfaces
-	sleep 1
+	# wait until the mirror interfaces virtio_user0 and virtio_user1 are created
+	# in the namespace of the lightning filter (lfxns)
+	while ! sudo ip -n $lfxns link show | grep -q virtio_user0; do
+		sleep 0.1
+	done
+	while ! sudo ip -n $lfxns link show | grep -q virtio_user1; do
+		sleep 0.1
+	done
 
 	# configure the mirror interfaces:
 	# - rename them to virtio_$lfx0 and virtio_$lfx1
