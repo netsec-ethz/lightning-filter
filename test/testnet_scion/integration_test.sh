@@ -24,7 +24,7 @@ scion_dir=$(realpath $2)
 
 function cleanup() {
 	# TODO: kill application gracefully
-	sudo tmux kill-session -t $TMUX_SESSION
+	tmux kill-session -t $TMUX_SESSION
 	sleep 0.1
 
 	# terminate SCION services
@@ -53,7 +53,7 @@ sleep 0.1
 ./scion/supervisor/supervisor.sh reload
 ./scion/supervisor/supervisor.sh start all
 sleep 1
-sudo tmux new-session -d -s $TMUX_SESSION ./run_lf.sh $lfexec
+tmux new-session -d -s $TMUX_SESSION ./run_lf.sh $lfexec
 sleep 5
 
 # get one SCION ping before doing the tests
