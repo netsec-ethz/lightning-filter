@@ -42,6 +42,14 @@
 #define LF_DRKEY_GRACE_PERIOD       (2 * LF_TIME_NS_IN_S) /* in nanoseconds */
 #define LF_DRKEY_PREFETCHING_PERIOD (1 * LF_TIME_NS_IN_S) /* in nanoseconds */
 
+/*
+ * To derive DRKeys the type is required for the input of the KDF.
+ */
+#define DRKEY_AS_AS_TYPE     0
+#define DRKEY_AS_HOST_TYPE   1
+#define DRKEY_HOST_AS_TYPE   2
+#define DRKEY_HOST_HOST_TYPE 3
+
 /**
  * The key container wraps all information required to use a key.
  * A DRKeys validity is usually defined in seconds. Because the workers operate
@@ -134,6 +142,59 @@ lf_keymanager_check_drkey_validity(struct lf_keymanager_key_container *drkey,
 }
 
 /**
+ * Derive host-as DRKey from AS-AS DRKey.
+ *
+ * @param kmw Keymanager worker context.
+ * @param drkey_asas AS-AS DRKey.
+ * @param fast_side_host Fast side host address.
+ * @param drkey_ha Returning host-as DRKey.
+ */
+static inline void
+lf_keymanager_drkey_derive_host_as(struct lf_keymanager_worker *kmw,
+		const struct lf_crypto_drkey *drkey_asas,
+		const struct lf_host_addr *fast_side_host,
+		struct lf_crypto_drkey *drkey_ha)
+{
+	assert(LF_HOST_ADDR_LENGTH(fast_side_host) <= LF_CRYPTO_CBC_BLOCK_SIZE);
+
+	uint8_t buf[2 * LF_CRYPTO_CBC_BLOCK_SIZE] = { 0 };
+
+	buf[0] = DRKEY_HOST_AS_TYPE;
+	buf[0] = (int8_t)(fast_side_host->type_length);
+	memcpy(buf + 3, fast_side_host->addr, LF_HOST_ADDR_LENGTH(fast_side_host));
+
+	lf_crypto_drkey_derivation_step(&kmw->drkey_ctx, drkey_asas, buf,
+			sizeof(buf), drkey_ha);
+}
+
+/**
+ * Derive host-host DRKey from AS-AS DRKey.
+ *
+ * @param kmw Keymanager worker context.
+ * @param drkey_host_as HOST-AS DRKey.
+ * @param slow_side_host Slow side host address.
+ * @param drkey_hh Returning host-host DRKey.
+ */
+static inline void
+lf_keymanager_drkey_derive_host_host(struct lf_keymanager_worker *kmw,
+		const struct lf_crypto_drkey *drkey_host_as,
+		const struct lf_host_addr *slow_side_host,
+		struct lf_crypto_drkey *drkey_hh)
+{
+	assert(LF_HOST_ADDR_LENGTH(slow_side_host) <= LF_CRYPTO_CBC_BLOCK_SIZE);
+
+	uint8_t buf[2 * LF_CRYPTO_CBC_BLOCK_SIZE] = { 0 };
+
+	buf[0] = DRKEY_HOST_HOST_TYPE;
+	buf[0] = (int8_t)(slow_side_host->type_length);
+	memcpy(buf + 2 + LF_CRYPTO_CBC_BLOCK_SIZE, slow_side_host->addr,
+			LF_HOST_ADDR_LENGTH(slow_side_host));
+
+	lf_crypto_drkey_derivation_step(&kmw->drkey_ctx, drkey_host_as, buf,
+			sizeof(buf), drkey_hh);
+}
+
+/**
  * Derive host-host DRKey from AS-AS DRKey.
  *
  * @param kmw Keymanager worker context.
@@ -149,18 +210,11 @@ lf_keymanager_drkey_from_asas(struct lf_keymanager_worker *kmw,
 		const struct lf_host_addr *slow_side_host,
 		struct lf_crypto_drkey *drkey_hh)
 {
-	assert(LF_HOST_ADDR_LENGTH(fast_side_host) <= LF_CRYPTO_CBC_BLOCK_SIZE);
-	assert(LF_HOST_ADDR_LENGTH(slow_side_host) <= LF_CRYPTO_CBC_BLOCK_SIZE);
-
-	/* TODO: prepend key type and address length/type */
-	uint8_t buf[2 * LF_CRYPTO_CBC_BLOCK_SIZE] = { 0 };
-
-	memcpy(buf, fast_side_host->addr, LF_HOST_ADDR_LENGTH(fast_side_host));
-	memcpy(buf + LF_CRYPTO_CBC_BLOCK_SIZE, slow_side_host->addr,
-			LF_HOST_ADDR_LENGTH(slow_side_host));
-
-	lf_crypto_drkey_derivation_step(&kmw->drkey_ctx, drkey_asas, buf,
-			sizeof(buf), drkey_hh);
+	struct lf_crypto_drkey drkey_ha;
+	lf_keymanager_drkey_derive_host_as(kmw, drkey_asas, fast_side_host,
+			&drkey_ha);
+	lf_keymanager_drkey_derive_host_host(kmw, &drkey_ha, slow_side_host,
+			drkey_hh);
 }
 
 /**
