@@ -38,25 +38,19 @@ Don't forget to remove the PATH entry in `~/.profile`.
 
 ### Install SCION (Modules)
 
-Besides the official SCION repository, there also exists the experimental fork from the Network Security Group at ETH Zurich:
-https://github.com/netsec-ethz/scion
-
-Currently, only the experimental fork supports DRKey.
-Therefore, LightningFilter requires that version.
-
 To obtain the source, clone the repository:
 ```
-git clone https://github.com/netsec-ethz/scion.git
+git clone https://github.com/scionproto/scion.git
 ```
 
 Modules can be installed with `go build`.
 E.g., the `testnet_scion` setup requires the control service (cs), border router (posix-router), dispatcher (dispatcher), daemon (daemon), the PKI (scion-pki), and SCION tools like ping (scion):
 
 ```
-go build -o ./bin/ ./go/cs/
-go build -o ./bin/ ./go/posix-router/
-go build -o ./bin/ ./go/dispatcher/
-go build -o ./bin/ ./go/daemon/
-go build -o ./bin/ ./go/scion-pki/
-go build -o ./bin/ ./go/scion/
+go build -o ./bin/ ./control/cmd/control
+go build -o ./bin/ ./daemon/cmd/daemon
+go build -o ./bin/ ./dispatcher/cmd/dispatcher
+go build -o ./bin/ ./router/cmd/router
+go build -o ./bin/ ./scion/cmd/scion
+go build -o ./bin/ ./scion-pki/cmd/scion-pki
 ```

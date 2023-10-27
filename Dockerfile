@@ -50,13 +50,13 @@ RUN sudo apt-get update && \
     sudo pip3 install plumbum toml supervisor-wildcards
 
 # Require SCION NetSec binaries (contain DRKey) for SCION tests.
-RUN git clone https://github.com/netsec-ethz/scion.git && cd scion && \
-    go build -o ./bin/ ./go/cs/ && \
-    go build -o ./bin/ ./go/posix-router/ && \
-    go build -o ./bin/ ./go/dispatcher/ && \
-    go build -o ./bin/ ./go/daemon/ && \
-    go build -o ./bin/ ./go/scion-pki/ && \
-    go build -o ./bin/ ./go/scion/
+RUN git clone https://github.com/scionproto/scion.git && cd scion && \
+    go build -o ./bin/ ./control/cmd/control && \
+    go build -o ./bin/ ./daemon/cmd/daemon && \
+    go build -o ./bin/ ./dispatcher/cmd/dispatcher && \
+    go build -o ./bin/ ./router/cmd/router && \
+    go build -o ./bin/ ./scion/cmd/scion && \
+    go build -o ./bin/ ./scion-pki/cmd/scion-pki
 ENV SCION_DIR=/home/$USER/scion
 ENV SCION_BIN=/home/$USER/scion/bin
 
