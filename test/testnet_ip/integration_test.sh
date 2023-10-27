@@ -18,7 +18,7 @@ fi
 
 function cleanup() {
 	# TODO: kill application gracefully
-	sudo tmux kill-session -t $TMUX_SESSION
+	tmux kill-session -t $TMUX_SESSION
 	sleep 0.1
 
 	# tear down test network
@@ -42,7 +42,7 @@ pushd $SCRIPT_DIR > /dev/null
 TMUX_SESSION="lf_session"
 ./testnet.sh up
 sleep 0.1
-sudo tmux new-session -d -s $TMUX_SESSION ./run_lf.sh $lfexec
+tmux new-session -d -s $TMUX_SESSION ./run_lf.sh $lfexec
 sleep 1
 
 # Run tests and count failed tests
