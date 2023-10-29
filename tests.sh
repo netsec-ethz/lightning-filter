@@ -130,6 +130,7 @@ then
     run_integration_test test/testnet_scion/integration_test.sh $LF_EXEC $SCION_DIR
 fi
 
+test_label="lf_scion_drkey_scion_aesni"
 cmake_args="-D LF_WORKER=SCION -D LF_DRKEY_FETCHER=SCION -D LF_CBCMAC=AESNI -D CMAKE_BUILD_TYPE=Release"
 build_test
 if [ $? -eq 0 ]

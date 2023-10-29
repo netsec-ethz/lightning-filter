@@ -48,6 +48,23 @@ sleep 1
 # Run tests and count failed tests
 error=0
 
+# The init ping is to make sure the interface is up and running
+# before we start testing other things.
+# Due to neighbor discovery, the first ping may take longer than
+# the rest, so we ping until either 10 seconds expire or 2 pings
+# are answered.
+function init_ping() {
+	name="init_ping"
+	sudo ip netns exec eh0ns ping -c2 -w10 10.248.2.1
+	result=$?
+	if [ $result -ne 0 ]; then
+		echo "FAIL: $name, expected: 0, actual: $result"
+		((error=error+1))
+	else
+		echo "PASS: $name"
+	fi
+}
+
 function test_ping() {
 	name=$1
 	expected=$2
@@ -61,8 +78,8 @@ function test_ping() {
 	fi
 }
 
-# simple ping
-test_ping "simple_ping" 0
+# init ping
+init_ping
 
 if [[ -z "${LF_IT_NO_RL}" ]]; then
 # set overall rate limit to 0
