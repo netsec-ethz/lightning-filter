@@ -18,6 +18,9 @@ printf '#!/bin/bash\necho "0.0.0.0"' > tools/docker-ip
 echo "Create topology, configuration, and execution files."
 tools/topogen.py -c $SCRIPTPATH/tiny.topo -o $SCRIPTPATH/tmp
 
+export PYTHONPATH=.
+$SCRIPTPATH/scion-topo-add-drkey.py
+
 popd > /dev/null
 
 #cp -R ./template6/* ./gen/
