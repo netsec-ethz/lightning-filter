@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-
+import os
 from plumbum import local
 from acceptance.common import scion
 
 def main():
-	gen_dir = local.path("/home/ubuntu/lightning-filter/test/testnet_scion/scion/tmp")
+	gen_dir = local.path(os.path.dirname(__file__) + "/tmp")
 	isd_ases = scion.ASList.load(gen_dir / "as_list.yml").all
 
 	for isd_as in isd_ases:
