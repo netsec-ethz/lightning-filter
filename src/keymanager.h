@@ -160,8 +160,8 @@ lf_keymanager_drkey_derive_host_as(struct lf_keymanager_worker *kmw,
 	uint8_t buf[2 * LF_CRYPTO_CBC_BLOCK_SIZE] = { 0 };
 
 	buf[0] = DRKEY_HOST_AS_TYPE;
-	buf[0] = (int8_t)(fast_side_host->type_length);
-	memcpy(buf + 3, fast_side_host->addr, LF_HOST_ADDR_LENGTH(fast_side_host));
+	buf[1] = (int8_t)(fast_side_host->type_length);
+	memcpy(buf + 2, fast_side_host->addr, LF_HOST_ADDR_LENGTH(fast_side_host));
 
 	lf_crypto_drkey_derivation_step(&kmw->drkey_ctx, drkey_asas, buf,
 			sizeof(buf), drkey_ha);
@@ -186,8 +186,8 @@ lf_keymanager_drkey_derive_host_host(struct lf_keymanager_worker *kmw,
 	uint8_t buf[2 * LF_CRYPTO_CBC_BLOCK_SIZE] = { 0 };
 
 	buf[0] = DRKEY_HOST_HOST_TYPE;
-	buf[0] = (int8_t)(slow_side_host->type_length);
-	memcpy(buf + 2 + LF_CRYPTO_CBC_BLOCK_SIZE, slow_side_host->addr,
+	buf[1] = (int8_t)(slow_side_host->type_length);
+	memcpy(buf + 2, slow_side_host->addr,
 			LF_HOST_ADDR_LENGTH(slow_side_host));
 
 	lf_crypto_drkey_derivation_step(&kmw->drkey_ctx, drkey_host_as, buf,
