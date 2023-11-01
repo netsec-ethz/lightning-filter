@@ -187,8 +187,7 @@ lf_keymanager_drkey_derive_host_host(struct lf_keymanager_worker *kmw,
 
 	buf[0] = DRKEY_HOST_HOST_TYPE;
 	buf[1] = (int8_t)(slow_side_host->type_length);
-	memcpy(buf + 2, slow_side_host->addr,
-			LF_HOST_ADDR_LENGTH(slow_side_host));
+	memcpy(buf + 2, slow_side_host->addr, LF_HOST_ADDR_LENGTH(slow_side_host));
 
 	lf_crypto_drkey_derivation_step(&kmw->drkey_ctx, drkey_host_as, buf,
 			sizeof(buf), drkey_hh);
