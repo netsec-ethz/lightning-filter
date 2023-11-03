@@ -130,7 +130,7 @@ lf_log_drkey_value(const uint8_t *drkey, const char *info)
 	int index = 0;
 	for (i = 0; i < 16; i++) index += sprintf(&str[index], "%x ", drkey[i]);
 
-	LF_KEYMANAGER_LOG(DEBUG, "DRKEY %s (key value = %s)\n", info, str);
+	LF_KEYMANAGER_LOG(DEBUG, "DRKEY %s (%s)\n", info, str);
 }
 
 /**
@@ -174,8 +174,6 @@ lf_keymanager_drkey_derive_host_as(struct lf_keymanager_worker *kmw,
 		struct lf_crypto_drkey *drkey_ha)
 {
 	lf_log_drkey_value(drkey_asas->key, "AS-AS Key");
-	LF_KEYMANAGER_LOG(DEBUG, "Fast Side Host %x \n",
-			*(uint32_t *)(fast_side_host->addr));
 
 	assert(LF_HOST_ADDR_LENGTH(fast_side_host) <= LF_CRYPTO_CBC_BLOCK_SIZE);
 
@@ -188,8 +186,12 @@ lf_keymanager_drkey_derive_host_as(struct lf_keymanager_worker *kmw,
 
 	lf_log_drkey_value(buf, "Buf");
 
-	lf_crypto_drkey_derivation_step(&kmw->drkey_ctx, drkey_asas, buf,
-			sizeof(buf), drkey_ha);
+	// If IPv4 is used then 16 bytes are enough and this should be used.
+	// However need to decide what to do with IPv6 and especially how to handly
+	// IPv4 addresses in IPv6 notation. Probalby need conversion to IPv4.
+	int buf_size = 16;
+	lf_crypto_drkey_derivation_step(&kmw->drkey_ctx, drkey_asas, buf, buf_size,
+			drkey_ha);
 	lf_log_drkey_value(drkey_ha->key, "HOST-AS Key");
 }
 
@@ -215,8 +217,12 @@ lf_keymanager_drkey_derive_host_host(struct lf_keymanager_worker *kmw,
 	buf[1] = (uint8_t)(slow_side_host->type_length) << 4;
 	memcpy(buf + 2, slow_side_host->addr, LF_HOST_ADDR_LENGTH(slow_side_host));
 
+	// If IPv4 is used then 16 bytes are enough and this should be used.
+	// However need to decide what to do with IPv6 and especially how to handly
+	// IPv4 addresses in IPv6 notation. Probalby need conversion to IPv4.
+	int buf_size = 16;
 	lf_crypto_drkey_derivation_step(&kmw->drkey_ctx, drkey_host_as, buf,
-			sizeof(buf), drkey_hh);
+			buf_size, drkey_hh);
 }
 
 /**
@@ -236,6 +242,11 @@ lf_keymanager_drkey_from_asas(struct lf_keymanager_worker *kmw,
 		struct lf_crypto_drkey *drkey_hh)
 {
 	struct lf_crypto_drkey drkey_ha;
+	lf_log_drkey_value((const uint8_t *)fast_side_host->addr,
+			"FAST SIDE HOST ADDRESS");
+	lf_log_drkey_value((const uint8_t *)slow_side_host->addr,
+			"SLOW SIDE HOST ADDRESS");
+
 	lf_keymanager_drkey_derive_host_as(kmw, drkey_asas, fast_side_host,
 			&drkey_ha);
 	lf_keymanager_drkey_derive_host_host(kmw, &drkey_ha, slow_side_host,
