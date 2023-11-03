@@ -32,6 +32,13 @@
 
 #define LF_KEYMANAGER_INTERVAL 0.5 /* seconds */
 
+
+/**
+ * Log function for key manager service (not on data path).
+ * Format: "Keymanager: log message here"
+ */
+#define LF_KEYMANAGER_LOG(level, ...) LF_LOG(level, "Keymanager: " __VA_ARGS__)
+
 /*
  * A DRKey is valid during a certain epoch defined by a starting and ending
  * point in time. During the transition between an old key and a new key, both
@@ -115,6 +122,17 @@ struct lf_keymanager {
 	struct lf_keymanager_statistics statistics;
 };
 
+static inline void
+lf_log_drkey_value(const uint8_t *drkey, const char *info)
+{
+	char str[128];
+	int i = 0;
+	int index = 0;
+	for (i = 0; i < 16; i++) index += sprintf(&str[index], "%x ", drkey[i]);
+
+	LF_KEYMANAGER_LOG(DEBUG, "DRKEY %s (key value = %s)\n", info, str);
+}
+
 /**
  * Check if DRKey is valid at the requested time.
  *
@@ -155,16 +173,24 @@ lf_keymanager_drkey_derive_host_as(struct lf_keymanager_worker *kmw,
 		const struct lf_host_addr *fast_side_host,
 		struct lf_crypto_drkey *drkey_ha)
 {
+	lf_log_drkey_value(drkey_asas->key, "AS-AS Key");
+	LF_KEYMANAGER_LOG(DEBUG, "Fast Side Host %x \n",
+			*(uint32_t *)(fast_side_host->addr));
+
 	assert(LF_HOST_ADDR_LENGTH(fast_side_host) <= LF_CRYPTO_CBC_BLOCK_SIZE);
 
 	uint8_t buf[2 * LF_CRYPTO_CBC_BLOCK_SIZE] = { 0 };
 
 	buf[0] = DRKEY_HOST_AS_TYPE;
-	buf[1] = (int8_t)(fast_side_host->type_length);
-	memcpy(buf + 2, fast_side_host->addr, LF_HOST_ADDR_LENGTH(fast_side_host));
+	buf[2] = (uint8_t)3;
+	buf[3] = (uint8_t)(fast_side_host->type_length) << 4;
+	memcpy(buf + 4, fast_side_host->addr, LF_HOST_ADDR_LENGTH(fast_side_host));
+
+	lf_log_drkey_value(buf, "Buf");
 
 	lf_crypto_drkey_derivation_step(&kmw->drkey_ctx, drkey_asas, buf,
 			sizeof(buf), drkey_ha);
+	lf_log_drkey_value(drkey_ha->key, "HOST-AS Key");
 }
 
 /**
@@ -186,7 +212,7 @@ lf_keymanager_drkey_derive_host_host(struct lf_keymanager_worker *kmw,
 	uint8_t buf[2 * LF_CRYPTO_CBC_BLOCK_SIZE] = { 0 };
 
 	buf[0] = DRKEY_HOST_HOST_TYPE;
-	buf[1] = (int8_t)(slow_side_host->type_length);
+	buf[1] = (uint8_t)(slow_side_host->type_length) << 4;
 	memcpy(buf + 2, slow_side_host->addr, LF_HOST_ADDR_LENGTH(slow_side_host));
 
 	lf_crypto_drkey_derivation_step(&kmw->drkey_ctx, drkey_host_as, buf,

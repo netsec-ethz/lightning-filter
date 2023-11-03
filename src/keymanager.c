@@ -32,11 +32,6 @@
  * The manager lock ensures that updates to the dictionary cannot interleave.
  */
 
-/**
- * Log function for key manager service (not on data path).
- * Format: "Keymanager: log message here"
- */
-#define LF_KEYMANAGER_LOG(level, ...) LF_LOG(level, "Keymanager: " __VA_ARGS__)
 
 struct linked_list {
 	void *data;
@@ -105,6 +100,7 @@ fetch_as_as_key(struct lf_keymanager *km, const char drkey_service_addr[48],
 			rte_be_to_cpu_64(src_ia), rte_be_to_cpu_64(dst_ia),
 			rte_be_to_cpu_16(drkey_protocol), (int64_t)ms_valid,
 			&validity_not_before_ms, &validity_not_after_ms, drkey_buf);
+	lf_log_drkey_value(drkey_buf, "AS-AS Key fetched");
 
 	if (res != 0) {
 		km->statistics.fetch_fail++;
