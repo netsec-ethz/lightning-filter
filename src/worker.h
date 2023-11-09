@@ -44,6 +44,8 @@
 struct lf_worker_context {
 	uint16_t lcore_id;
 
+	/* RX/TX ports and queues */
+	/* TODO: remove from the lf worker context */
 	uint16_t max_rx_tx_index, current_rx_tx_index;
 	uint16_t rx_port_id[RTE_MAX_ETHPORTS];
 	uint16_t rx_queue_id[RTE_MAX_ETHPORTS];
@@ -52,7 +54,6 @@ struct lf_worker_context {
 	uint16_t tx_queue_id_by_port[RTE_MAX_ETHPORTS];
 	struct rte_eth_dev_tx_buffer *tx_buffer[RTE_MAX_ETHPORTS];
 	struct rte_eth_dev_tx_buffer *tx_buffer_by_port[RTE_MAX_ETHPORTS];
-
 
 	/* Forwarding port pair */
 	/* TODO: replace with a ip lookup struct for proper l3 forwarding */
@@ -148,12 +149,10 @@ enum lf_check_state {
 };
 
 /**
- * Initialize worker contexts for all lcores that run a worker.
- * The initialization sets all fields but the lcore_id field to 0.
- * The lcore_id field is set approapriately.
+ * Reset all worker contexts for all lcores that run a worker. All fields but the lcore_id field are
+ * set to 0. The lcore_id field is set approapriately.
  *
- * @param worker_lcores The lcore boolean map for workers, that indicates which
- * cores run a worker.
+ * @param worker_lcores The lcore boolean map for workers, that indicates which cores run a worker.
  * @param worker_contexts Array of worker contexts.
  * @return 0 on success.
  */

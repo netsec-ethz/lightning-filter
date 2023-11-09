@@ -89,17 +89,22 @@ static const struct port_queues_conf default_port_queues_conf = {
 	.nb_tx_queue = 0,
 };
 
-uint32_t
-calculate_nb_mbufs(uint16_t nb_rx_ports, uint16_t nb_tx_ports,
-		uint16_t nb_lcores, uint16_t nb_rxq, uint_fast16_t nb_txq)
+/*
+ * This expression is used to calculate the number of mbufs needed
+ * depending on user input, taking  into account memory for rx and
+ * tx hardware rings, cache per lcore and mtable per port per lcore.
+ * RTE_MAX is used to ensure that NB_MBUF never goes below a minimum
+ * value of 8192
+ */
+unsigned int
+calculate_nb_mbufs(uint16_t nb_lcores, uint16_t nports, uint16_t nb_rx_queue, uint16_t nb_rxd, uint16_t n_tx_queue, uint16_t nb_txd)
 {
-	/* clang-format off */
-	return RTE_MAX(nb_rx_ports * nb_rxq * nb_lcores +
-			nb_rx_ports * nb_lcores * LF_MAX_PKT_BURST +
-			nb_tx_ports * nb_txq * nb_lcores +
-			nb_lcores * LF_SETUP_MEMPOOL_CACHE_SIZE,
-			8192U);
-	/* clang-format on */
+	return RTE_MAX(
+	(nports*nb_rx_queue*nb_rxd +
+	nports*nb_lcores*LF_MAX_PKT_BURST +
+	nports*n_tx_queue*nb_txd +
+	nb_lcores*LF_SETUP_MEMPOOL_CACHE_SIZE),
+	(unsigned)8192)
 }
 
 static int
@@ -125,9 +130,8 @@ init_mbuf_pool(uint16_t port_id, int32_t socket_id, uint32_t nb_mbuf,
 }
 
 static struct rte_mempool *pktmbuf_pool[RTE_MAX_ETHPORTS][MAX_NB_SOCKETS];
-static uint32_t pktmbuf_pool_size = 0;
 static struct rte_mempool *
-get_mbuf_pool(uint16_t port_id, uint16_t socket_id)
+get_mbuf_pool(uint16_t port_id, uint16_t socket_id, unsigned int nb_mbuf)
 {
 	int res;
 	if (socket_id > MAX_NB_SOCKETS) {
@@ -137,7 +141,7 @@ get_mbuf_pool(uint16_t port_id, uint16_t socket_id)
 
 	/* initialize pool if not yet done */
 	if (pktmbuf_pool[port_id][socket_id] == NULL) {
-		res = init_mbuf_pool(port_id, socket_id, pktmbuf_pool_size,
+		res = init_mbuf_pool(port_id, socket_id, nb_mbuf,
 				&pktmbuf_pool[port_id][socket_id]);
 		if (res != 0 || pktmbuf_pool[port_id][socket_id] == NULL) {
 			LF_LOG(ERR, "Failed to init mbuf pool %d\n", socket_id);
@@ -473,9 +477,10 @@ lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
 			pktmbuf_pool[port_id][socket_id] = NULL;
 		}
 	}
-	// TODO: fix calculation of nb_mbufs
-	pktmbuf_pool_size =
-			4048; // calculate_nb_mbufs(1, nb_ports, nb_workers, 2048, 2048);
+
+	unsigned int pool_nb_mbufs = calculate_nb_mbufs(
+		nb_workers, nb_ports, nb_workers, nb_rxd, nb_workers, nb_txd
+	);
 
 	/* initialize mirror context */
 	res = lf_mirror_init(mirror_ctx);
@@ -537,8 +542,11 @@ lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
 			/* assign core's socket to queues and memory pool*/
 			port_conf->rx_sockets[queue_counter] = socket_id;
 			port_conf->tx_sockets[queue_counter] = socket_id;
+
+			/* XXX: We do not use per port pools. Hence, we always use port_id 0. */
 			port_conf->rx_mbuf_pool[queue_counter] =
-					get_mbuf_pool(port_id, socket_id);
+				get_mbuf_pool(0, socket_id, pool_nb_mbufs);
+			
 
 			if (port_conf->rx_mbuf_pool[queue_counter] == NULL) {
 				LF_LOG(ERR, "Failed to get mbuf pool for port %d\n", port_id);
@@ -555,6 +563,9 @@ lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
 
 			queue_counter++;
 		}
+
+		assert(port_conf->nb_rx_queue == queue_counter);
+		assert(port_conf->nb_tx_queue == queue_counter);
 	}
 
 	/* initialize ports */

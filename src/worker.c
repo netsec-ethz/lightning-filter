@@ -162,7 +162,7 @@ lf_worker_consume_ratelimit(uint32_t pkt_len,
 #if LF_WORKER_OMIT_RATELIMIT_CHECK
 	return
 #endif
-			lf_ratelimiter_worker_consume(rl_pkt_ctx, pkt_len);
+	lf_ratelimiter_worker_consume(rl_pkt_ctx, pkt_len);
 }
 
 /**
@@ -492,16 +492,27 @@ set_pkt_action(struct rte_mbuf *pkt, enum lf_pkt_action pkt_action)
 		break;
 	default:
 		*lf_pkt_action(pkt) = LF_PKT_ACTION_DROP;
-		/* TODO: reanable log function after removing worker_context from it. */
-		// LF_WORKER_LOG_DP(ERR, "Unknown packet action (%u)\n", pkt_res[i]);
+		LF_WORKER_LOG_DP(ERR, "Unknown packet action (%u)\n", pkt_res[i]);
 		break;
 	}
 }
 
+/**
+ * Filters a list of packets, forwarding local network control plane packets to the port's mirror
+ * and adding non-control plane packets to the filtered packets list.
+ *
+ * @param worker The worker context.
+ * @param port_id The ID of the port from which the packets came.
+ * @param nb_pkts The number of packets in the `pkts` array.
+ * @param pkts The array of packets to filter.
+ * @param filtered_pkts The array of packets that are not forwarded to the mirror.
+ *
+ * @return The number of packets added to `filtered_pkts`.
+ */
 inline static int
 mirror_filter(struct lf_worker_context *worker, uint16_t port_id,
-		uint16_t nb_pkts, struct rte_mbuf *pkts[LF_MAX_PKT_BURST],
-		struct rte_mbuf *filtered_pkts[LF_MAX_PKT_BURST])
+			  uint16_t nb_pkts, struct rte_mbuf *pkts[LF_MAX_PKT_BURST],
+			  struct rte_mbuf *filtered_pkts[LF_MAX_PKT_BURST]);
 {
 	bool forward_to_mirror;
 	int i, nb_filtered_pkts, nb_mirrored_pkts, nb_fwd;
@@ -609,6 +620,7 @@ lf_worker_rx(struct lf_worker_context *worker,
 		}
 	}
 
+	/* Receive packets from the port. */
 	nb_rx = rte_eth_rx_burst(rx_port_id, rx_queue_id, rx_pkts,
 			LF_MAX_PKT_BURST);
 	if (nb_rx > 0) {
