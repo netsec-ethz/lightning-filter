@@ -175,15 +175,13 @@ lf_keymanager_drkey_derive_host_as(struct lf_keymanager_worker *kmw,
 		const struct lf_host_addr *fast_side_host,
 		struct lf_crypto_drkey *drkey_ha)
 {
-	lf_log_drkey_value(drkey_asas->key, "AS-AS Key");
-
 	assert(LF_HOST_ADDR_LENGTH(fast_side_host) <= LF_CRYPTO_CBC_BLOCK_SIZE);
 
 	uint8_t addr_type_len = (uint8_t)(fast_side_host->type_length);
 	uint8_t *addr_ptr = fast_side_host->addr;
 	uint8_t addr_len = LF_HOST_ADDR_LENGTH(fast_side_host);
 
-	// case of IPv4 mapped IPv6
+	// IPv4 mapped to IPv6
 	if (addr_type_len == 3 && *(u_int64_t *)(fast_side_host->addr) == 0 &&
 			*(u_int32_t *)(fast_side_host->addr + 8) == 0xffff0000) {
 		addr_ptr += 12;
@@ -194,16 +192,13 @@ lf_keymanager_drkey_derive_host_as(struct lf_keymanager_worker *kmw,
 	int buf_size = (addr_len == 4) ? LF_CRYPTO_CBC_BLOCK_SIZE
 	                               : 2 * LF_CRYPTO_CBC_BLOCK_SIZE;
 	uint8_t buf[2 * LF_CRYPTO_CBC_BLOCK_SIZE] = { 0 };
-
 	buf[0] = DRKEY_HOST_AS_TYPE;
 	buf[2] = (uint8_t)DRKEY_GENERIC_PROTOCOL;
 	buf[3] = addr_type_len << 4;
 	memcpy(buf + 4, addr_ptr, addr_len);
-	lf_log_drkey_value(buf, "Buf HostAs");
 
 	lf_crypto_drkey_derivation_step(&kmw->drkey_ctx, drkey_asas, buf, buf_size,
 			drkey_ha);
-	lf_log_drkey_value(drkey_ha->key, "HOST-AS Key");
 }
 
 /**
@@ -240,11 +235,9 @@ lf_keymanager_drkey_derive_host_host(struct lf_keymanager_worker *kmw,
 	buf[0] = DRKEY_HOST_HOST_TYPE;
 	buf[1] = addr_type_len << 4;
 	memcpy(buf + 2, addr_ptr, addr_len);
-	lf_log_drkey_value(buf, "Buf HostHost");
 
 	lf_crypto_drkey_derivation_step(&kmw->drkey_ctx, drkey_host_as, buf,
 			buf_size, drkey_hh);
-	lf_log_drkey_value(drkey_hh->key, "HOST-HOST Key");
 }
 
 /**
@@ -269,10 +262,13 @@ lf_keymanager_drkey_from_asas(struct lf_keymanager_worker *kmw,
 	lf_log_drkey_value((const uint8_t *)slow_side_host->addr,
 			"SLOW SIDE HOST ADDRESS");
 
+	lf_log_drkey_value(drkey_asas->key, "AS-AS Key");
 	lf_keymanager_drkey_derive_host_as(kmw, drkey_asas, fast_side_host,
 			&drkey_ha);
+	lf_log_drkey_value((&drkey_ha)->key, "HOST-AS Key");
 	lf_keymanager_drkey_derive_host_host(kmw, &drkey_ha, slow_side_host,
 			drkey_hh);
+	lf_log_drkey_value(drkey_hh->key, "HOST-HOST Key");
 }
 
 /**
