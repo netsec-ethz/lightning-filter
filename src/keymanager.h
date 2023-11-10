@@ -57,6 +57,8 @@
 #define DRKEY_HOST_AS_TYPE   2
 #define DRKEY_HOST_HOST_TYPE 3
 
+#define DRKEY_GENERIC_PROTOCOL 3
+
 /**
  * The key container wraps all information required to use a key.
  * A DRKeys validity is usually defined in seconds. Because the workers operate
@@ -194,7 +196,7 @@ lf_keymanager_drkey_derive_host_as(struct lf_keymanager_worker *kmw,
 	uint8_t buf[2 * LF_CRYPTO_CBC_BLOCK_SIZE] = { 0 };
 
 	buf[0] = DRKEY_HOST_AS_TYPE;
-	buf[2] = (uint8_t)3;
+	buf[2] = (uint8_t)DRKEY_GENERIC_PROTOCOL;
 	buf[3] = addr_type_len << 4;
 	memcpy(buf + 4, addr_ptr, addr_len);
 	lf_log_drkey_value(buf, "Buf HostAs");
