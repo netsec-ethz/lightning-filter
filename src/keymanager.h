@@ -178,7 +178,7 @@ lf_keymanager_drkey_derive_host_as(struct lf_keymanager_worker *kmw,
 	assert(LF_HOST_ADDR_LENGTH(fast_side_host) <= LF_CRYPTO_CBC_BLOCK_SIZE);
 
 	uint8_t addr_type_len = (uint8_t)(fast_side_host->type_length);
-	uint8_t *addr_ptr = (uint8_t*)(fast_side_host->addr);
+	uint8_t *addr_ptr = (uint8_t *)(fast_side_host->addr);
 	uint8_t addr_len = LF_HOST_ADDR_LENGTH(fast_side_host);
 
 	// IPv4 mapped to IPv6
@@ -218,7 +218,7 @@ lf_keymanager_drkey_derive_host_host(struct lf_keymanager_worker *kmw,
 	assert(LF_HOST_ADDR_LENGTH(slow_side_host) <= LF_CRYPTO_CBC_BLOCK_SIZE);
 
 	uint8_t addr_type_len = (uint8_t)(slow_side_host->type_length);
-	uint8_t *addr_ptr = (uint8_t*)(slow_side_host->addr);
+	uint8_t *addr_ptr = (uint8_t *)(slow_side_host->addr);
 	uint8_t addr_len = LF_HOST_ADDR_LENGTH(slow_side_host);
 
 	// IPv4 mapped to IPv6
