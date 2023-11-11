@@ -56,7 +56,7 @@ func GetASASKey(sciondAddr *C.char, fastIA, slowIA uint64, drkeyProtocol uint16,
 	*/
 
 	*validityNotBefore = 0 * 1000
-	*validityNotAfter = 1700000000 * 1000
+	*validityNotAfter = 1800000000 * 1000
 	key := new(drkey.Key)[:]
 	copy((*[16]byte)(keyPtr)[:], key[:])
 

@@ -5,10 +5,15 @@
 		"byte_rate": 9223372036854775807,
 		"packet_rate": 9223372036854775807
 	},
+
+	"preconfigured_keys": true,
+
 	"peers": [
 		{
 			"isd_as": "1-ff00:0:111",
 			"drkey_protocol": 3,
+			"AS_AS_inbound_key":"00000000000000000000000000000000", 
+			"AS_AS_outbound_key":"00000000000000000000000000000001", 
 			"ratelimit": {
 				"byte_rate": 9223372036854775807,
 				"packet_rate": 9223372036854775807

@@ -75,6 +75,20 @@ lf_json_parse_uint64(json_value *json_val, uint64_t *val)
 	return 0;
 }
 
+static inline int
+lf_json_parse_bool(json_value *json_val, bool *val)
+{
+	if (json_val == NULL) {
+		return -1;
+	}
+	if (json_val->type != json_boolean) {
+		return -1;
+	}
+
+	*val = (bool)json_val->u.boolean;
+	return 0;
+}
+
 /**
  * Parse ethernet address string.
  * @param val result ethernet address (newtork byte order).
@@ -204,6 +218,41 @@ lf_json_parse_isd_as_be(json_value *json_val, uint64_t *val)
 		return -1;
 	}
 	*val = rte_cpu_to_be_64(*val);
+
+	return 0;
+}
+
+
+/**
+ * Parse DRKey string.
+ * @param val result 16 byte DRKey (newtork byte order).
+ */
+static inline int
+lf_json_parse_drkey(const json_value *json_val, uint8_t val[16])
+{
+	char *addrstr;
+
+	if (json_val->type != json_string) {
+		return -1;
+	}
+
+	addrstr = json_val->u.string.ptr;
+
+	for (uint8_t i = 0; i < 16; i++) {
+		val[i] = 0;
+		for (uint8_t j = 2 * i; j < 2 * i + 2; j++) {
+			assert(j <= json_val->u.string.length);
+			if (('0' <= addrstr[j]) && (int)(addrstr[j] <= '9')) {
+				val[i] = (val[i] << 4) | (addrstr[j] - '0');
+			} else if (('a' <= addrstr[j]) && (addrstr[j] <= 'f')) {
+				val[i] = (val[i] << 4) | (int)(addrstr[j] - 'a' + 10);
+			} else {
+				return -1;
+			}
+		}
+	}
+	assert(32 == json_val->u.string.length);
+	assert(addrstr[32] == '\0');
 
 	return 0;
 }

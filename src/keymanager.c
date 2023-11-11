@@ -137,6 +137,55 @@ fetch_as_as_key(struct lf_keymanager *km, const char drkey_service_addr[48],
 	return 0;
 }
 
+/**
+ * Set AS-AS key (Level 1).
+ *
+ * @param configured_drkey: drkey that is configured in the config
+ * @param src_ia: slow side of the DRKey (network byte order)
+ * @param dst_ia: fast side of the DRKey (network byte order)
+ * @param drkey_protocol: (network byte order)
+ * @param ns_valid: Unix timestamp in nanoseconds, at which the requested key
+ * must be valid.
+ * @param key: pointer to key container struct to store result in.
+ * @return 0 on success, otherwise, < 0.
+ */
+static int
+set_configured_as_as_key(struct lf_keymanager *km,
+		uint8_t configured_drkey[LF_CRYPTO_DRKEY_SIZE], uint64_t src_ia,
+		uint64_t dst_ia, uint16_t drkey_protocol, uint64_t ns_valid,
+		struct lf_keymanager_key_container *key)
+{
+	uint64_t ms_valid;
+
+	// TODO set some reasonable values for preconfigured keys
+	int64_t validity_not_before_ms = 0;
+	int64_t validity_not_after_ms = UINT64_MAX / 10000000;
+
+	ms_valid = ns_valid / LF_TIME_NS_IN_MS;
+
+	assert(ms_valid <= INT64_MAX);
+	lf_log_drkey_value(configured_drkey, "AS-AS Key set from config");
+
+	LF_KEYMANAGER_LOG(INFO,
+			"Set AS AS Key: src_as " PRIISDAS ", dst_as " PRIISDAS
+			", drkey_protocol %u, ms_valid %" PRIu64
+			", validity_not_before_ms %" PRIu64
+			", validity_not_after_ms %" PRIu64 "\n",
+			PRIISDAS_VAL(rte_be_to_cpu_64(src_ia)),
+			PRIISDAS_VAL(rte_be_to_cpu_64(dst_ia)),
+			rte_be_to_cpu_16(drkey_protocol), ms_valid, validity_not_before_ms,
+			validity_not_after_ms);
+
+	/* set values in returned key structure */
+	key->validity_not_after =
+			(uint64_t)validity_not_after_ms * LF_TIME_NS_IN_MS;
+	key->validity_not_before =
+			(uint64_t)validity_not_before_ms * LF_TIME_NS_IN_MS;
+	lf_crypto_drkey_from_buf(&km->drkey_ctx, configured_drkey, &key->key);
+
+	return 0;
+}
+
 void
 lf_keymanager_service_update(struct lf_keymanager *km)
 {
@@ -155,6 +204,7 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 		return;
 	}
 
+	// TODO: Change update behavior when using preconfigured keys
 	/* Check if inbound keys are required to be updated */
 	(void)rte_spinlock_lock(&km->management_lock);
 	for (iterator = 0; rte_hash_iterate(km->dict, (void *)&key_ptr,
@@ -386,6 +436,7 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 	km->src_as = config->isd_as;
 	memcpy(km->drkey_service_addr, config->drkey_service_addr,
 			sizeof km->drkey_service_addr);
+	km->use_preconfigured_keys = config->preconfigured_keys;
 
 	res = lf_time_get(&ns_now);
 	if (res != 0) {
@@ -447,22 +498,34 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 			break;
 		}
 
-		/*
-		 * Fetch keys from the new drkey service.
-		 * If this does not succeed, initialize them as not valid, i.e., set
-		 * validity_not_after to 0.
-		 */
-		res = fetch_as_as_key(km, config->drkey_service_addr, key.as,
-				config->isd_as, key.drkey_protocol, ns_now,
-				&dictionary_data->inbound_key);
+		if (km->use_preconfigured_keys) {
+			res = set_configured_as_as_key(km, peer->AS_AS_inbound_key, key.as,
+					config->isd_as, key.drkey_protocol, ns_now,
+					&dictionary_data->inbound_key);
+		} else {
+			/*
+			 * Fetch keys from the new drkey service.
+			 * If this does not succeed, initialize them as not valid, i.e., set
+			 * validity_not_after to 0.
+			 */
+			res = fetch_as_as_key(km, config->drkey_service_addr, key.as,
+					config->isd_as, key.drkey_protocol, ns_now,
+					&dictionary_data->inbound_key);
+		}
 		if (res < 0) {
 			dictionary_data->inbound_key.validity_not_after = 0;
 		}
 		dictionary_data->old_inbound_key.validity_not_after = 0;
 
-		res = fetch_as_as_key(km, config->drkey_service_addr, config->isd_as,
-				key.as, key.drkey_protocol, ns_now,
-				&dictionary_data->outbound_key);
+		if (km->use_preconfigured_keys) {
+			res = set_configured_as_as_key(km, peer->AS_AS_outbound_key, key.as,
+					config->isd_as, key.drkey_protocol, ns_now,
+					&dictionary_data->outbound_key);
+		} else {
+			res = fetch_as_as_key(km, config->drkey_service_addr,
+					config->isd_as, key.as, key.drkey_protocol, ns_now,
+					&dictionary_data->outbound_key);
+		}
 		if (res < 0) {
 			dictionary_data->outbound_key.validity_not_after = 0;
 		}

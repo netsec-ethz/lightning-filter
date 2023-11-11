@@ -37,6 +37,10 @@ struct lf_config_peer {
 	bool ratelimit_option; /* if a rate limit is defined */
 	struct lf_config_ratelimit ratelimit;
 
+	/* preconfigured AS-AS keys */
+	uint8_t AS_AS_inbound_key[16];
+	uint8_t AS_AS_outbound_key[16];
+
 	/* LF-IP: ip -> isd_as map (TODO: move this to a separate map) */
 	uint32_t ip; /* in network byte order */
 
@@ -108,6 +112,9 @@ struct lf_config {
 	struct lf_config_auth_peers auth_peers;
 	/* best effort rate limit */
 	struct lf_config_best_effort best_effort;
+
+	/* flag for using preconfigured AS-AS keys */
+	bool preconfigured_keys;
 
 	/* Linked list of peers */
 	size_t nb_peers;
