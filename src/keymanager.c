@@ -205,114 +205,121 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 	}
 
 	// TODO: Change update behavior when using preconfigured keys
-	/* Check if inbound keys are required to be updated */
-	(void)rte_spinlock_lock(&km->management_lock);
-	for (iterator = 0; rte_hash_iterate(km->dict, (void *)&key_ptr,
-							   (void **)&data, &iterator) >= 0;) {
-		if (ns_now + LF_DRKEY_PREFETCHING_PERIOD >=
-				data->inbound_key.validity_not_after) {
-			/*
-			 * create new node and copy everything from old node
-			 */
-			new_data = rte_malloc(NULL,
-					sizeof(struct lf_keymanager_dictionary_data), 0);
-			if (new_data == NULL) {
-				LF_KEYMANAGER_LOG(ERR,
-						"Fail to allocate memory for key update\n");
-				err = -1;
-				goto exit;
-			}
-			(void)rte_memcpy(new_data, data,
-					sizeof(struct lf_keymanager_dictionary_data));
+	if (!(km->use_preconfigured_keys)) {
+		/* Check if inbound keys are required to be updated */
+		(void)rte_spinlock_lock(&km->management_lock);
+		for (iterator = 0; rte_hash_iterate(km->dict, (void *)&key_ptr,
+								   (void **)&data, &iterator) >= 0;) {
+			if (ns_now + LF_DRKEY_PREFETCHING_PERIOD >=
+					data->inbound_key.validity_not_after) {
+				/*
+				 * create new node and copy everything from old node
+				 */
+				new_data = rte_malloc(NULL,
+						sizeof(struct lf_keymanager_dictionary_data), 0);
+				if (new_data == NULL) {
+					LF_KEYMANAGER_LOG(ERR,
+							"Fail to allocate memory for key update\n");
+					err = -1;
+					goto exit;
+				}
+				(void)rte_memcpy(new_data, data,
+						sizeof(struct lf_keymanager_dictionary_data));
 
-			key_id = fetch_as_as_key(km, km->drkey_service_addr, key_ptr->as,
-					km->src_as, key_ptr->drkey_protocol,
-					ns_now + LF_DRKEY_PREFETCHING_PERIOD,
-					&new_data->inbound_key);
-			if (key_id < 0) {
-				(void)rte_free(new_data);
-				err = -1;
-				goto exit;
-			}
+				key_id = fetch_as_as_key(km, km->drkey_service_addr,
+						key_ptr->as, km->src_as, key_ptr->drkey_protocol,
+						ns_now + LF_DRKEY_PREFETCHING_PERIOD,
+						&new_data->inbound_key);
+				if (key_id < 0) {
+					(void)rte_free(new_data);
+					err = -1;
+					goto exit;
+				}
 
-			/* keep key as old key */
-			(void)rte_memcpy(&new_data->old_inbound_key, &data->inbound_key,
-					sizeof(struct lf_keymanager_key_container));
+				/* keep key as old key */
+				(void)rte_memcpy(&new_data->old_inbound_key, &data->inbound_key,
+						sizeof(struct lf_keymanager_key_container));
 
-			/* add new node to dictionary */
-			res = rte_hash_add_key_data(km->dict, key_ptr, (void *)new_data);
-			if (res != 0) {
-				LF_KEYMANAGER_LOG(ERR,
-						"Fail to add inbound key to dictionary (err = %d)\n",
-						res);
-				rte_free(new_data);
-				err = -1;
-				goto exit;
+				/* add new node to dictionary */
+				res = rte_hash_add_key_data(km->dict, key_ptr,
+						(void *)new_data);
+				if (res != 0) {
+					LF_KEYMANAGER_LOG(ERR,
+							"Fail to add inbound key to dictionary (err = "
+							"%d)\n",
+							res);
+					rte_free(new_data);
+					err = -1;
+					goto exit;
+				}
+				/* free old dictionary data later */
+				(void)linked_list_push(&free_list, data);
 			}
-			/* free old dictionary data later */
-			(void)linked_list_push(&free_list, data);
 		}
-	}
 
-	/* Check if outbound keys are required to be updated */
-	for (iterator = 0; rte_hash_iterate(km->dict, (void *)&key_ptr,
-							   (void **)&data, &iterator) >= 0;) {
-		if (ns_now + LF_DRKEY_PREFETCHING_PERIOD >=
-				data->outbound_key.validity_not_after) {
-			/*
-			 * create new node and copy everything from old node
-			 */
-			new_data = rte_malloc(NULL,
-					sizeof(struct lf_keymanager_dictionary_data), 0);
-			if (new_data == NULL) {
-				LF_KEYMANAGER_LOG(ERR,
-						"Fail to allocate memory for key update\n");
-				err = -1;
-				goto exit;
+		/* Check if outbound keys are required to be updated */
+		for (iterator = 0; rte_hash_iterate(km->dict, (void *)&key_ptr,
+								   (void **)&data, &iterator) >= 0;) {
+			if (ns_now + LF_DRKEY_PREFETCHING_PERIOD >=
+					data->outbound_key.validity_not_after) {
+				/*
+				 * create new node and copy everything from old node
+				 */
+				new_data = rte_malloc(NULL,
+						sizeof(struct lf_keymanager_dictionary_data), 0);
+				if (new_data == NULL) {
+					LF_KEYMANAGER_LOG(ERR,
+							"Fail to allocate memory for key update\n");
+					err = -1;
+					goto exit;
+				}
+				(void)rte_memcpy(new_data, data,
+						sizeof(struct lf_keymanager_dictionary_data));
+
+				key_id = fetch_as_as_key(km, km->drkey_service_addr, km->src_as,
+						key_ptr->as, key_ptr->drkey_protocol,
+						ns_now + LF_DRKEY_PREFETCHING_PERIOD,
+						&new_data->outbound_key);
+				if (key_id < 0) {
+					(void)rte_free(new_data);
+					err = -1;
+					goto exit;
+				}
+
+				/* keep key as old key */
+				(void)rte_memcpy(&new_data->old_outbound_key,
+						&data->outbound_key,
+						sizeof(struct lf_keymanager_key_container));
+
+				/* add new node to dictionary */
+				res = rte_hash_add_key_data(km->dict, key_ptr,
+						(void *)new_data);
+				if (res != 0) {
+					LF_KEYMANAGER_LOG(ERR,
+							"Fail to add outbound key to dictionary (err = "
+							"%d)\n",
+							res);
+					rte_free(new_data);
+					err = -1;
+					goto exit;
+				}
+				/* free old dictionary data later */
+				(void)linked_list_push(&free_list, data);
 			}
-			(void)rte_memcpy(new_data, data,
-					sizeof(struct lf_keymanager_dictionary_data));
-
-			key_id = fetch_as_as_key(km, km->drkey_service_addr, km->src_as,
-					key_ptr->as, key_ptr->drkey_protocol,
-					ns_now + LF_DRKEY_PREFETCHING_PERIOD,
-					&new_data->outbound_key);
-			if (key_id < 0) {
-				(void)rte_free(new_data);
-				err = -1;
-				goto exit;
-			}
-
-			/* keep key as old key */
-			(void)rte_memcpy(&new_data->old_outbound_key, &data->outbound_key,
-					sizeof(struct lf_keymanager_key_container));
-
-			/* add new node to dictionary */
-			res = rte_hash_add_key_data(km->dict, key_ptr, (void *)new_data);
-			if (res != 0) {
-				LF_KEYMANAGER_LOG(ERR,
-						"Fail to add outbound key to dictionary (err = %d)\n",
-						res);
-				rte_free(new_data);
-				err = -1;
-				goto exit;
-			}
-			/* free old dictionary data later */
-			(void)linked_list_push(&free_list, data);
 		}
-	}
 
-exit:
-	if (free_list != NULL) {
-		/* free old data after no worker accesses it anymore */
-		(void)synchronize_worker(km);
-		(void)linked_list_free(free_list);
+	exit:
+		if (free_list != NULL) {
+			/* free old data after no worker accesses it anymore */
+			(void)synchronize_worker(km);
+			(void)linked_list_free(free_list);
+		}
+		if (err != 0) {
+			LF_KEYMANAGER_LOG(ERR, "Error occurred during update (err = %d)\n",
+					err);
+		}
+		(void)rte_spinlock_unlock(&km->management_lock);
 	}
-	if (err != 0) {
-		LF_KEYMANAGER_LOG(ERR, "Error occurred during update (err = %d)\n",
-				err);
-	}
-	(void)rte_spinlock_unlock(&km->management_lock);
 }
 
 int
