@@ -205,122 +205,117 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 	}
 
 	// TODO: Change update behavior when using preconfigured keys
-	if (!(km->use_preconfigured_keys)) {
-		/* Check if inbound keys are required to be updated */
-		(void)rte_spinlock_lock(&km->management_lock);
-		for (iterator = 0; rte_hash_iterate(km->dict, (void *)&key_ptr,
-								   (void **)&data, &iterator) >= 0;) {
-			if (ns_now + LF_DRKEY_PREFETCHING_PERIOD >=
-					data->inbound_key.validity_not_after) {
-				/*
-				 * create new node and copy everything from old node
-				 */
-				new_data = rte_malloc(NULL,
-						sizeof(struct lf_keymanager_dictionary_data), 0);
-				if (new_data == NULL) {
-					LF_KEYMANAGER_LOG(ERR,
-							"Fail to allocate memory for key update\n");
-					err = -1;
-					goto exit;
-				}
-				(void)rte_memcpy(new_data, data,
-						sizeof(struct lf_keymanager_dictionary_data));
-
-				key_id = fetch_as_as_key(km, km->drkey_service_addr,
-						key_ptr->as, km->src_as, key_ptr->drkey_protocol,
-						ns_now + LF_DRKEY_PREFETCHING_PERIOD,
-						&new_data->inbound_key);
-				if (key_id < 0) {
-					(void)rte_free(new_data);
-					err = -1;
-					goto exit;
-				}
-
-				/* keep key as old key */
-				(void)rte_memcpy(&new_data->old_inbound_key, &data->inbound_key,
-						sizeof(struct lf_keymanager_key_container));
-
-				/* add new node to dictionary */
-				res = rte_hash_add_key_data(km->dict, key_ptr,
-						(void *)new_data);
-				if (res != 0) {
-					LF_KEYMANAGER_LOG(ERR,
-							"Fail to add inbound key to dictionary (err = "
-							"%d)\n",
-							res);
-					rte_free(new_data);
-					err = -1;
-					goto exit;
-				}
-				/* free old dictionary data later */
-				(void)linked_list_push(&free_list, data);
+	/* Check if inbound keys are required to be updated */
+	(void)rte_spinlock_lock(&km->management_lock);
+	for (iterator = 0; rte_hash_iterate(km->dict, (void *)&key_ptr,
+							   (void **)&data, &iterator) >= 0;) {
+		if (ns_now + LF_DRKEY_PREFETCHING_PERIOD >=
+				data->inbound_key.validity_not_after) {
+			/*
+			 * create new node and copy everything from old node
+			 */
+			new_data = rte_malloc(NULL,
+					sizeof(struct lf_keymanager_dictionary_data), 0);
+			if (new_data == NULL) {
+				LF_KEYMANAGER_LOG(ERR,
+						"Fail to allocate memory for key update\n");
+				err = -1;
+				goto exit;
 			}
-		}
+			(void)rte_memcpy(new_data, data,
+					sizeof(struct lf_keymanager_dictionary_data));
 
-		/* Check if outbound keys are required to be updated */
-		for (iterator = 0; rte_hash_iterate(km->dict, (void *)&key_ptr,
-								   (void **)&data, &iterator) >= 0;) {
-			if (ns_now + LF_DRKEY_PREFETCHING_PERIOD >=
-					data->outbound_key.validity_not_after) {
-				/*
-				 * create new node and copy everything from old node
-				 */
-				new_data = rte_malloc(NULL,
-						sizeof(struct lf_keymanager_dictionary_data), 0);
-				if (new_data == NULL) {
-					LF_KEYMANAGER_LOG(ERR,
-							"Fail to allocate memory for key update\n");
-					err = -1;
-					goto exit;
-				}
-				(void)rte_memcpy(new_data, data,
-						sizeof(struct lf_keymanager_dictionary_data));
-
-				key_id = fetch_as_as_key(km, km->drkey_service_addr, km->src_as,
-						key_ptr->as, key_ptr->drkey_protocol,
-						ns_now + LF_DRKEY_PREFETCHING_PERIOD,
-						&new_data->outbound_key);
-				if (key_id < 0) {
-					(void)rte_free(new_data);
-					err = -1;
-					goto exit;
-				}
-
-				/* keep key as old key */
-				(void)rte_memcpy(&new_data->old_outbound_key,
-						&data->outbound_key,
-						sizeof(struct lf_keymanager_key_container));
-
-				/* add new node to dictionary */
-				res = rte_hash_add_key_data(km->dict, key_ptr,
-						(void *)new_data);
-				if (res != 0) {
-					LF_KEYMANAGER_LOG(ERR,
-							"Fail to add outbound key to dictionary (err = "
-							"%d)\n",
-							res);
-					rte_free(new_data);
-					err = -1;
-					goto exit;
-				}
-				/* free old dictionary data later */
-				(void)linked_list_push(&free_list, data);
+			key_id = fetch_as_as_key(km, km->drkey_service_addr, key_ptr->as,
+					km->src_as, key_ptr->drkey_protocol,
+					ns_now + LF_DRKEY_PREFETCHING_PERIOD,
+					&new_data->inbound_key);
+			if (key_id < 0) {
+				(void)rte_free(new_data);
+				err = -1;
+				goto exit;
 			}
-		}
 
-	exit:
-		if (free_list != NULL) {
-			/* free old data after no worker accesses it anymore */
-			(void)synchronize_worker(km);
-			(void)linked_list_free(free_list);
+			/* keep key as old key */
+			(void)rte_memcpy(&new_data->old_inbound_key, &data->inbound_key,
+					sizeof(struct lf_keymanager_key_container));
+
+			/* add new node to dictionary */
+			res = rte_hash_add_key_data(km->dict, key_ptr, (void *)new_data);
+			if (res != 0) {
+				LF_KEYMANAGER_LOG(ERR,
+						"Fail to add inbound key to dictionary (err = "
+						"%d)\n",
+						res);
+				rte_free(new_data);
+				err = -1;
+				goto exit;
+			}
+			/* free old dictionary data later */
+			(void)linked_list_push(&free_list, data);
 		}
-		if (err != 0) {
-			LF_KEYMANAGER_LOG(ERR, "Error occurred during update (err = %d)\n",
-					err);
-		}
-		(void)rte_spinlock_unlock(&km->management_lock);
 	}
+
+	/* Check if outbound keys are required to be updated */
+	for (iterator = 0; rte_hash_iterate(km->dict, (void *)&key_ptr,
+							   (void **)&data, &iterator) >= 0;) {
+		if (ns_now + LF_DRKEY_PREFETCHING_PERIOD >=
+				data->outbound_key.validity_not_after) {
+			/*
+			 * create new node and copy everything from old node
+			 */
+			new_data = rte_malloc(NULL,
+					sizeof(struct lf_keymanager_dictionary_data), 0);
+			if (new_data == NULL) {
+				LF_KEYMANAGER_LOG(ERR,
+						"Fail to allocate memory for key update\n");
+				err = -1;
+				goto exit;
+			}
+			(void)rte_memcpy(new_data, data,
+					sizeof(struct lf_keymanager_dictionary_data));
+
+			key_id = fetch_as_as_key(km, km->drkey_service_addr, km->src_as,
+					key_ptr->as, key_ptr->drkey_protocol,
+					ns_now + LF_DRKEY_PREFETCHING_PERIOD,
+					&new_data->outbound_key);
+			if (key_id < 0) {
+				(void)rte_free(new_data);
+				err = -1;
+				goto exit;
+			}
+
+			/* keep key as old key */
+			(void)rte_memcpy(&new_data->old_outbound_key, &data->outbound_key,
+					sizeof(struct lf_keymanager_key_container));
+
+			/* add new node to dictionary */
+			res = rte_hash_add_key_data(km->dict, key_ptr, (void *)new_data);
+			if (res != 0) {
+				LF_KEYMANAGER_LOG(ERR,
+						"Fail to add outbound key to dictionary (err = "
+						"%d)\n",
+						res);
+				rte_free(new_data);
+				err = -1;
+				goto exit;
+			}
+			/* free old dictionary data later */
+			(void)linked_list_push(&free_list, data);
+		}
+	}
+exit:
+	if (free_list != NULL) {
+		/* free old data after no worker accesses it anymore */
+		(void)synchronize_worker(km);
+		(void)linked_list_free(free_list);
+	}
+	if (err != 0) {
+		LF_KEYMANAGER_LOG(ERR, "Error occurred during update (err = %d)\n",
+				err);
+	}
+	(void)rte_spinlock_unlock(&km->management_lock);
 }
+
 
 int
 lf_keymanager_service_launch(struct lf_keymanager *km)
@@ -443,7 +438,6 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 	km->src_as = config->isd_as;
 	memcpy(km->drkey_service_addr, config->drkey_service_addr,
 			sizeof km->drkey_service_addr);
-	km->use_preconfigured_keys = config->preconfigured_keys;
 
 	res = lf_time_get(&ns_now);
 	if (res != 0) {
@@ -505,9 +499,9 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 			break;
 		}
 
-		if (km->use_preconfigured_keys) {
-			res = set_configured_as_as_key(km, peer->AS_AS_inbound_key, key.as,
-					config->isd_as, key.drkey_protocol, ns_now,
+		if (&peer->drkey_level_1 != NULL) {
+			res = set_configured_as_as_key(km, (&peer->drkey_level_1)->inbound,
+					key.as, config->isd_as, key.drkey_protocol, ns_now,
 					&dictionary_data->inbound_key);
 		} else {
 			/*
@@ -524,9 +518,9 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 		}
 		dictionary_data->old_inbound_key.validity_not_after = 0;
 
-		if (km->use_preconfigured_keys) {
-			res = set_configured_as_as_key(km, peer->AS_AS_outbound_key, key.as,
-					config->isd_as, key.drkey_protocol, ns_now,
+		if (&peer->drkey_level_1 != NULL) {
+			res = set_configured_as_as_key(km, (&peer->drkey_level_1)->outbound,
+					key.as, config->isd_as, key.drkey_protocol, ns_now,
 					&dictionary_data->outbound_key);
 		} else {
 			res = fetch_as_as_key(km, config->drkey_service_addr,

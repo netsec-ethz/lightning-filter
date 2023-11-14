@@ -45,9 +45,7 @@
 #define FIELD_DRKEY_PROTOCOL     "drkey_protocol"
 #define FIELD_DRKEY_SERVICE_ADDR "drkey_service_addr"
 
-#define FIELD_PRECONFIGURED_DRKEY "preconfigured_keys"
-#define FIELD_AS_AS_INBOUND_KEY   "AS_AS_inbound_key"
-#define FIELD_AS_AS_OUTBOUND_KEY  "AS_AS_outbound_key"
+#define FIELD_DRKEY_LEVEL_1 "drkey_level1"
 
 #define FIELD_DST_RATELIMITER "dst_ratelimiter"
 
@@ -91,8 +89,11 @@ peer_init(struct lf_config_peer *config_peer)
 		.isd_as = 1,
 		.next = NULL,
 
-		.AS_AS_inbound_key = { 0 },
-		.AS_AS_outbound_key = { 0 },
+		.drkey_level_1 =
+				(struct lf_config_drkey_level_1){
+						.inbound = { 0 },
+						.outbound = { 0 },
+				},
 
 		/* per default no rate limit is defined for a peer */
 		.ratelimit_option = false,
@@ -183,6 +184,63 @@ parse_ratelimit(json_value *json_val, struct lf_config_ratelimit *ratelimit)
 	return 0;
 }
 
+/**
+ * The drkey_level_1 struct consists of an inbound and outbound key. This should
+ * be used for preconfigured keys.
+ *
+ * @return Returns 0 on success.
+ */
+static int
+parse_drkey_level_1(json_value *json_val,
+		struct lf_config_drkey_level_1 *drkey_level_1)
+{
+	int res, error_count = 0;
+	unsigned int length;
+	unsigned int i;
+	char *field_name;
+	json_value *field_value;
+
+	/* Initialize drkey struct. Set all to 0. */
+	(void)memset(drkey_level_1, 0, sizeof *drkey_level_1);
+
+	if (json_val == NULL) {
+		return -1;
+	}
+
+	if (json_val->type != json_object) {
+		return -1;
+	}
+
+	length = json_val->u.object.length;
+
+	for (i = 0; i < length; ++i) {
+		field_name = json_val->u.object.values[i].name;
+		field_value = json_val->u.object.values[i].value;
+
+		if (strcmp(field_name, FIELD_INBOUND) == 0) {
+			res = lf_json_parse_drkey(field_value, drkey_level_1->inbound);
+			if (res != 0) {
+				LF_LOG(ERR, "Invalid DRKEY (%d:%d)\n", field_value->line,
+						field_value->col);
+				error_count++;
+			}
+		} else if (strcmp(field_name, FIELD_OUTBOUND) == 0) {
+			res = lf_json_parse_drkey(field_value, drkey_level_1->outbound);
+			if (res != 0) {
+				LF_LOG(ERR, "Invalid DRKEY (%d:%d)\n", field_value->line,
+						field_value->col);
+				error_count++;
+			}
+		} else {
+			LF_LOG(ERR, "Unknown field %s (%d:%d)\n", field_name,
+					field_value->line, field_value->col);
+			error_count++;
+		}
+	}
+
+	return 0;
+}
+
 static int
 parse_peer(json_value *json_val, struct lf_config_peer *peer)
 {
@@ -238,15 +296,8 @@ parse_peer(json_value *json_val, struct lf_config_peer *peer)
 				error_count++;
 			}
 			peer->ratelimit_option = true;
-		} else if (strcmp(field_name, FIELD_AS_AS_INBOUND_KEY) == 0) {
-			res = lf_json_parse_drkey(field_value, peer->AS_AS_inbound_key);
-			if (res != 0) {
-				LF_LOG(ERR, "Invalid DRKEY (%d:%d)\n", field_value->line,
-						field_value->col);
-				error_count++;
-			}
-		} else if (strcmp(field_name, FIELD_AS_AS_OUTBOUND_KEY) == 0) {
-			res = lf_json_parse_drkey(field_value, peer->AS_AS_outbound_key);
+		} else if (strcmp(field_name, FIELD_DRKEY_LEVEL_1) == 0) {
+			res = parse_drkey_level_1(field_value, &peer->drkey_level_1);
 			if (res != 0) {
 				LF_LOG(ERR, "Invalid DRKEY (%d:%d)\n", field_value->line,
 						field_value->col);
@@ -773,14 +824,6 @@ parse_config(json_value *json_val, struct lf_config *config)
 				error_count++;
 			}
 			config->option_ip_public = true;
-		} else if (strcmp(field_name, FIELD_PRECONFIGURED_DRKEY) == 0) {
-			res = lf_json_parse_bool(field_value, &config->preconfigured_keys);
-			if (res != 0) {
-				LF_LOG(ERR, "Invalid preconfigured key flag (%u:%u)\n",
-						field_value->line, field_value->col);
-				error_count++;
-			}
-			config->option_ip_public = true;
 		} else if (strcmp(field_name, FIELD_DST_RATELIMITER) == 0) {
 			res = parse_dst_ratelimiter(field_value, &config->dst_ratelimiter);
 			if (res != 0) {
@@ -893,9 +936,6 @@ lf_config_init(struct lf_config *config)
 		.best_effort = {
 			.ratelimit = zero_ratelimit,
 		},
-
-		/* key option */
-		.preconfigured_keys = false,
 
 		/* Remote peers */
 		.nb_peers = 0,

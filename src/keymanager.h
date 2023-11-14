@@ -111,7 +111,6 @@ struct lf_keymanager {
 	uint64_t src_as;
 
 	char drkey_service_addr[48];
-	bool use_preconfigured_keys;
 
 	/* crypto DRKey context */
 	struct lf_crypto_drkey_ctx drkey_ctx;
