@@ -32,13 +32,6 @@
 
 #define LF_KEYMANAGER_INTERVAL 0.5 /* seconds */
 
-
-/**
- * Log function for key manager service (not on data path).
- * Format: "Keymanager: log message here"
- */
-#define LF_KEYMANAGER_LOG(level, ...) LF_LOG(level, "Keymanager: " __VA_ARGS__)
-
 /*
  * A DRKey is valid during a certain epoch defined by a starting and ending
  * point in time. During the transition between an old key and a new key, both
@@ -123,17 +116,6 @@ struct lf_keymanager {
 	/* statistics counters */
 	struct lf_keymanager_statistics statistics;
 };
-
-static inline void
-lf_log_drkey_value(const uint8_t *drkey, const char *info)
-{
-	char str[128];
-	int i = 0;
-	int index = 0;
-	for (i = 0; i < 16; i++) index += sprintf(&str[index], "%x ", drkey[i]);
-
-	LF_KEYMANAGER_LOG(DEBUG, "DRKEY %s (%s)\n", info, str);
-}
 
 /**
  * Check if DRKey is valid at the requested time.
@@ -259,18 +241,10 @@ lf_keymanager_drkey_from_asas(struct lf_keymanager_worker *kmw,
 		const uint16_t drkey_protocol, struct lf_crypto_drkey *drkey_hh)
 {
 	struct lf_crypto_drkey drkey_ha;
-	lf_log_drkey_value((const uint8_t *)fast_side_host->addr,
-			"FAST SIDE HOST ADDRESS");
-	lf_log_drkey_value((const uint8_t *)slow_side_host->addr,
-			"SLOW SIDE HOST ADDRESS");
-
-	lf_log_drkey_value(drkey_asas->key, "AS-AS Key");
 	lf_keymanager_drkey_derive_host_as(kmw, drkey_asas, fast_side_host,
 			drkey_protocol, &drkey_ha);
-	lf_log_drkey_value((&drkey_ha)->key, "HOST-AS Key");
 	lf_keymanager_drkey_derive_host_host(kmw, &drkey_ha, slow_side_host,
 			drkey_hh);
-	lf_log_drkey_value(drkey_hh->key, "HOST-HOST Key");
 }
 
 /**

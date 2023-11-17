@@ -32,6 +32,11 @@
  * The manager lock ensures that updates to the dictionary cannot interleave.
  */
 
+/**
+ * Log function for key manager service (not on data path).
+ * Format: "Keymanager: log message here"
+ */
+#define LF_KEYMANAGER_LOG(level, ...) LF_LOG(level, "Keymanager: " __VA_ARGS__)
 
 struct linked_list {
 	void *data;
@@ -166,7 +171,6 @@ set_configured_as_as_key(struct lf_keymanager *km,
 	ms_valid = ns_valid / LF_TIME_NS_IN_MS;
 
 	assert(ms_valid <= INT64_MAX);
-	lf_log_drkey_value(configured_drkey, "AS-AS Key set from config");
 
 	LF_KEYMANAGER_LOG(INFO,
 			"Set AS AS Key: src_as " PRIISDAS ", dst_as " PRIISDAS
