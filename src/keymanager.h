@@ -50,7 +50,7 @@
 #define LF_DRKEY_PREFETCHING_PERIOD (1 * LF_TIME_NS_IN_S) /* in nanoseconds */
 
 /*
- * To derive DRKeys the type is required for the input of the KDF.
+ * DRKeys types needed for derivation input.
  */
 #define DRKEY_AS_AS_TYPE     0
 #define DRKEY_AS_HOST_TYPE   1
@@ -366,7 +366,6 @@ lf_keymanager_worker_outbound_get_drkey(struct lf_keymanager_worker *kmw,
 	/* find AS-AS key */
 	key_id = rte_hash_lookup_data(kmw->dict, &key, (void **)&dict_node);
 	if (unlikely(key_id < 0)) {
-		LF_KEYMANAGER_LOG(DEBUG, "KEY NOT FOUND");
 		return -1;
 	}
 
