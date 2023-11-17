@@ -44,7 +44,7 @@ git clone https://github.com/scionproto/scion.git
 ```
 
 Modules can be installed with `go build`.
-E.g., the `testnet_scion` setup requires the control service (cs), border router (posix-router), dispatcher (dispatcher), daemon (daemon), the PKI (scion-pki), and SCION tools like ping (scion):
+E.g., the `testnet_scion` setup requires the control service (control), border router (router), dispatcher (dispatcher), daemon (daemon), the PKI (scion-pki), and SCION tools like ping (scion):
 
 ```
 go build -o ./bin/ ./control/cmd/control
