@@ -55,6 +55,7 @@ func GetASASKey(sciondAddr *C.char, fastIA, slowIA uint64, drkeyProtocol uint16,
 			}
 	*/
 
+	// This just creates a 0...0 key for testing
 	*validityNotBefore = 0 * 1000
 	*validityNotAfter = 1800000000 * 1000
 	key := new(drkey.Key)[:]

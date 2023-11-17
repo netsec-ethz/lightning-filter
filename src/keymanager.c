@@ -88,6 +88,9 @@ fetch_as_as_key(struct lf_keymanager *km, const char drkey_service_addr[48],
 		uint64_t src_ia, uint64_t dst_ia, uint16_t drkey_protocol,
 		uint64_t ns_valid, struct lf_keymanager_key_container *key)
 {
+	LF_KEYMANAGER_LOG(DEBUG, "FETCHING DRKeys from CS is not implemented.");
+	return -1;
+
 	int res;
 	uint64_t ms_valid;
 	int64_t validity_not_before_ms, validity_not_after_ms;
@@ -100,7 +103,6 @@ fetch_as_as_key(struct lf_keymanager *km, const char drkey_service_addr[48],
 			rte_be_to_cpu_64(src_ia), rte_be_to_cpu_64(dst_ia),
 			rte_be_to_cpu_16(drkey_protocol), (int64_t)ms_valid,
 			&validity_not_before_ms, &validity_not_after_ms, drkey_buf);
-	lf_log_drkey_value(drkey_buf, "AS-AS Key fetched");
 
 	if (res != 0) {
 		km->statistics.fetch_fail++;
