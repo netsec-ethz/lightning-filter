@@ -4,7 +4,7 @@ LightningFilter is a high-speed traffic filtering mechanism that performs authen
 LightningFilter uses the DPDK framework, enabling high-speed packet processing.
 
 This repository contains the open-source version, which offers at least the core functionalities of a LightningFilter.
-The closed-source version provides additional functionalities and better performance (~5x throughput).
+The closed-source version provides additional functionalities.
 
 ## License
 
@@ -28,17 +28,6 @@ See [docs/Installation.md](docs/Installation.md) for detailed information.
 
 There are mainly two possibilities to build LightingFilter: with the help of a docker container or natively on a machine.
 Both of the options rely on Ubuntu 22.04.
-
-## Docker Container
-
-Install docker and add the user to the docker group.
-Then run the `docker.sh` script to create the docker image and container that builds LightningFilter.
-
-```
-./docker.sh build <CMAKE_ARGS>
-```
-
-> Note: Once a CMake flag is set for a build, it does not change its value for the following build calls.
 
 ## Native
 
@@ -182,7 +171,7 @@ sudo ./integration_test.sh ../../build/src/lf
 
 ## Test Script
 
-To run all of the unit and integration tests with different settings (compilation configurations), run the script `run_tests.sh`.
+To run all of the unit and integration tests with different settings (compilation configurations), run the script `tests.sh`.
 
 ## Performance Tests
 

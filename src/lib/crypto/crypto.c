@@ -5,6 +5,10 @@
 #include <assert.h>
 #include <string.h>
 
+#ifdef LF_CBCMAC_AESNI
+#include "../../lib/aesni/aesni.h"
+#endif
+
 #include <openssl/evp.h>
 
 #include "crypto.h"
@@ -39,6 +43,64 @@ cmp_16(const void *x, const void *y)
 	return (int)(1 & ((d - 1) >> 8)) - 1;
 	// NOLINTEND(readability-magic-numbers)
 }
+
+#ifdef LF_CBCMAC_AESNI
+int
+lf_crypto_drkey_ctx_init(struct lf_crypto_drkey_ctx *ctx)
+{
+	(void)ctx;
+	return 0;
+}
+
+void
+lf_crypto_drkey_ctx_close(struct lf_crypto_drkey_ctx *ctx)
+{
+	(void)ctx;
+}
+
+void
+lf_crypto_drkey_cbcmac(struct lf_crypto_drkey_ctx *ctx,
+		const struct lf_crypto_drkey *drkey, const uint8_t *data,
+		size_t data_len, uint8_t mac[LF_CRYPTO_MAC_SIZE])
+{
+	(void)ctx;
+	static_assert(sizeof drkey->roundkey == LF_CRYPTO_DRKEY_ROUNDKEY_SIZE,
+			"unexpected key size");
+	assert(data_len % LF_CRYPTO_CBC_BLOCK_SIZE != 0 ||
+			"data len does not fit block size");
+	CBCMAC(drkey->roundkey, (int)(data_len / LF_CRYPTO_CBC_BLOCK_SIZE), data,
+			mac);
+}
+
+void
+lf_crypto_drkey_from_buf(struct lf_crypto_drkey_ctx *ctx,
+		const uint8_t buf[LF_CRYPTO_DRKEY_SIZE], struct lf_crypto_drkey *drkey)
+{
+	(void)ctx;
+	static_assert(sizeof drkey->key == LF_CRYPTO_DRKEY_SIZE,
+			"unexpected key size");
+	memcpy(drkey->key, buf, LF_CRYPTO_DRKEY_SIZE);
+	static_assert(sizeof drkey->roundkey == LF_CRYPTO_DRKEY_ROUNDKEY_SIZE,
+			"unexpected key size");
+	ExpandKey128(buf, drkey->roundkey);
+}
+
+void
+lf_crypto_drkey_derivation_step(struct lf_crypto_drkey_ctx *ctx,
+		const struct lf_crypto_drkey *drkey, uint8_t *data, int data_len,
+		struct lf_crypto_drkey *drkey_out)
+{
+	assert(data_len % LF_CRYPTO_CBC_BLOCK_SIZE == 0);
+
+	lf_crypto_drkey_cbcmac(ctx, drkey, data, data_len, drkey_out->key);
+	static_assert(sizeof drkey_out->key == LF_CRYPTO_DRKEY_SIZE,
+			"unexpected key size");
+	static_assert(sizeof drkey_out->roundkey == LF_CRYPTO_DRKEY_ROUNDKEY_SIZE,
+			"unexpected key size");
+	ExpandKey128(drkey_out->key, drkey_out->roundkey);
+}
+
+#else
 
 int
 lf_crypto_drkey_ctx_init(struct lf_crypto_drkey_ctx *ctx)
@@ -123,6 +185,8 @@ lf_crypto_drkey_derivation_step(struct lf_crypto_drkey_ctx *ctx,
 			"unexpected key size");
 	lf_crypto_drkey_cbcmac(ctx, drkey, data, data_len, drkey_out->key);
 }
+
+#endif
 
 void
 lf_crypto_drkey_compute_mac(struct lf_crypto_drkey_ctx *ctx,

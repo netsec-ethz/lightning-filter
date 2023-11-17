@@ -41,6 +41,7 @@ The following presents an incomplete list:
 LF_WORKER={SCION,IPV4,FWD}
 LF_DRKEY_FETCHER={SCION,MOCK}
 LF_LOG_DP_LEVEL={MIN,MAX,EMERG,ALERT,CRIT,ERR,WARNING,NOTICE,INFO,DEBUG}
+LF_CBCMAC={OPENSSL,AESNI}
 ```
 
 Set CMake variables as follows:
@@ -58,7 +59,7 @@ sudo apt update
 sudo apt -y install git
 
 ## Get LF source
-git clone https://gitlab.inf.ethz.ch/OU-PERRIG/lightning-filter/lightning-filter.git
+git clone https://github.com/netsec-ethz/lightning-filter.git
 pushd lightning-filter
 git checkout fstreun/main_dev
 

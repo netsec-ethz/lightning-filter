@@ -4,7 +4,8 @@
 
 set -Eeuo pipefail
 
-log_folder="logs/"
+# The log directory is either given as environment variable or defaults to logs/
+log_dir=${LF_LOG_DIR:-"logs/"}
 
 # include network variables
 source "$(dirname "$0")/testnet_vars.sh"
@@ -37,7 +38,7 @@ function lfs_up() {
 	lf_config="config/lf1.json"
 	lcores="(0-5)@0"
 	file_prefix="lf0"
-	log_file="${log_folder}lf0.log"
+	log_file="${log_dir}/lf0.log"
 
 	lf_up
 
@@ -49,7 +50,7 @@ function lfs_up() {
 	lf_config="config/lf2.json"
 	lcores="(0-5)@1"
 	file_prefix="lf1"
-	log_file="${log_folder}lf1.log"
+	log_file="${log_dir}/lf1.log"
 
 	lf_up
 
@@ -93,7 +94,7 @@ fi
 lfexec=$1
 
 # create log folder if not exists
-mkdir -p -- "$log_folder"
+mkdir -p -- "$log_dir"
 
 # execute lightning filter applications
 lfs_up

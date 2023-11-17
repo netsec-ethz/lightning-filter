@@ -24,7 +24,10 @@
  * structures to increase performance.
  */
 struct lf_crypto_drkey_ctx {
+#ifdef LF_CBCMAC_AESNI
+#else
 	EVP_CIPHER_CTX *mdctx;
+#endif
 };
 
 /*
@@ -33,6 +36,9 @@ struct lf_crypto_drkey_ctx {
  */
 struct lf_crypto_drkey {
 	uint8_t key[LF_CRYPTO_DRKEY_SIZE];
+#ifdef LF_CBCMAC_AESNI
+	uint8_t roundkey[LF_CRYPTO_DRKEY_ROUNDKEY_SIZE];
+#endif
 };
 
 /**
@@ -111,7 +117,9 @@ lf_crypto_drkey_derivation_step(struct lf_crypto_drkey_ctx *ctx,
 
 /**
  * Set DRKey context from DRKey stored in a buffer.
- * Copies buffer to the DRKey context.
+ * Copies buffer to the DRKey context and performs pre-computations to increase
+ * performance for later use of the DRKey. E.g., if LF_CBCMAC_AESNI is defined,
+ * also the expanded roundkey is stored in the context.
  *
  * @param ctx Crypto DRKey context for the CBC-MAC computation.
  * @param drkey Raw DRKey to be used.
