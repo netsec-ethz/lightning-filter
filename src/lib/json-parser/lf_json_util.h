@@ -75,20 +75,6 @@ lf_json_parse_uint64(json_value *json_val, uint64_t *val)
 	return 0;
 }
 
-static inline int
-lf_json_parse_bool(json_value *json_val, bool *val)
-{
-	if (json_val == NULL) {
-		return -1;
-	}
-	if (json_val->type != json_boolean) {
-		return -1;
-	}
-
-	*val = (bool)json_val->u.boolean;
-	return 0;
-}
-
 /**
  * Parse ethernet address string.
  * @param val result ethernet address (newtork byte order).
