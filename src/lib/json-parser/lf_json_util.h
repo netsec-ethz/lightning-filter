@@ -216,29 +216,32 @@ lf_json_parse_isd_as_be(json_value *json_val, uint64_t *val)
 static inline int
 lf_json_parse_drkey(const json_value *json_val, uint8_t val[16])
 {
-	char *addrstr;
+	char *keystr;
 
 	if (json_val->type != json_string) {
 		return -1;
 	}
 
-	addrstr = json_val->u.string.ptr;
+	keystr = json_val->u.string.ptr;
+	int keystr_len = json_val->u.string.length;
+
+	if (keystr_len != 32) {
+		return -1;
+	}
 
 	for (uint8_t i = 0; i < 16; i++) {
 		val[i] = 0;
 		for (uint8_t j = 2 * i; j < 2 * i + 2; j++) {
-			assert(j <= json_val->u.string.length);
-			if (('0' <= addrstr[j]) && (int)(addrstr[j] <= '9')) {
-				val[i] = (val[i] << 4) | (addrstr[j] - '0');
-			} else if (('a' <= addrstr[j]) && (addrstr[j] <= 'f')) {
-				val[i] = (val[i] << 4) | (int)(addrstr[j] - 'a' + 10);
+			assert(j <= keystr_len);
+			if (('0' <= keystr[j]) && (keystr[j] <= '9')) {
+				val[i] = (val[i] << 4) | (keystr[j] - '0');
+			} else if (('a' <= keystr[j]) && (keystr[j] <= 'f')) {
+				val[i] = (val[i] << 4) | (uint8_t)(keystr[j] - 'a' + 10);
 			} else {
 				return -1;
 			}
 		}
 	}
-	assert(32 == json_val->u.string.length);
-	assert(addrstr[32] == '\0');
 
 	return 0;
 }
