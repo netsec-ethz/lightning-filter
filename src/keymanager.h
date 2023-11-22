@@ -43,14 +43,12 @@
 #define LF_DRKEY_PREFETCHING_PERIOD (1 * LF_TIME_NS_IN_S) /* in nanoseconds */
 
 /*
- * DRKeys types needed for derivation input.
+ * DRKey derivation types.
  */
-#define DRKEY_AS_AS_TYPE     0
-#define DRKEY_AS_HOST_TYPE   1
-#define DRKEY_HOST_AS_TYPE   2
-#define DRKEY_HOST_HOST_TYPE 3
-
-#define DRKEY_GENERIC_PROTOCOL 3
+#define LF_DRKEY_DERIVATION_TYPE_AS_AS     0
+#define LF_DRKEY_DERIVATION_TYPE_AS_HOST   1
+#define LF_DRKEY_DERIVATION_TYPE_HOST_AS   2
+#define LF_DRKEY_DERIVATION_TYPE_HOST_HOST 3
 
 /**
  * The key container wraps all information required to use a key.
@@ -161,26 +159,26 @@ lf_keymanager_drkey_derive_host_as(struct lf_keymanager_worker *kmw,
 	assert(LF_HOST_ADDR_LENGTH(fast_side_host) <= LF_CRYPTO_CBC_BLOCK_SIZE);
 
 	uint8_t addr_type_len = (uint8_t)(fast_side_host->type_length);
-	uint8_t *addr_ptr = (uint8_t *)(fast_side_host->addr);
+	uint8_t *addr = (uint8_t *)(fast_side_host->addr);
 	uint8_t addr_len = LF_HOST_ADDR_LENGTH(fast_side_host);
 
 	// IPv4 mapped to IPv6
 	if (addr_type_len == 3 && *(uint64_t *)(fast_side_host->addr) == 0 &&
-			*(uint32_t *)(fast_side_host->addr + 8) == 0xffff0000) {
-		addr_ptr += 12;
+			*(uint32_t *)(fast_side_host->addr + 8) == 0xFFFF0000) {
+		addr += 12;
 		addr_len = 4;
 		addr_type_len = 0;
 	}
 
-	int buf_size = (addr_len == 4) ? LF_CRYPTO_CBC_BLOCK_SIZE
-	                               : 2 * LF_CRYPTO_CBC_BLOCK_SIZE;
+	int buf_len = (addr_len == 4) ? LF_CRYPTO_CBC_BLOCK_SIZE
+	                              : 2 * LF_CRYPTO_CBC_BLOCK_SIZE;
 	uint8_t buf[2 * LF_CRYPTO_CBC_BLOCK_SIZE] = { 0 };
-	buf[0] = DRKEY_HOST_AS_TYPE;
-	buf[1] = (uint8_t)((drkey_protocol && 0x00FF) >> 8);
+	buf[0] = LF_DRKEY_DERIVATION_TYPE_HOST_AS;
 	memcpy(buf + 1, &drkey_protocol, 2);
-	memcpy(buf + 4, addr_ptr, addr_len);
+	buf[3] = addr_type_len;
+	memcpy(buf + 4, addr, addr_len);
 
-	lf_crypto_drkey_derivation_step(&kmw->drkey_ctx, drkey_asas, buf, buf_size,
+	lf_crypto_drkey_derivation_step(&kmw->drkey_ctx, drkey_asas, buf, buf_len,
 			drkey_ha);
 }
 
@@ -201,26 +199,26 @@ lf_keymanager_drkey_derive_host_host(struct lf_keymanager_worker *kmw,
 	assert(LF_HOST_ADDR_LENGTH(slow_side_host) <= LF_CRYPTO_CBC_BLOCK_SIZE);
 
 	uint8_t addr_type_len = (uint8_t)(slow_side_host->type_length);
-	uint8_t *addr_ptr = (uint8_t *)(slow_side_host->addr);
+	uint8_t *addr = (uint8_t *)(slow_side_host->addr);
 	uint8_t addr_len = LF_HOST_ADDR_LENGTH(slow_side_host);
 
 	// IPv4 mapped to IPv6
 	if (addr_type_len == 3 && *(uint64_t *)(slow_side_host->addr) == 0 &&
-			*(uint32_t *)(slow_side_host->addr + 8) == 0xffff0000) {
-		addr_ptr += 12;
+			*(uint32_t *)(slow_side_host->addr + 8) == 0xFFFF0000) {
+		addr += 12;
 		addr_len = 4;
 		addr_type_len = 0;
 	}
 
-	int buf_size = (addr_len == 4) ? LF_CRYPTO_CBC_BLOCK_SIZE
-	                               : 2 * LF_CRYPTO_CBC_BLOCK_SIZE;
+	int buf_len = (addr_len == 4) ? LF_CRYPTO_CBC_BLOCK_SIZE
+	                              : 2 * LF_CRYPTO_CBC_BLOCK_SIZE;
 	uint8_t buf[2 * LF_CRYPTO_CBC_BLOCK_SIZE] = { 0 };
-	buf[0] = DRKEY_HOST_HOST_TYPE;
-	buf[1] = addr_type_len << 4;
-	memcpy(buf + 2, addr_ptr, addr_len);
+	buf[0] = LF_DRKEY_DERIVATION_TYPE_HOST_HOST;
+	buf[1] = addr_type_len;
+	memcpy(buf + 2, addr, addr_len);
 
 	lf_crypto_drkey_derivation_step(&kmw->drkey_ctx, drkey_host_as, buf,
-			buf_size, drkey_hh);
+			buf_len, drkey_hh);
 }
 
 /**

@@ -93,7 +93,7 @@ fetch_as_as_key(struct lf_keymanager *km, const char drkey_service_addr[48],
 		uint64_t src_ia, uint64_t dst_ia, uint16_t drkey_protocol,
 		uint64_t ns_valid, struct lf_keymanager_key_container *key)
 {
-	LF_KEYMANAGER_LOG(DEBUG, "FETCHING DRKeys from CS is not implemented.");
+	LF_KEYMANAGER_LOG(NOTICE, "Not yet implemented: fetching DRKeys from CS.");
 	return -1;
 
 	int res;
@@ -249,8 +249,7 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 			res = rte_hash_add_key_data(km->dict, key_ptr, (void *)new_data);
 			if (res != 0) {
 				LF_KEYMANAGER_LOG(ERR,
-						"Fail to add inbound key to dictionary (err = "
-						"%d)\n",
+						"Fail to add inbound key to dictionary (err = %d)\n",
 						res);
 				rte_free(new_data);
 				err = -1;
@@ -298,8 +297,7 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 			res = rte_hash_add_key_data(km->dict, key_ptr, (void *)new_data);
 			if (res != 0) {
 				LF_KEYMANAGER_LOG(ERR,
-						"Fail to add outbound key to dictionary (err = "
-						"%d)\n",
+						"Fail to add outbound key to dictionary (err = %d)\n",
 						res);
 				rte_free(new_data);
 				err = -1;
@@ -506,7 +504,7 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 		}
 
 		if (&peer->drkey_level_1 != NULL) {
-			res = set_configured_as_as_key(km, (&peer->drkey_level_1)->inbound,
+			res = set_configured_as_as_key(km, peer->drkey_level_1.inbound,
 					key.as, config->isd_as, key.drkey_protocol, ns_now,
 					&dictionary_data->inbound_key);
 		} else {
@@ -525,7 +523,7 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 		dictionary_data->old_inbound_key.validity_not_after = 0;
 
 		if (&peer->drkey_level_1 != NULL) {
-			res = set_configured_as_as_key(km, (&peer->drkey_level_1)->outbound,
+			res = set_configured_as_as_key(km, peer->drkey_level_1.outbound,
 					key.as, config->isd_as, key.drkey_protocol, ns_now,
 					&dictionary_data->outbound_key);
 		} else {
