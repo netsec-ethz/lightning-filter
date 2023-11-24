@@ -373,7 +373,7 @@ lf_rte_eth_link_to_str(char *str, size_t len,
 
 /* Check the link status of all ports in up to 9s, and print them finally */
 static void
-check_all_ports_link_status()
+check_all_ports_link_status(uint32_t port_mask)
 {
 #define CHECK_INTERVAL 100 /* 100ms */
 #define MAX_CHECK_TIME 90  /* 9s (90 * 100ms) in total */
@@ -392,6 +392,9 @@ check_all_ports_link_status()
 		RTE_ETH_FOREACH_DEV(port_id) {
 			if (lf_force_quit) {
 				return;
+			}
+			if ((port_mask & (1 << port_id)) == 0) {
+				continue;
 			}
 			(void)memset(&link, 0, sizeof(link));
 			res = rte_eth_link_get_nowait(port_id, &link);
@@ -612,8 +615,8 @@ lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
 		}
 	}
 
-	/* check link status of all ports */
-	check_all_ports_link_status();
+	/* check link status of all enabled ports */
+	check_all_ports_link_status(portmask);
 
 	return 0;
 }
