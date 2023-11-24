@@ -163,28 +163,28 @@ test1()
 	}
 
 	/* remove this test for now since mock keys are not implemented
-	ns_now = ns_now + 20 * LF_TIME_NS_IN_S; // 20 seconds (the validity period 
-											// of the mock keys is 10 seconds) 
+	ns_now = ns_now + 20 * LF_TIME_NS_IN_S; // 20 seconds (the validity period
+	                                        // of the mock keys is 10 seconds)
 	res = lf_keymanager_worker_inbound_get_drkey(kmw, config->peers->isd_as,
-			&src_host_addr, &dst_host_addr, config->peers->drkey_protocol,
-			ns_now, 0, &drkey);
+	        &src_host_addr, &dst_host_addr, config->peers->drkey_protocol,
+	        ns_now, 0, &drkey);
 	if (res != -2) {
-		printf("Error: ns_now = ns_now + 20*10e9; "
-			   "lf_keymanager_worker_inbound_get_drkey (expected = -2, res = "
-			   "%d)\n",
-				res);
-		error_count += 1;
+	    printf("Error: ns_now = ns_now + 20*10e9; "
+	           "lf_keymanager_worker_inbound_get_drkey (expected = -2, res = "
+	           "%d)\n",
+	            res);
+	    error_count += 1;
 	}
 
 	res = lf_keymanager_worker_outbound_get_drkey(kmw, config->peers->isd_as,
-			&dst_host_addr, &src_host_addr, config->peers->drkey_protocol,
-			ns_now, &drkey);
+	        &dst_host_addr, &src_host_addr, config->peers->drkey_protocol,
+	        ns_now, &drkey);
 	if (res != -2) {
-		printf("Error: ns_now = ns_now + 20*10e9; "
-			   "lf_keymanager_worker_outbound_get_drkey (expected = -2, res = "
-			   "%d)\n",
-				res);
-		error_count += 1;
+	    printf("Error: ns_now = ns_now + 20*10e9; "
+	           "lf_keymanager_worker_outbound_get_drkey (expected = -2, res = "
+	           "%d)\n",
+	            res);
+	    error_count += 1;
 	}
 	*/
 
@@ -290,6 +290,76 @@ test2()
 }
 
 int
+test3()
+{
+	int error_count = 0;
+	struct lf_keymanager *km;
+	struct lf_keymanager_worker *kmw;
+	struct lf_crypto_drkey drkey;
+	const struct lf_crypto_drkey as_as_zero_drkey = { .key = { 0 } };
+	const struct lf_crypto_drkey as_as_drkey = {
+		.key = { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x01, 0x23,
+				0x45, 0x67, 0x89, 0xab, 0xcd, 0xef }
+	};
+	struct lf_host_addr src_host_addr;
+	struct lf_host_addr dst_host_addr;
+	uint32_t src_addr = 0;
+	uint32_t dst_addr = 0;
+
+	src_host_addr.addr = &src_addr;
+	src_host_addr.type_length = 0x0;
+	dst_host_addr.addr = &dst_addr;
+	dst_host_addr.type_length = 0x0;
+
+	km = new_test_context();
+	if (km == NULL) {
+		return 1;
+	}
+	kmw = &km->workers[0];
+
+	// test most general derivation
+	uint8_t expected_key_1[LF_CRYPTO_DRKEY_SIZE] = { 0x82, 0x67, 0xa4, 0xe9,
+		0x10, 0x60, 0x8f, 0xa8, 0xdd, 0x46, 0xb1, 0x1b, 0x43, 0x95, 0x97,
+		0x49 };
+	lf_keymanager_drkey_from_asas(kmw, &as_as_zero_drkey, &src_host_addr,
+			&dst_host_addr, 0, &drkey);
+
+	if (memcmp(&expected_key_1, &drkey, sizeof(drkey)) != 0) {
+		printf("Error: DRKey derivation wrong\n");
+		error_count += 1;
+	}
+
+	// test IPv4 addresses
+	src_addr = 0x0202f80a; // 10.248.2.2
+	dst_addr = 0x0505f80a; // 10.248.5.5
+
+	uint8_t expected_key_2[LF_CRYPTO_DRKEY_SIZE] = { 0x75, 0xde, 0xfa, 0x86,
+		0xd5, 0x6d, 0x26, 0x5b, 0x0c, 0xc7, 0xe6, 0x31, 0x3a, 0x9a, 0x13,
+		0x14 };
+	lf_keymanager_drkey_from_asas(kmw, &as_as_drkey, &src_host_addr,
+			&dst_host_addr, 0, &drkey);
+
+	if (memcmp(&expected_key_2, &drkey, sizeof(drkey)) != 0) {
+		printf("Error: DRKey derivation wrong\n");
+		error_count += 1;
+	}
+
+	// test DRKey protocol number
+	uint8_t expected_key_3[LF_CRYPTO_DRKEY_SIZE] = { 0x81, 0xc0, 0x7f, 0xbc,
+		0x5c, 0xdd, 0xb1, 0xda, 0x18, 0xaa, 0xa0, 0x56, 0xbc, 0x22, 0xef,
+		0x56 };
+	lf_keymanager_drkey_from_asas(kmw, &as_as_drkey, &src_host_addr,
+			&dst_host_addr, 0x0300, &drkey);
+
+	if (memcmp(&expected_key_3, &drkey, sizeof(drkey)) != 0) {
+		printf("Error: DRKey derivation wrong\n");
+		error_count += 1;
+	}
+
+	return error_count;
+}
+
+int
 main(int argc, char *argv[])
 {
 	int res = rte_eal_init(argc, argv);
@@ -300,6 +370,7 @@ main(int argc, char *argv[])
 
 	error_counter += test1();
 	error_counter += test2();
+	error_counter += test3();
 
 	if (error_counter > 0) {
 		printf("Error Count: %d\n", error_counter);
