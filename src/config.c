@@ -89,6 +89,7 @@ peer_init(struct lf_config_peer *config_peer)
 		.isd_as = 1,
 		.next = NULL,
 
+		.drkey_level_1_configured_option = false,
 		.drkey_level_1 =
 				(struct lf_config_drkey_level_1){
 						.inbound = { 0 },
@@ -199,6 +200,7 @@ parse_drkey_level_1(json_value *json_val,
 	unsigned int i;
 	char *field_name;
 	json_value *field_value;
+	bool inbound, outbound = false;
 
 	/* Initialize drkey struct. Set all to 0. */
 	(void)memset(drkey_level_1, 0, sizeof *drkey_level_1);
@@ -225,6 +227,7 @@ parse_drkey_level_1(json_value *json_val,
 						field_value->col);
 				error_count++;
 			}
+			inbound = true;
 		} else if (strcmp(field_name, FIELD_OUTBOUND) == 0) {
 			res = lf_json_parse_byte_buffer(field_value, LF_CRYPTO_DRKEY_SIZE,
 					drkey_level_1->outbound);
@@ -233,11 +236,22 @@ parse_drkey_level_1(json_value *json_val,
 						field_value->col);
 				error_count++;
 			}
+			outbound = true;
 		} else {
 			LF_LOG(ERR, "Unknown field %s (%d:%d)\n", field_name,
 					field_value->line, field_value->col);
 			error_count++;
 		}
+	}
+
+	if (error_count > 0) {
+		return -1;
+	}
+
+	if (!inbound || !outbound) {
+		LF_LOG(ERR, "Invalid DRKey configuration. Need to define both inbound "
+		            "and outbound key.\n");
+		return -1;
 	}
 
 	return 0;
@@ -305,6 +319,7 @@ parse_peer(json_value *json_val, struct lf_config_peer *peer)
 						field_value->line, field_value->col);
 				error_count++;
 			}
+			peer->drkey_level_1_configured_option = true;
 		} else {
 			LF_LOG(ERR, "Unknown field %s (%d:%d)\n", field_name,
 					field_value->line, field_value->col);

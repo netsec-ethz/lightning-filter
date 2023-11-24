@@ -147,7 +147,7 @@ fetch_as_as_key(struct lf_keymanager *km, const char drkey_service_addr[48],
 /**
  * Set AS-AS key (Level 1).
  *
- * @param configured_drkey: drkey that is configured in the config
+ * @param drkey: drkey byte buffer that is configured in the config
  * @param src_ia: slow side of the DRKey (network byte order)
  * @param dst_ia: fast side of the DRKey (network byte order)
  * @param drkey_protocol: (network byte order)
@@ -157,8 +157,8 @@ fetch_as_as_key(struct lf_keymanager *km, const char drkey_service_addr[48],
  * @return 0 on success, otherwise, < 0.
  */
 static int
-set_configured_as_as_key(struct lf_keymanager *km,
-		uint8_t configured_drkey[LF_CRYPTO_DRKEY_SIZE], uint64_t src_ia,
+set_as_as_key(struct lf_keymanager *km,
+		uint8_t drkey[LF_CRYPTO_DRKEY_SIZE], uint64_t src_ia,
 		uint64_t dst_ia, uint16_t drkey_protocol, uint64_t ns_valid,
 		struct lf_keymanager_key_container *key)
 {
@@ -187,7 +187,7 @@ set_configured_as_as_key(struct lf_keymanager *km,
 			(uint64_t)validity_not_after_ms * LF_TIME_NS_IN_MS;
 	key->validity_not_before =
 			(uint64_t)validity_not_before_ms * LF_TIME_NS_IN_MS;
-	lf_crypto_drkey_from_buf(&km->drkey_ctx, configured_drkey, &key->key);
+	lf_crypto_drkey_from_buf(&km->drkey_ctx, drkey, &key->key);
 
 	return 0;
 }
@@ -503,8 +503,8 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 			break;
 		}
 
-		if (&peer->drkey_level_1 != NULL) {
-			res = set_configured_as_as_key(km, peer->drkey_level_1.inbound,
+		if (peer->drkey_level_1_configured_option) {
+			res = set_as_as_key(km, peer->drkey_level_1.inbound,
 					key.as, config->isd_as, key.drkey_protocol, ns_now,
 					&dictionary_data->inbound_key);
 		} else {
@@ -522,8 +522,8 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 		}
 		dictionary_data->old_inbound_key.validity_not_after = 0;
 
-		if (&peer->drkey_level_1 != NULL) {
-			res = set_configured_as_as_key(km, peer->drkey_level_1.outbound,
+		if (peer->drkey_level_1_configured_option) {
+			res = set_as_as_key(km, peer->drkey_level_1.outbound,
 					key.as, config->isd_as, key.drkey_protocol, ns_now,
 					&dictionary_data->outbound_key);
 		} else {
