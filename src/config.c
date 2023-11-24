@@ -218,14 +218,16 @@ parse_drkey_level_1(json_value *json_val,
 		field_value = json_val->u.object.values[i].value;
 
 		if (strcmp(field_name, FIELD_INBOUND) == 0) {
-			res = lf_json_parse_drkey(field_value, drkey_level_1->inbound);
+			res = lf_json_parse_byte_buffer(field_value, LF_CRYPTO_DRKEY_SIZE,
+					drkey_level_1->inbound);
 			if (res != 0) {
 				LF_LOG(ERR, "Invalid DRKey (%d:%d)\n", field_value->line,
 						field_value->col);
 				error_count++;
 			}
 		} else if (strcmp(field_name, FIELD_OUTBOUND) == 0) {
-			res = lf_json_parse_drkey(field_value, drkey_level_1->outbound);
+			res = lf_json_parse_byte_buffer(field_value, LF_CRYPTO_DRKEY_SIZE,
+					drkey_level_1->outbound);
 			if (res != 0) {
 				LF_LOG(ERR, "Invalid DRKey (%d:%d)\n", field_value->line,
 						field_value->col);

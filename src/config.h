@@ -9,6 +9,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include "lib/crypto/crypto.h"
+
 /**
  * This module defines the config structure and offers functionality to parse a
  * JSON configuration file, check its format, and return a C struct representing
@@ -29,8 +31,8 @@ struct lf_config_ratelimit {
 };
 
 struct lf_config_drkey_level_1 {
-	uint8_t inbound[16];
-	uint8_t outbound[16];
+	uint8_t inbound[LF_CRYPTO_DRKEY_SIZE];
+	uint8_t outbound[LF_CRYPTO_DRKEY_SIZE];
 };
 
 struct lf_config_peer {

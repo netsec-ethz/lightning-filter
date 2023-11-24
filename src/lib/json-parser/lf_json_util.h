@@ -44,19 +44,19 @@ lf_json_parse_string(const json_value *json_val, char *dst, size_t n)
 }
 
 static inline int
-lf_json_parse_uint16(const json_value *json_val, uint16_t *dst)
+lf_json_parse_uint16(const json_value *json_val, uint16_t *val)
 {
-	int64_t drkey_protocol;
+	int64_t raw_value;
 
 	if (json_val->type != json_integer) {
 		return -1;
 	}
 
-	drkey_protocol = json_val->u.integer;
-	if (drkey_protocol < 0 || drkey_protocol > UINT16_MAX) {
+	raw_value = json_val->u.integer;
+	if (raw_value < 0 || raw_value > UINT16_MAX) {
 		return -1;
 	}
-	*dst = (uint16_t)drkey_protocol;
+	*val = (uint16_t)raw_value;
 	return 0;
 }
 
@@ -103,10 +103,10 @@ lf_json_parse_ether(const json_value *json_val, uint8_t val[6])
 		j = i;
 		do {
 			assert(j <= json_val->u.string.length);
-			if (('0' <= addrstr[j]) && (int)(addrstr[j] <= '9')) {
-				val[k] = (val[k] << 4) | (addrstr[j] - '0');
+			if (('0' <= addrstr[j]) && (addrstr[j] <= '9')) {
+				val[k] = (val[k] << 4) | (uint8_t)(addrstr[j] - '0');
 			} else if (('a' <= addrstr[j]) && (addrstr[j] <= 'f')) {
-				val[k] = (val[k] << 4) | (int)(addrstr[j] - 'a' + 10);
+				val[k] = (val[k] << 4) | (uint8_t)(addrstr[j] - 'a' + 10);
 			} else {
 				return -1;
 			}
@@ -164,14 +164,14 @@ lf_json_parse_ipv6(const json_value *json_val, uint8_t val[16])
  * @param val result port number (newtork byte order).
  */
 static inline int
-lf_json_parse_port(const json_value *json_val, uint16_t *dst)
+lf_json_parse_port(const json_value *json_val, uint16_t *val)
 {
 	int res;
-	res = lf_json_parse_uint16(json_val, dst);
+	res = lf_json_parse_uint16(json_val, val);
 	if (res != 0) {
 		return res;
 	}
-	*dst = rte_cpu_to_be_16(*dst);
+	*val = rte_cpu_to_be_16(*val);
 	return 0;
 }
 
@@ -210,33 +210,33 @@ lf_json_parse_isd_as_be(json_value *json_val, uint64_t *val)
 
 
 /**
- * Parse DRKey string.
- * @param val result 16 byte DRKey (newtork byte order).
+ * Parse byte buffer from hex string.
+ * @param val result byte buffer of length len (newtork byte order).
  */
 static inline int
-lf_json_parse_drkey(const json_value *json_val, uint8_t val[16])
+lf_json_parse_byte_buffer(const json_value *json_val, int len, uint8_t val[])
 {
-	char *keystr;
+	char *bufstr;
 
 	if (json_val->type != json_string) {
 		return -1;
 	}
 
-	keystr = json_val->u.string.ptr;
-	int keystr_len = json_val->u.string.length;
+	bufstr = json_val->u.string.ptr;
+	int bufstr_len = json_val->u.string.length;
 
-	if (keystr_len != 32) {
+	if (bufstr_len != 2 * len) {
 		return -1;
 	}
 
-	for (uint8_t i = 0; i < 16; i++) {
+	for (uint8_t i = 0; i < len; i++) {
 		val[i] = 0;
 		for (uint8_t j = 2 * i; j < 2 * i + 2; j++) {
-			assert(j <= keystr_len);
-			if (('0' <= keystr[j]) && (keystr[j] <= '9')) {
-				val[i] = (val[i] << 4) | (keystr[j] - '0');
-			} else if (('a' <= keystr[j]) && (keystr[j] <= 'f')) {
-				val[i] = (val[i] << 4) | (uint8_t)(keystr[j] - 'a' + 10);
+			assert(j <= bufstr_len);
+			if (('0' <= bufstr[j]) && (bufstr[j] <= '9')) {
+				val[i] = (val[i] << 4) | (uint8_t)(bufstr[j] - '0');
+			} else if (('a' <= bufstr[j]) && (bufstr[j] <= 'f')) {
+				val[i] = (val[i] << 4) | (uint8_t)(bufstr[j] - 'a' + 10);
 			} else {
 				return -1;
 			}
