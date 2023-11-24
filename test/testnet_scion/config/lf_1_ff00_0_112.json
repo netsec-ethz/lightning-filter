@@ -11,8 +11,8 @@
 			"isd_as": "1-ff00:0:111",
 			"drkey_protocol": 3,
 			"drkey_level1": {
-				"inbound": "FEDCBA9876543210FEDCBA9876543210",
-				"outbound": "0123456789ABCDEF0123456789ABDCEF"
+				"inbound": "fedcba9876543210fedcba9876543210",
+				"outbound": "0123456789abcdef0123456789abcdef"
 			},
 			"ratelimit": {
 				"byte_rate": 9223372036854775807,
