@@ -250,7 +250,7 @@ parse_drkey_level_1(json_value *json_val,
 
 	if (!inbound || !outbound) {
 		LF_LOG(ERR, "Invalid DRKey configuration. Need to define both inbound "
-		            "and outbound key.\n");
+					"and outbound key.\n");
 		return -1;
 	}
 
