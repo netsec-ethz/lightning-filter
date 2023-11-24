@@ -51,8 +51,8 @@ RUN sudo apt-get update && \
 
 # Require SCION binaries for SCION tests.
 RUN git clone https://github.com/scionproto/scion.git && \
-    git checkout v0.9.1 && \
     cd scion && \
+    git checkout v0.9.1 && \
     go build -o ./bin/ ./control/cmd/control && \
     go build -o ./bin/ ./daemon/cmd/daemon && \
     go build -o ./bin/ ./dispatcher/cmd/dispatcher && \

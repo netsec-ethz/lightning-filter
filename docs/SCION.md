@@ -41,6 +41,7 @@ Don't forget to remove the PATH entry in `~/.profile`.
 To obtain the source, clone the repository:
 ```
 git clone https://github.com/scionproto/scion.git
+cd scion
 git checkout v0.9.1
 ```
 
