@@ -153,7 +153,7 @@ test1()
 	/* AS packet rate limited */
 	res = lf_ratelimiter_worker_apply(rlw, peers[1]->isd_as,
 			peers[1]->drkey_protocol, 1, ns_now);
-	if (res & LF_RATELIMITER_RES_PKTS == 0) {
+	if ((res & LF_RATELIMITER_RES_PKTS) == 0) {
 		printf("Error: lf_ratelimiter_worker_apply expected "
 			   "LF_RATELIMITER_RES_PKTS, got %d\n",
 				res);
@@ -163,7 +163,7 @@ test1()
 	/* AS byte rate limited */
 	res = lf_ratelimiter_worker_apply(rlw, peers[2]->isd_as,
 			peers[2]->drkey_protocol, 1, ns_now);
-	if (res & LF_RATELIMITER_RES_BYTES == 0) {
+	if ((res & LF_RATELIMITER_RES_BYTES) == 0) {
 		printf("Error: lf_ratelimiter_worker_apply expected "
 			   "LF_RATELIMITER_RES_BYTES, got %d\n",
 				res);
@@ -173,7 +173,7 @@ test1()
 	/* AS rate limited */
 	res = lf_ratelimiter_worker_apply(rlw, peers[3]->isd_as,
 			peers[3]->drkey_protocol, 1, ns_now);
-	if (res & (LF_RATELIMITER_RES_BYTES | LF_RATELIMITER_RES_PKTS) == 0) {
+	if ((res & (LF_RATELIMITER_RES_BYTES | LF_RATELIMITER_RES_PKTS)) == 0) {
 		printf("Error: lf_ratelimiter_worker_apply expected "
 			   "LF_RATELIMITER_RES_BYTES | LF_RATELIMITER_RES_PKTS, got %d\n",
 				res);
@@ -183,8 +183,8 @@ test1()
 	/* overall rate limited */
 	res = lf_ratelimiter_worker_apply(rlw, peers[0]->isd_as,
 			peers[0]->drkey_protocol, 10000, ns_now);
-	if (res & (LF_RATELIMITER_RES_OVERALL_BYTES |
-					  LF_RATELIMITER_RES_OVERALL_PKTS) == 0) {
+	if ((res & (LF_RATELIMITER_RES_OVERALL_BYTES |
+					   LF_RATELIMITER_RES_OVERALL_PKTS)) == 0) {
 		printf("Error: lf_ratelimiter_worker_apply expected "
 			   "LF_RATELIMITER_RES_OVERALL_BYTES | "
 			   "LF_RATELIMITER_RES_OVERALL_PKTS, got %d\n",

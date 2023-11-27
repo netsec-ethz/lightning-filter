@@ -12,13 +12,13 @@ function net_up() {
 	sudo ip netns add $lfxns
 	sudo ip netns add $ehxns
 
-	sudo ip link add $ehx arp off address $ehxmac type veth peer name $lfx0 arp off address $lfx0mac
+	sudo ip link add $ehx address $ehxmac type veth peer name $lfx0 address $lfx0mac
 
 	sudo ip link set dev $ehx netns $ehxns
 	sudo ip link set dev $lfx0 netns $lfxns
 	sudo ip link set dev $lfx1 netns $lfxns
 
-	sudo ip -n $ehxns address add $ehx_address/16 dev $ehx
+	sudo ip -n $ehxns address add $ehx_address/24 dev $ehx
 
 	sudo ip -n $ehxns link set dev $ehx up
 	sudo ip -n $ehxns link set dev lo up
@@ -26,22 +26,22 @@ function net_up() {
 	sudo ip -n $lfxns link set dev $lfx0 up
 	sudo ip -n $lfxns link set dev $lfx1 up
 
-	sudo ip -n $lfxns address add $ehx_address/16 dev $lfx1
 	sudo ip -n $lfxns link set dev lo up
 
-	sudo ip -n $ehxns neigh add $ehy_address lladdr $lfx0mac dev $ehx
-	sudo ip -n $lfxns neigh add $ehy_address lladdr $lfy1mac dev $lfx1
-
 	sudo ip -n $ehxns link set dev $ehx mtu 1420
+
+	# set LF's internal address (lfx0) as default gateway for the endhost
+	sudo ip -n $ehxns route add default via $lfx0_address
 }
 
 function testnet_up() {
 	# set up the two outer network interfaces, which are connected to each other.
-	sudo ip link add $lf01 arp off address $lf01mac type veth peer name $lf11 arp off address $lf11mac
+	sudo ip link add $lf01 address $lf01mac type veth peer name $lf11 address $lf11mac
 
 	# network on side 0
 	ehx_address=$eh0_address
 	ehy_address=$eh1_address
+	lfx0_address=$lf00_address
 	lfxns=$lf0ns
 	ehxns=$eh0ns
 	ehx=$eh0
@@ -58,6 +58,7 @@ function testnet_up() {
 	# network on side 1
 	ehx_address=$eh1_address
 	ehy_address=$eh0_address
+	lfx0_address=$lf10_address
 	lfxns=$lf1ns
 	ehxns=$eh1ns
 	ehx=$eh1
