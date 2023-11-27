@@ -149,10 +149,11 @@ enum lf_check_state {
 };
 
 /**
- * Reset all worker contexts for all lcores that run a worker. All fields but the lcore_id field are
- * set to 0. The lcore_id field is set approapriately.
+ * Reset all worker contexts for all lcores that run a worker. All fields but
+ * the lcore_id field are set to 0. The lcore_id field is set approapriately.
  *
- * @param worker_lcores The lcore boolean map for workers, that indicates which cores run a worker.
+ * @param worker_lcores The lcore boolean map for workers, that indicates which
+ * cores run a worker.
  * @param worker_contexts Array of worker contexts.
  * @return 0 on success.
  */

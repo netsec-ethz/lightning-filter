@@ -48,12 +48,6 @@ struct port_queues_conf {
 	uint16_t nb_tx_queue;
 };
 
-/*
- * Configurable number of RX/TX ring descriptors
- */
-static uint16_t nb_rxd = LF_SETUP_MAX_RX_DESC;
-static uint16_t nb_txd = LF_SETUP_MAX_TX_DESC;
-
 static const struct rte_eth_conf global_port_conf = {
 	.rxmode = {
 		.split_hdr_size = 0,
@@ -97,14 +91,14 @@ static const struct port_queues_conf default_port_queues_conf = {
  * value of 8192
  */
 unsigned int
-calculate_nb_mbufs(uint16_t nb_lcores, uint16_t nports, uint16_t nb_rx_queue, uint16_t nb_rxd, uint16_t n_tx_queue, uint16_t nb_txd)
+calculate_nb_mbufs(uint16_t nb_lcores, uint16_t nports, uint16_t nb_rx_queue,
+		uint16_t nb_rxd, uint16_t n_tx_queue, uint16_t nb_txd)
 {
-	return RTE_MAX(
-	(nports*nb_rx_queue*nb_rxd +
-	nports*nb_lcores*LF_MAX_PKT_BURST +
-	nports*n_tx_queue*nb_txd +
-	nb_lcores*LF_SETUP_MEMPOOL_CACHE_SIZE),
-	(unsigned)8192)
+	return RTE_MAX((nports * nb_rx_queue * nb_rxd +
+						   nports * nb_lcores * LF_MAX_PKT_BURST +
+						   nports * n_tx_queue * nb_txd +
+						   nb_lcores * LF_SETUP_MEMPOOL_CACHE_SIZE),
+			(unsigned)8192);
 }
 
 static int
@@ -188,6 +182,9 @@ port_init(uint16_t port_id, struct port_queues_conf *port_conf,
 	struct rte_eth_rxconf rxq_conf;
 	struct rte_eth_txconf txq_conf;
 	struct rte_mempool *mb_pool;
+
+	uint16_t nb_rxd = LF_SETUP_MAX_RX_DESC;
+	uint16_t nb_txd = LF_SETUP_MAX_TX_DESC;
 
 	LF_LOG(INFO, "Configuring device port %u:\n", port_id);
 
@@ -481,9 +478,8 @@ lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
 		}
 	}
 
-	unsigned int pool_nb_mbufs = calculate_nb_mbufs(
-		nb_workers, nb_ports, nb_workers, nb_rxd, nb_workers, nb_txd
-	);
+	unsigned int pool_nb_mbufs = calculate_nb_mbufs(nb_workers, nb_ports,
+			nb_workers, LF_SETUP_MAX_RX_DESC, nb_workers, LF_SETUP_MAX_TX_DESC);
 
 	/* initialize mirror context */
 	res = lf_mirror_init(mirror_ctx);
@@ -546,10 +542,11 @@ lf_setup_ports(bool workers[RTE_MAX_LCORE], const struct lf_params *params,
 			port_conf->rx_sockets[queue_counter] = socket_id;
 			port_conf->tx_sockets[queue_counter] = socket_id;
 
-			/* XXX: We do not use per port pools. Hence, we always use port_id 0. */
+			/* XXX: We do not use per port pools. Hence, we always use port_id
+			 * 0. */
 			port_conf->rx_mbuf_pool[queue_counter] =
-				get_mbuf_pool(0, socket_id, pool_nb_mbufs);
-			
+					get_mbuf_pool(0, socket_id, pool_nb_mbufs);
+
 
 			if (port_conf->rx_mbuf_pool[queue_counter] == NULL) {
 				LF_LOG(ERR, "Failed to get mbuf pool for port %d\n", port_id);
