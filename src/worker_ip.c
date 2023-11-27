@@ -24,13 +24,8 @@
 #include "lib/utils/lf_ip.h"
 #include "lib/utils/packet.h"
 #include "ratelimiter.h"
+#include "statistics.h"
 #include "worker.h"
-
-/*
- * Include generic worker source for better optimizations.
- * Ignore warnings from the linter.
- */
-#include "worker.c" // NOLINT
 
 #if LF_IPV6
 #error IPv6 support is not yet implemented!

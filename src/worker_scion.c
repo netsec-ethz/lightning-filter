@@ -21,13 +21,8 @@
 #include "lib/crypto/crypto.h"
 #include "lib/scion/scion.h"
 #include "lib/utils/packet.h"
+#include "statistics.h"
 #include "worker.h"
-
-/*
- * Include generic worker source for better optimizations.
- * Ignore warnings from the linter.
- */
-#include "worker.c" // NOLINT
 
 struct scion_mac_input {
 	// scion authenticator option metadata
