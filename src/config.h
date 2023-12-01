@@ -30,9 +30,9 @@ struct lf_config_ratelimit {
 	uint64_t packet_burst;
 };
 
-struct lf_config_drkey_level_1 {
-	uint8_t inbound[LF_CRYPTO_DRKEY_SIZE];
-	uint8_t outbound[LF_CRYPTO_DRKEY_SIZE];
+struct lf_config_shared_secret {
+	uint8_t sv[LF_CRYPTO_DRKEY_SIZE];
+	uint64_t not_before;
 };
 
 struct lf_config_peer {
@@ -46,7 +46,7 @@ struct lf_config_peer {
 
 	/* preconfigured AS-AS keys */
 	bool drkey_level_1_configured_option; /* if level_1 drkeys are defined*/
-	struct lf_config_drkey_level_1 drkey_level_1;
+	struct lf_config_shared_secret shared_secret;
 
 	/* LF-IP: ip -> isd_as map (TODO: move this to a separate map) */
 	uint32_t ip; /* in network byte order */

@@ -5,17 +5,17 @@
 		{
 			"isd_as": "1-1",
 			"drkey_protocol": 3,
-			"drkey_level1": {
-				"inbound": "0123456789abcdef0123456789abcdef",
-				"outbound": "fedcba9876543210fedcba9876543210"
+			"shared_secret": {
+				"sv": "0123456789abcdef0123456789abcdef",
+				"not_before": "2023-11-29T00:00:00"
 			}
 		},
 		{
 			"isd_as": "4-0",
 			"drkey_protocol": 3,
-			"drkey_level1": {
-				"inbound": "abcdef0123456789abcdef0123456789",
-				"outbound": "9876543210fedcba9876543210fedcba"
+			"shared_secret": {
+				"sv": "0000000000000000fedcba9876543210",
+				"not_before": "2023-11-29T00:00:00"
 			}
 		}
 	]

@@ -9,6 +9,8 @@
 #include <assert.h>
 #include <inttypes.h>
 
+#include <time.h>
+
 #include <rte_byteorder.h>
 
 #include "../utils/parse.h"
@@ -242,6 +244,40 @@ lf_json_parse_byte_buffer(const json_value *json_val, int len, uint8_t val[])
 			}
 		}
 	}
+
+	return 0;
+}
+
+/**
+ * Parse timestamp from iso string.
+ * @param val result timestamp in unix time
+ */
+static inline int
+lf_json_parse_timestamp(const json_value *json_val, uint64_t *val)
+{
+	if (json_val->type != json_string) {
+		return -1;
+	}
+
+	char *bufstr;
+	bufstr = json_val->u.string.ptr;
+
+	struct tm date;
+	// expect time in format "%Y-%m-%dT%H:%M:%S"
+	if (bufstr[4] != '-' || bufstr[7] != '-' || bufstr[10] != 'T' ||
+			bufstr[13] != ':' || bufstr[16] != ':') {
+		return -1;
+	}
+
+	// TODO: Timezone is wrong
+	date.tm_year = atoi(bufstr) - 1900;
+	date.tm_mon = atoi(bufstr + 5) - 1;
+	date.tm_mday = atoi(bufstr + 8);
+	date.tm_hour = atoi(bufstr + 11);
+	date.tm_min = atoi(bufstr + 14);
+	date.tm_sec = atoi(bufstr + 17);
+	time_t unix_time = mktime(&date);
+	*val = unix_time * 10e9;
 
 	return 0;
 }

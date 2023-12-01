@@ -45,7 +45,9 @@
 #define FIELD_DRKEY_PROTOCOL     "drkey_protocol"
 #define FIELD_DRKEY_SERVICE_ADDR "drkey_service_addr"
 
-#define FIELD_DRKEY_LEVEL_1 "drkey_level1"
+#define FIELD_SHARED_SECRET "shared_secret"
+#define FIELD_NOT_BEFORE    "not_before"
+#define FIELD_SECRET_VALUE  "sv"
 
 #define FIELD_DST_RATELIMITER "dst_ratelimiter"
 
@@ -90,10 +92,10 @@ peer_init(struct lf_config_peer *config_peer)
 		.next = NULL,
 
 		.drkey_level_1_configured_option = false,
-		.drkey_level_1 =
-				(struct lf_config_drkey_level_1){
-						.inbound = { 0 },
-						.outbound = { 0 },
+		.shared_secret =
+				(struct lf_config_shared_secret){
+						.sv = { 0 },
+						.not_before = 0,
 				},
 
 		/* per default no rate limit is defined for a peer */
@@ -186,24 +188,24 @@ parse_ratelimit(json_value *json_val, struct lf_config_ratelimit *ratelimit)
 }
 
 /**
- * The drkey_level_1 struct consists of an inbound and outbound key. This should
- * be used for preconfigured keys.
+ * The shared_secret struct consists of a key and a timestamp.
+ * This should be used for preconfigured keys.
  *
  * @return Returns 0 on success.
  */
 static int
-parse_drkey_level_1(json_value *json_val,
-		struct lf_config_drkey_level_1 *drkey_level_1)
+parse_shared_secret(json_value *json_val,
+		struct lf_config_shared_secret *shared_secret)
 {
 	int res, error_count = 0;
 	unsigned int length;
 	unsigned int i;
 	char *field_name;
 	json_value *field_value;
-	bool inbound, outbound = false;
+	bool sv_flag, ts_flag = false;
 
 	/* Initialize drkey struct. Set all to 0. */
-	(void)memset(drkey_level_1, 0, sizeof *drkey_level_1);
+	(void)memset(shared_secret, 0, sizeof *shared_secret);
 
 	if (json_val == NULL) {
 		return -1;
@@ -219,24 +221,24 @@ parse_drkey_level_1(json_value *json_val,
 		field_name = json_val->u.object.values[i].name;
 		field_value = json_val->u.object.values[i].value;
 
-		if (strcmp(field_name, FIELD_INBOUND) == 0) {
+		if (strcmp(field_name, FIELD_SECRET_VALUE) == 0) {
 			res = lf_json_parse_byte_buffer(field_value, LF_CRYPTO_DRKEY_SIZE,
-					drkey_level_1->inbound);
+					shared_secret->sv);
 			if (res != 0) {
-				LF_LOG(ERR, "Invalid DRKey (%d:%d)\n", field_value->line,
+				LF_LOG(ERR, "Invalid shared secret (%d:%d)\n",
+						field_value->line, field_value->col);
+				error_count++;
+			}
+			sv_flag = true;
+		} else if (strcmp(field_name, FIELD_NOT_BEFORE) == 0) {
+			res = lf_json_parse_timestamp(field_value,
+					&shared_secret->not_before);
+			if (res != 0) {
+				LF_LOG(ERR, "Invalid timestamp (%d:%d)\n", field_value->line,
 						field_value->col);
 				error_count++;
 			}
-			inbound = true;
-		} else if (strcmp(field_name, FIELD_OUTBOUND) == 0) {
-			res = lf_json_parse_byte_buffer(field_value, LF_CRYPTO_DRKEY_SIZE,
-					drkey_level_1->outbound);
-			if (res != 0) {
-				LF_LOG(ERR, "Invalid DRKey (%d:%d)\n", field_value->line,
-						field_value->col);
-				error_count++;
-			}
-			outbound = true;
+			ts_flag = true;
 		} else {
 			LF_LOG(ERR, "Unknown field %s (%d:%d)\n", field_name,
 					field_value->line, field_value->col);
@@ -248,9 +250,10 @@ parse_drkey_level_1(json_value *json_val,
 		return -1;
 	}
 
-	if (!inbound || !outbound) {
-		LF_LOG(ERR, "Invalid DRKey configuration. Need to define both inbound "
-					"and outbound key.\n");
+	if (!sv_flag || !ts_flag) {
+		LF_LOG(ERR, "Invalid shared secret configuration. Need to define both "
+					"secret value "
+					"and not before timestamp.\n");
 		return -1;
 	}
 
@@ -312,10 +315,10 @@ parse_peer(json_value *json_val, struct lf_config_peer *peer)
 				error_count++;
 			}
 			peer->ratelimit_option = true;
-		} else if (strcmp(field_name, FIELD_DRKEY_LEVEL_1) == 0) {
-			res = parse_drkey_level_1(field_value, &peer->drkey_level_1);
+		} else if (strcmp(field_name, FIELD_SHARED_SECRET) == 0) {
+			res = parse_shared_secret(field_value, &peer->shared_secret);
 			if (res != 0) {
-				LF_LOG(ERR, "Invalid Level 1 DRKey pair (%d:%d)\n",
+				LF_LOG(ERR, "Invalid shared secret (%d:%d)\n",
 						field_value->line, field_value->col);
 				error_count++;
 			}

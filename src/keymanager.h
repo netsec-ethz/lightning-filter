@@ -50,6 +50,12 @@
 #define LF_DRKEY_DERIVATION_TYPE_HOST_AS   2
 #define LF_DRKEY_DERIVATION_TYPE_HOST_HOST 3
 
+/*
+ * DRKey validity period used for shared, configured keys.
+ */
+#define LF_DRKEY_VALIDITY_PERIOD \
+	(3 * 24 * 3600 * LF_TIME_NS_IN_S) /* in nanoseconds */
+
 /**
  * The key container wraps all information required to use a key.
  * A DRKeys validity is usually defined in seconds. Because the workers operate
@@ -98,6 +104,8 @@ struct lf_keymanager {
 	struct rte_hash *dict;
 	/* max number of entries */
 	uint32_t size;
+
+	struct rte_hash *shared_secret_dict;
 
 	uint64_t src_as;
 
