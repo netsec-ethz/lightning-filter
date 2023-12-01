@@ -324,7 +324,7 @@ test3()
 	lf_keymanager_drkey_from_asas(kmw, &as_as_zero_drkey, &src_host_addr,
 			&dst_host_addr, 0, &drkey);
 
-	if (memcmp(&expected_key_1, &drkey, sizeof(drkey)) != 0) {
+	if (memcmp(&expected_key_1, &drkey, LF_CRYPTO_DRKEY_SIZE) != 0) {
 		printf("Error: DRKey derivation wrong\n");
 		error_count += 1;
 	}
@@ -339,7 +339,7 @@ test3()
 	lf_keymanager_drkey_from_asas(kmw, &as_as_drkey, &src_host_addr,
 			&dst_host_addr, 0, &drkey);
 
-	if (memcmp(&expected_key_2, &drkey, sizeof(drkey)) != 0) {
+	if (memcmp(&expected_key_2, &drkey, LF_CRYPTO_DRKEY_SIZE) != 0) {
 		printf("Error: DRKey derivation wrong\n");
 		error_count += 1;
 	}
@@ -351,7 +351,7 @@ test3()
 	lf_keymanager_drkey_from_asas(kmw, &as_as_drkey, &src_host_addr,
 			&dst_host_addr, 0x0300, &drkey);
 
-	if (memcmp(&expected_key_3, &drkey, sizeof(drkey)) != 0) {
+	if (memcmp(&expected_key_3, &drkey, LF_CRYPTO_DRKEY_SIZE) != 0) {
 		printf("Error: DRKey derivation wrong\n");
 		error_count += 1;
 	}
