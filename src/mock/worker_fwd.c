@@ -18,9 +18,6 @@
 #include "../lib/utils/packet.h"
 #include "../worker.h"
 
-/* Include generic worker source */
-#include "../worker.c"
-
 static enum lf_pkt_action
 handle_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m)
 {
