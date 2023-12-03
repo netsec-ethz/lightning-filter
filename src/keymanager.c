@@ -638,8 +638,8 @@ handle_dict_stats(const char *cmd __rte_unused, const char *params __rte_unused,
 	rte_tel_data_start_dict(d);
 
 	rte_spinlock_lock(&tel_ctx->management_lock);
-	rte_tel_data_add_dict_u64(d, "entries", rte_hash_count(tel_ctx->dict));
-	rte_tel_data_add_dict_u64(d, "entries_max",
+	rte_tel_data_add_dict_uint(d, "entries", rte_hash_count(tel_ctx->dict));
+	rte_tel_data_add_dict_uint(d, "entries_max",
 			rte_hash_max_key_id(tel_ctx->dict));
 
 	rte_spinlock_lock(&tel_ctx->management_lock);
@@ -657,7 +657,7 @@ handle_stats(const char *cmd __rte_unused, const char *params __rte_unused,
 	rte_tel_data_start_dict(d);
 	values = (uint64_t *)&tel_ctx->statistics;
 	for (i = 0; i < LF_KEYMANAGER_STATISTICS_NUM; i++) {
-		rte_tel_data_add_dict_u64(d, lf_keymanager_statistics_strings[i].name,
+		rte_tel_data_add_dict_uint(d, lf_keymanager_statistics_strings[i].name,
 				values[i]);
 	}
 
