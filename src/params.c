@@ -40,11 +40,9 @@ static const struct lf_params default_params = {
 	.bf_bytes = 131072, /* 2^20 / 8 */
 
 	/* ratelimiter */
-	.rl_config_file = "",
 	.rl_size = 1024,
 
 	/* keymanager */
-	.km_config_file = "",
 	.km_size = 1024,
 };
 
@@ -74,9 +72,7 @@ static const char short_options[] = "v:" /* version */
 #define CMD_LINE_OPT_BF_PERIOD       "bf-period"
 #define CMD_LINE_OPT_BF_HASHES       "bf-hashes"
 #define CMD_LINE_OPT_BF_BYTES        "bf-bytes"
-#define CMD_LINE_OPT_RL_CONFIG_FILE  "rl-config-file"
 #define CMD_LINE_OPT_RL_SIZE         "rl-size"
-#define CMD_LINE_OPT_KM_CONFIG_FILE  "km-config-file"
 #define CMD_LINE_OPT_KM_SIZE         "km-size"
 #define CMD_LINE_OPT_DISABLE_MIRRORS "disable-mirrors"
 
@@ -120,11 +116,7 @@ static const struct option long_options[] = {
 	{ CMD_LINE_OPT_BF_HASHES, required_argument, 0,
 			CMD_LINE_OPT_BF_HASHES_NUM },
 	{ CMD_LINE_OPT_BF_BYTES, required_argument, 0, CMD_LINE_OPT_BF_BYTES_NUM },
-	{ CMD_LINE_OPT_RL_CONFIG_FILE, required_argument, 0,
-			CMD_LINE_OPT_RL_CONFIG_FILE_NUM },
 	{ CMD_LINE_OPT_RL_SIZE, required_argument, 0, CMD_LINE_OPT_RL_SIZE_NUM },
-	{ CMD_LINE_OPT_KM_CONFIG_FILE, required_argument, 0,
-			CMD_LINE_OPT_KM_CONFIG_FILE_NUM },
 	{ CMD_LINE_OPT_KM_SIZE, required_argument, 0, CMD_LINE_OPT_KM_SIZE_NUM },
 	{ CMD_LINE_OPT_DISABLE_MIRRORS, no_argument, 0,
 			CMD_LINE_OPT_DISABLE_MIRRORS_NUM },
@@ -166,12 +158,8 @@ lf_usage(const char *prgname)
 			"  --bf-bytes=NUM\n"
 			"         Size of each Bloom filter bit arrays in bytes\n"
 			"         Must be a power of 2 and at least 8\n"
-			"  --rl-config-file=CONFIG_FILE\n"
-			"         configuration file to be loaded for the ratelimiter\n"
 			"  --rl-size=NUM\n"
 			"         Size of ratelimiter hash table.\n"
-			"  --km-config-file=CONFIG_FILE\n"
-			"         configuration file to be loaded for the keymanager\n"
 			"  --km-size=NUM\n"
 			"         Size of keymanager hash table.\n"
 			"  --disable-mirrors\n"
@@ -516,28 +504,12 @@ lf_params_parse(int argc, char **argv, struct lf_params *params)
 				return -1;
 			}
 			break;
-		/* config file */
-		case CMD_LINE_OPT_RL_CONFIG_FILE_NUM:
-			if (strlen(optarg) > PATH_MAX || strlen(optarg) == 0) {
-				LF_LOG(ERR, "Invalid ratelimiter config file name\n");
-				return -1;
-			}
-			(void)strcpy(params->rl_config_file, optarg);
-			break;
 		case CMD_LINE_OPT_RL_SIZE_NUM:
 			res = parse_uint(optarg, &params->rl_size);
 			if (res != 0 || params->rl_size == 0) {
 				LF_LOG(ERR, "Invalid rl-size\n");
 				return -1;
 			}
-			break;
-		/* config file */
-		case CMD_LINE_OPT_KM_CONFIG_FILE_NUM:
-			if (strlen(optarg) > PATH_MAX || strlen(optarg) == 0) {
-				LF_LOG(ERR, "Invalid keymanager config file name\n");
-				return -1;
-			}
-			(void)strcpy(params->km_config_file, optarg);
 			break;
 		case CMD_LINE_OPT_KM_SIZE_NUM:
 			res = parse_uint(optarg, &params->km_size);

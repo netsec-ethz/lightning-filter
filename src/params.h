@@ -60,13 +60,11 @@ struct lf_params {
 	/*
 	 * Rate Limiter
 	 */
-	char rl_config_file[PATH_MAX];
 	unsigned int rl_size;
 
 	/*
 	 * Keymanager
 	 */
-	char km_config_file[PATH_MAX];
 	unsigned int km_size;
 };
 

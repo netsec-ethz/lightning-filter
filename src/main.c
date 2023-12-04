@@ -480,26 +480,6 @@ main(int argc, char **argv)
 		rte_exit(EXIT_FAILURE, "Unable to register keymanager telemetry\n");
 	}
 
-	/* apply config if provided */
-	res = 0;
-	if (params.km_config_file[0] != '\0') {
-		/* load keymanager specific config */
-		config = lf_config_new_from_file(params.km_config_file);
-		if (config == NULL) {
-			rte_exit(EXIT_FAILURE, "Failed to load keymanager config file %s\n",
-					params.km_config_file);
-		}
-		res = lf_keymanager_apply_config(&keymanager, config);
-		lf_config_free(config);
-	} else if (global_config != NULL) {
-		/* use global config */
-		res = lf_keymanager_apply_config(&keymanager, global_config);
-	}
-	if (res != 0) {
-		rte_exit(EXIT_FAILURE, "Failed to load ratelimiter config file %s\n",
-				params.rl_config_file);
-	}
-
 	/*
 	 * Setup Rate Limiter
 	 */
@@ -520,27 +500,6 @@ main(int argc, char **argv)
 	res = lf_ratelimiter_register_ipc(&ratelimiter);
 	if (res != 0) {
 		rte_exit(EXIT_FAILURE, "Unable to register ratelimiter IPC\n");
-	}
-
-	/* apply config if provided */
-	res = 0;
-	if (params.rl_config_file[0] != '\0') {
-		/* load rate limiter specific config */
-		config = lf_config_new_from_file(params.rl_config_file);
-		if (config == NULL) {
-			rte_exit(EXIT_FAILURE,
-					"Failed to load ratelimiter config file %s\n",
-					params.rl_config_file);
-		}
-		res = lf_ratelimiter_apply_config(&ratelimiter, config);
-		lf_config_free(config);
-	} else if (global_config != NULL) {
-		/* use global config */
-		res = lf_ratelimiter_apply_config(&ratelimiter, global_config);
-	}
-	if (res != 0) {
-		rte_exit(EXIT_FAILURE, "Failed to load ratelimiter config file %s\n",
-				params.rl_config_file);
 	}
 
 	/*
@@ -584,18 +543,11 @@ main(int argc, char **argv)
 	 */
 	lf_plugins_init(worker_contexts, lf_nb_workers);
 
-	if (global_config != NULL) {
-		res = lf_plugins_apply_config(global_config);
-		if (res != 0) {
-			rte_exit(EXIT_FAILURE, "Failed to load config file %s\n",
-					params.config_file);
-		}
-	}
-
 	/*
 	 * Setup Config Manager
 	 */
-	res = lf_configmanager_init(&configmanager, lf_nb_workers, qsv);
+	res = lf_configmanager_init(&configmanager, lf_nb_workers, qsv, &keymanager,
+			&ratelimiter);
 	if (res != 0) {
 		rte_exit(EXIT_FAILURE, "Fail to init config manager.\n");
 	}
@@ -607,14 +559,17 @@ main(int argc, char **argv)
 		worker_contexts[lcore_id].config = &configmanager.workers[worker_id];
 		worker_id++;
 	}
-	res = lf_configmanager_register_ipc(&configmanager, &keymanager,
-			&ratelimiter);
+	res = lf_configmanager_register_ipc(&configmanager);
 	if (res != 0) {
 		rte_exit(EXIT_FAILURE, "Unable to register ratelimiter IPC.\n");
 	}
 
 	if (params.config_file[0] != '\0') {
-		lf_configmanager_load_config(&configmanager, params.config_file);
+		res = lf_configmanager_apply_config_file(&configmanager,
+				params.config_file);
+		if (res != 0) {
+			rte_exit(EXIT_FAILURE, "Unable to apply config.\n");
+		}
 	}
 
 #ifdef LF_PDUMP

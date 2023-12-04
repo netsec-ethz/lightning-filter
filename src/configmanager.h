@@ -46,6 +46,10 @@ struct lf_configmanager {
 	/* Lock to synchronize any manager actions, such as changing the current
 	 * configuration */
 	rte_spinlock_t manager_lock;
+
+	/* Reference to other services which are notified on config change. */
+	struct lf_keymanager *km;
+	struct lf_ratelimiter *rl;
 };
 
 /**
@@ -53,7 +57,8 @@ struct lf_configmanager {
  */
 int
 lf_configmanager_init(struct lf_configmanager *cm, uint16_t nb_workers,
-		struct rte_rcu_qsbr *qsv);
+		struct rte_rcu_qsbr *qsv, struct lf_keymanager *km,
+		struct lf_ratelimiter *rl);
 
 /**
  * Load new config from json file.
@@ -62,7 +67,7 @@ lf_configmanager_init(struct lf_configmanager *cm, uint16_t nb_workers,
  * @return Returns 0 on success.
  */
 int
-lf_configmanager_load_config(struct lf_configmanager *cm,
+lf_configmanager_apply_config_file(struct lf_configmanager *cm,
 		const char *config_path);
 
 /**
@@ -72,8 +77,7 @@ lf_configmanager_load_config(struct lf_configmanager *cm,
  * @return Returns 0 on success.
  */
 int
-lf_configmanager_register_ipc(struct lf_configmanager *cm,
-		struct lf_keymanager *km, struct lf_ratelimiter *rl);
+lf_configmanager_register_ipc(struct lf_configmanager *cm);
 
 /**
  * Get outbound DRKey protocol (network byte order).

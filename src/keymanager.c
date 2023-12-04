@@ -578,42 +578,13 @@ lf_keymanager_init(struct lf_keymanager *km, uint16_t nb_workers,
 /* Keymanager context used when IPC commands are processed. */
 static struct lf_keymanager *ipc_ctx;
 
-static int
-ipc_config_load(const char *cmd __rte_unused, const char *p, char *out_buf,
-		size_t buf_len)
-{
-	int res;
-	struct lf_config *config;
-
-	LF_KEYMANAGER_LOG(INFO, "Load config from %s ...\n", p);
-	config = lf_config_new_from_file(p);
-	if (config == NULL) {
-		LF_LOG(ERR, "Config parser failed\n");
-		return -1;
-	}
-
-	res = lf_keymanager_apply_config(ipc_ctx, config);
-	lf_config_free(config);
-
-	if (res != 0) {
-		return -1;
-	}
-
-	return snprintf(out_buf, buf_len, "successfully applied config");
-}
-
 int
 lf_keymanager_register_ipc(struct lf_keymanager *km)
 {
 	int res;
 	ipc_ctx = km;
 
-	res = lf_ipc_register_cmd("/keymanager/config", ipc_config_load,
-			"Load key manager config file. "
-			"parameter: <config file>");
-	if (res != 0) {
-		return -1;
-	}
+	/* TODO: add command to add/remove peer */
 
 	return 0;
 }
