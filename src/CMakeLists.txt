@@ -22,8 +22,7 @@ add_custom_command(TARGET ${EXEC} POST_BUILD
 # Set C standard and compile flags
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED True)
-# rte_rcu (DPDK v21.11) is not compatible with -pedantic -pedantic-errors
-#add_compile_options(-pedantic --pedantic-errors)
+add_compile_options(-pedantic --pedantic-errors)
 target_compile_options(${EXEC} PRIVATE -O3 -fno-strict-overflow -fno-strict-aliasing)
 target_compile_options(${EXEC} PRIVATE -Wall -Wextra -Werror)
 target_compile_options(${EXEC} PRIVATE -Wcast-qual -Wcast-align -Wunused -Wshadow -Wwrite-strings)
@@ -57,8 +56,8 @@ target_sources(${EXEC} PRIVATE plugins/plugins.c)
 
 # Link DPDK statically
 add_definitions(${DPDK_STATIC_CFLAGS}) # TODO: target
-target_include_directories(${EXEC} PRIVATE ${DPDK_SATIC_INCLUDE_DIRS})
-target_link_libraries(${EXEC} PRIVATE ${DPDK_STATIC_LDFLAGS})
+target_link_libraries(${EXEC} PRIVATE ${DPDK_STATIC_LDFLAGS} ${DPDK_STATIC_LIBS})
+target_include_directories(${EXEC} PRIVATE ${DPDK_STATIC_INCLUDE_DIRS})
 
 # Link OpenSSL
 target_link_libraries(${EXEC} PRIVATE OpenSSL::SSL)

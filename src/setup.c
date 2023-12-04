@@ -50,23 +50,22 @@ struct port_queues_conf {
 
 static const struct rte_eth_conf global_port_conf = {
 	.rxmode = {
-		.split_hdr_size = 0,
 		.mq_mode = RTE_ETH_MQ_RX_RSS,
 	},
 	.rx_adv_conf = {
 		.rss_conf = {
 			.rss_key = NULL,
-			.rss_hf = ETH_RSS_FRAG_IPV4
-				| ETH_RSS_NONFRAG_IPV4_TCP
-				| ETH_RSS_NONFRAG_IPV4_UDP
-				| ETH_RSS_NONFRAG_IPV4_SCTP
-				| ETH_RSS_NONFRAG_IPV4_OTHER
-				| ETH_RSS_FRAG_IPV6
-				| ETH_RSS_NONFRAG_IPV6_TCP
-				| ETH_RSS_NONFRAG_IPV6_UDP
-				| ETH_RSS_NONFRAG_IPV6_SCTP
-				| ETH_RSS_NONFRAG_IPV6_OTHER
-				| ETH_RSS_L2_PAYLOAD,
+			.rss_hf = RTE_ETH_RSS_FRAG_IPV4
+				| RTE_ETH_RSS_NONFRAG_IPV4_TCP
+				| RTE_ETH_RSS_NONFRAG_IPV4_UDP
+				| RTE_ETH_RSS_NONFRAG_IPV4_SCTP
+				| RTE_ETH_RSS_NONFRAG_IPV4_OTHER
+				| RTE_ETH_RSS_FRAG_IPV6
+				| RTE_ETH_RSS_NONFRAG_IPV6_TCP
+				| RTE_ETH_RSS_NONFRAG_IPV6_UDP
+				| RTE_ETH_RSS_NONFRAG_IPV6_SCTP
+				| RTE_ETH_RSS_NONFRAG_IPV6_OTHER
+				| RTE_ETH_RSS_L2_PAYLOAD,
 		},
 	},
 	.txmode = {
@@ -253,7 +252,7 @@ port_init(uint16_t port_id, struct port_queues_conf *port_conf,
 				local_port_conf.rx_adv_conf.rss_conf.rss_hf);
 		if (local_port_conf.rx_adv_conf.rss_conf.rss_hf == 0) {
 			LF_LOG(WARNING, "Port %u does not use RSS!\n", port_id);
-			local_port_conf.rxmode.mq_mode = ETH_MQ_RX_NONE;
+			local_port_conf.rxmode.mq_mode = RTE_ETH_MQ_RX_NONE;
 		}
 	}
 
@@ -411,7 +410,7 @@ check_all_ports_link_status(uint32_t port_mask)
 				continue;
 			}
 			/* clear all_ports_up flag if any link down */
-			if (link.link_status == ETH_LINK_DOWN) {
+			if (link.link_status == RTE_ETH_LINK_DOWN) {
 				all_ports_up = 0;
 				break;
 			}

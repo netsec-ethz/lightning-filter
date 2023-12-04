@@ -25,6 +25,8 @@
  */
 struct lf_crypto_drkey_ctx {
 #ifdef LF_CBCMAC_AESNI
+	/* field to avoid empty struct */
+	uint8_t dummy;
 #else
 	EVP_CIPHER_CTX *mdctx;
 #endif

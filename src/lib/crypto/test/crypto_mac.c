@@ -25,7 +25,7 @@ main(int argc, char *argv[])
 	// parse key
 	uint8_t key_buf[16];
 	struct lf_crypto_drkey drkey;
-	int tmp; // to hold byte values
+	unsigned int tmp; // to hold byte values
 
 	for (int i = 0; i < 16; i++) {
 		tmp = 0;

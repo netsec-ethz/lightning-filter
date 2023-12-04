@@ -23,7 +23,6 @@ static uint16_t nb_txd = 512;
 
 static const struct rte_eth_conf mirror_port_conf = {
 	.rxmode = {
-		.split_hdr_size = 0,
 		/* TODO: make mtu configurable on the mirror. */
 		.mtu = 1500,
 	},
@@ -154,7 +153,7 @@ configure_port(uint16_t port_id, uint16_t nb_queues,
 				local_port_conf.rx_adv_conf.rss_conf.rss_hf);
 		if (local_port_conf.rx_adv_conf.rss_conf.rss_hf == 0) {
 			LF_LOG(WARNING, "Port %u does not use RSS!\n", port_id);
-			local_port_conf.rxmode.mq_mode = ETH_MQ_RX_NONE;
+			local_port_conf.rxmode.mq_mode = RTE_ETH_MQ_RX_NONE;
 		}
 	}
 

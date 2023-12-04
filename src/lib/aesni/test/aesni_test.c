@@ -86,7 +86,7 @@ main(int argc, char *argv[])
 
 	// parse key
 	unsigned char *key = calloc(16, sizeof(unsigned char));
-	int tmp; // to hold byte values
+	unsigned int tmp; // to hold byte values
 
 	for (int i = 0; i < 16; i++) {
 		tmp = 0;
