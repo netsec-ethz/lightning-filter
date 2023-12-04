@@ -534,6 +534,8 @@ lf_keymanager_init(struct lf_keymanager *km, uint16_t nb_workers,
 	km->qsv = qsv;
 	km->nb_workers = nb_workers;
 
+	rte_spinlock_init(&km->management_lock);
+
 	/* dictionary requires a size of at least 8 (magic number) */
 	// NOLINTBEGIN(readability-magic-numbers)
 	if (initial_size < 8) {
