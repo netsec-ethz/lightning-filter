@@ -581,7 +581,6 @@ static struct lf_keymanager *ipc_ctx;
 int
 lf_keymanager_register_ipc(struct lf_keymanager *km)
 {
-	int res;
 	ipc_ctx = km;
 
 	/* TODO: add command to add/remove peer */

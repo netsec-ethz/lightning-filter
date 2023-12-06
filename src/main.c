@@ -299,7 +299,6 @@ main(int argc, char **argv)
 	int res;
 	uint16_t lcore_id, worker_id, worker_counter;
 	struct lf_params params;
-	struct lf_config *global_config, *config;
 	struct lf_ratelimiter_worker *ratelimiter_workers[RTE_MAX_LCORE];
 
 	/* Worker RCU QS Variable */
@@ -332,19 +331,6 @@ main(int argc, char **argv)
 	res = lf_params_parse(argc, argv, &params);
 	if (res < 0) {
 		rte_exit(EXIT_FAILURE, "Invalid application parameters\n");
-	}
-
-	/*
-	 * Load Global Config
-	 */
-	if (params.config_file[0] != '\0') {
-		global_config = lf_config_new_from_file(params.config_file);
-		if (global_config == NULL) {
-			rte_exit(EXIT_FAILURE, "Failed to load config file %s\n",
-					params.config_file);
-		}
-	} else {
-		global_config = NULL;
 	}
 
 	/*

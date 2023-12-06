@@ -33,22 +33,6 @@
 #define LF_CONFIGMANAGER_LOG(level, ...) \
 	LF_LOG(level, "Config Manager: " __VA_ARGS__)
 
-/**
- * Set the new configuration for all workers.
- */
-void
-update_worker_config(struct lf_configmanager *cm, struct lf_config *new_config)
-{
-	size_t i;
-	/* set config for workers */
-	for (i = 0; i < cm->nb_workers; ++i) {
-		atomic_store_explicit(&cm->workers[i].config, cm->config,
-				memory_order_relaxed);
-	}
-	rte_rcu_qsbr_synchronize(cm->qsv, RTE_QSBR_THRID_INVALID);
-	return;
-}
-
 int
 lf_configmanager_apply_config(struct lf_configmanager *cm,
 		struct lf_config *new_config)
@@ -73,8 +57,13 @@ lf_configmanager_apply_config(struct lf_configmanager *cm,
 	res |= lf_plugins_apply_config(new_config);
 
 	/* update worker's config */
-	update_worker_config(cm, new_config);
+	for (uint16_t i = 0; i < cm->nb_workers; ++i) {
+		atomic_store_explicit(&cm->workers[i].config, cm->config,
+				memory_order_relaxed);
+	}
+	rte_rcu_qsbr_synchronize(cm->qsv, RTE_QSBR_THRID_INVALID);
 
+	/* free old config */
 	if (old_config != NULL) {
 		lf_config_free(old_config);
 	}
@@ -157,7 +146,7 @@ ipc_global_config(const char *cmd __rte_unused, const char *p, char *out_buf,
 int
 lf_configmanager_register_ipc(struct lf_configmanager *cm)
 {
-	int res;
+	int res = 0;
 
 	res |= lf_ipc_register_cmd("/config", ipc_global_config,
 			"Load global config, i.e., config for all modules, from file");
