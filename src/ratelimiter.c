@@ -593,30 +593,6 @@ ipc_ratelimit_set(const char *cmd __rte_unused, const char *p, char *out_buf,
 	}
 }
 
-static int
-ipc_config_load(const char *cmd __rte_unused, const char *p, char *out_buf,
-		size_t buf_len)
-{
-	int res;
-	struct lf_config *config;
-
-	LF_RATELIMITER_LOG(INFO, "Load config from %s ...\n", p);
-	config = lf_config_new_from_file(p);
-	if (config == NULL) {
-		LF_LOG(ERR, "Config parser failed\n");
-		return -1;
-	}
-
-	res = lf_ratelimiter_apply_config(rl_ctx, config);
-	lf_config_free(config);
-
-	if (res != 0) {
-		return -1;
-	}
-
-	return snprintf(out_buf, buf_len, "successfully applied config");
-}
-
 int
 lf_ratelimiter_register_ipc(struct lf_ratelimiter *rl)
 {
@@ -627,17 +603,13 @@ lf_ratelimiter_register_ipc(struct lf_ratelimiter *rl)
 	 */
 	res = lf_ipc_register_cmd("/ratelimiter/set", ipc_ratelimit_set,
 			"Set rate limit.\n"
+			"Please note that the set value is not persistent "
+			"and will be overridden when updating the configuration.\n"
 			"parameter (peer): <AS>,<DRKey-Proto>,<rate>\n"
 			"parameter (overall): -,-,<rate>\n"
 			"parameter (auth peers): *,*,<rate>\n"
 			"parameter (best-effort): ?,?,<rate>\n"
 			"rate: <byte_rate>,<byte_burst>,<pkt_rate>,<pkt_burst>");
-	if (res != 0) {
-		return -1;
-	}
-	res = lf_ipc_register_cmd("/ratelimiter/config", ipc_config_load,
-			"Load rate limits from config file. "
-			"parameter: <config file>");
 	if (res != 0) {
 		return -1;
 	}

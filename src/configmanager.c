@@ -33,39 +33,54 @@
 #define LF_CONFIGMANAGER_LOG(level, ...) \
 	LF_LOG(level, "Config Manager: " __VA_ARGS__)
 
-/**
- * Set the new configuration for the manager and all workers.
- * @return struct lf_config* Returns the old configuration struct, which can be
- * freed by the caller.
- */
-struct lf_config *
-set_config(struct lf_configmanager *cm, struct lf_config *new_config)
+int
+lf_configmanager_apply_config(struct lf_configmanager *cm,
+		struct lf_config *new_config)
 {
-	size_t i;
+	int res = 0;
 	struct lf_config *old_config;
-	old_config = cm->config;
-	cm->config = new_config;
 
 	rte_spinlock_lock(&cm->manager_lock);
 	LF_CONFIGMANAGER_LOG(NOTICE, "Set config...\n");
 
-	/* set config for workers */
-	for (i = 0; i < cm->nb_workers; ++i) {
+	/* replace stored config */
+	old_config = cm->config;
+	cm->config = new_config;
+
+	/* update service's config */
+	if (cm->rl != NULL) {
+		res = lf_ratelimiter_apply_config(cm->rl, new_config);
+	}
+	if (cm->km != NULL) {
+		res |= lf_keymanager_apply_config(cm->km, new_config);
+	}
+	res |= lf_plugins_apply_config(new_config);
+
+	/* update worker's config */
+	for (uint16_t i = 0; i < cm->nb_workers; ++i) {
 		atomic_store_explicit(&cm->workers[i].config, cm->config,
 				memory_order_relaxed);
 	}
-
 	rte_rcu_qsbr_synchronize(cm->qsv, RTE_QSBR_THRID_INVALID);
+
+	/* free old config */
+	if (old_config != NULL) {
+		lf_config_free(old_config);
+	}
+
+	if (res == 0) {
+		LF_CONFIGMANAGER_LOG(NOTICE, "Set config successfully\n");
+	} else {
+		LF_CONFIGMANAGER_LOG(ERR, "Failed applying config\n");
+	}
 
 	rte_spinlock_unlock(&cm->manager_lock);
 
-	LF_CONFIGMANAGER_LOG(NOTICE, "Set config successfully\n");
-
-	return old_config;
+	return res;
 }
 
 int
-lf_configmanager_load_config(struct lf_configmanager *cm,
+lf_configmanager_apply_config_file(struct lf_configmanager *cm,
 		const char *config_path)
 {
 	struct lf_config *config;
@@ -77,17 +92,13 @@ lf_configmanager_load_config(struct lf_configmanager *cm,
 		return -1;
 	}
 
-	config = set_config(cm, config);
-	if (config != NULL) {
-		lf_config_free(config);
-	}
-
-	return 0;
+	return lf_configmanager_apply_config(cm, config);
 }
 
 int
 lf_configmanager_init(struct lf_configmanager *cm, uint16_t nb_workers,
-		struct rte_rcu_qsbr *qsv)
+		struct rte_rcu_qsbr *qsv, struct lf_keymanager *km,
+		struct lf_ratelimiter *rl)
 {
 	uint16_t worker_id;
 
@@ -107,6 +118,9 @@ lf_configmanager_init(struct lf_configmanager *cm, uint16_t nb_workers,
 		cm->workers[worker_id].config = cm->config;
 	}
 
+	cm->km = km;
+	cm->rl = rl;
+
 	return 0;
 }
 
@@ -116,65 +130,24 @@ lf_configmanager_init(struct lf_configmanager *cm, uint16_t nb_workers,
 
 /* Global config manager context */
 static struct lf_configmanager *cm_ctx = NULL;
-static struct lf_ratelimiter *ipc_ratelimiter = NULL;
-static struct lf_keymanager *ipc_keymanager = NULL;
 
 int
 ipc_global_config(const char *cmd __rte_unused, const char *p, char *out_buf,
 		size_t buf_len)
 {
 	int res = 0;
-	struct lf_config *config;
-
-	LF_LOG(INFO, "Load config from %s ...\n", p);
-	config = lf_config_new_from_file(p);
-	if (config == NULL) {
-		LF_LOG(ERR, "Config parser failed\n");
-		return -1;
-	}
-
-	if (ipc_ratelimiter != NULL) {
-		res = lf_ratelimiter_apply_config(ipc_ratelimiter, config);
-	}
-	if (ipc_keymanager != NULL) {
-		res |= lf_keymanager_apply_config(ipc_keymanager, config);
-	}
-	res |= lf_plugins_apply_config(config);
-
-	config = set_config(cm_ctx, config);
-	if (config != NULL) {
-		lf_config_free(config);
-	}
-
+	res = lf_configmanager_apply_config_file(cm_ctx, p);
 	if (res != 0) {
-		return -1;
+		return snprintf(out_buf, buf_len, "An error ocurred");
 	}
-
 	return snprintf(out_buf, buf_len, "successfully applied config");
 }
 
 int
-ipc_traffic_config(const char *cmd __rte_unused, const char *params,
-		char *out_buf, size_t buf_len)
+lf_configmanager_register_ipc(struct lf_configmanager *cm)
 {
-	if (params != NULL) {
-		if (lf_configmanager_load_config(cm_ctx, params)) {
-			return snprintf(out_buf, buf_len, "An error ocurred");
-		}
-		return snprintf(out_buf, buf_len, "Loaded config from %s.", params);
-	} else {
-		return snprintf(out_buf, buf_len, "File path is missing.");
-	}
-}
+	int res = 0;
 
-int
-lf_configmanager_register_ipc(struct lf_configmanager *cm,
-		struct lf_keymanager *km, struct lf_ratelimiter *rl)
-{
-	int res;
-
-	res = lf_ipc_register_cmd("/traffic/config", ipc_traffic_config,
-			"Load traffic config from file");
 	res |= lf_ipc_register_cmd("/config", ipc_global_config,
 			"Load global config, i.e., config for all modules, from file");
 	if (res != 0) {
@@ -184,8 +157,6 @@ lf_configmanager_register_ipc(struct lf_configmanager *cm,
 
 	/* set ipc contexts */
 	cm_ctx = cm;
-	ipc_ratelimiter = rl;
-	ipc_keymanager = km;
 
 	return 0;
 }
