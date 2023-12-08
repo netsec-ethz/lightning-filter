@@ -162,31 +162,30 @@ test1()
 		error_count += 1;
 	}
 
-	/* remove this test for now since mock keys are not implemented
-	ns_now = ns_now + 20 * LF_TIME_NS_IN_S; // 20 seconds (the validity period
-	                                        // of the mock keys is 10 seconds)
+	ns_now = ns_now +
+	         3 * 24 * 3600 * LF_TIME_NS_IN_S; // 3 days (the max validity period
+	                                          // is 3 days)
 	res = lf_keymanager_worker_inbound_get_drkey(kmw, config->peers->isd_as,
-	        &src_host_addr, &dst_host_addr, config->peers->drkey_protocol,
-	        ns_now, 0, &drkey);
+			&src_host_addr, &dst_host_addr, config->peers->drkey_protocol,
+			ns_now, 0, &drkey);
 	if (res != -2) {
-	    printf("Error: ns_now = ns_now + 20*10e9; "
-	           "lf_keymanager_worker_inbound_get_drkey (expected = -2, res = "
-	           "%d)\n",
-	            res);
-	    error_count += 1;
+		printf("Error: ns_now = ns_now + 20*10e9; "
+			   "lf_keymanager_worker_inbound_get_drkey (expected = -2, res = "
+			   "%d)\n",
+				res);
+		error_count += 1;
 	}
 
 	res = lf_keymanager_worker_outbound_get_drkey(kmw, config->peers->isd_as,
-	        &dst_host_addr, &src_host_addr, config->peers->drkey_protocol,
-	        ns_now, &drkey);
+			&dst_host_addr, &src_host_addr, config->peers->drkey_protocol,
+			ns_now, &drkey);
 	if (res != -2) {
-	    printf("Error: ns_now = ns_now + 20*10e9; "
-	           "lf_keymanager_worker_outbound_get_drkey (expected = -2, res = "
-	           "%d)\n",
-	            res);
-	    error_count += 1;
+		printf("Error: ns_now = ns_now + 20*10e9; "
+			   "lf_keymanager_worker_outbound_get_drkey (expected = -2, res = "
+			   "%d)\n",
+				res);
+		error_count += 1;
 	}
-	*/
 
 	free_test_context(km);
 
