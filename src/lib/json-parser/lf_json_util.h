@@ -269,15 +269,16 @@ lf_json_parse_timestamp(const json_value *json_val, uint64_t *val)
 		return -1;
 	}
 
-	// TODO: Timezone is wrong
 	date.tm_year = atoi(bufstr) - 1900;
 	date.tm_mon = atoi(bufstr + 5) - 1;
 	date.tm_mday = atoi(bufstr + 8);
 	date.tm_hour = atoi(bufstr + 11);
 	date.tm_min = atoi(bufstr + 14);
 	date.tm_sec = atoi(bufstr + 17);
-	time_t unix_time = mktime(&date);
-	*val = unix_time * 10e9;
+
+	// NOTE: timegm is only available on linux systems
+	time_t unix_time = timegm(&date);
+	*val = (uint64_t)(unix_time) * (uint64_t)1e9;
 
 	return 0;
 }

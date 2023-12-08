@@ -455,6 +455,7 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 		key_id = rte_hash_lookup(km->dict, &key);
 		if (key_id >= 0) {
 			/* key is already in table */
+			// TODO: however the shared secret could still need to be updated
 			continue;
 		}
 
@@ -469,6 +470,8 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 
 		if (peer->drkey_level_1_configured_option) {
 			// TODO: change update behaviour
+			// - check if already exists and update accordingly
+			
 			// create entry of secret value for new hash table
 			shared_secret_data = rte_malloc(NULL,
 					sizeof(struct lf_keymanager_key_container), 0);
