@@ -25,7 +25,7 @@ RUN curl -LO https://fast.dpdk.org/rel/dpdk-23.11.tar.xz && \
     echo "896c09f5b45b452bd77287994650b916 dpdk-23.11.tar.xz" | md5sum -c && \
     tar xJf dpdk-23.11.tar.xz && cd dpdk-23.11 && \
     meson setup build && cd build && \
-    if [ "$CI" = "true" ] ; then meson configure -Dmachine=default && meson compile; else echo "NO GITHUB ACTION $CI"; fi && \
+    if [ "$CI" = "true" ] ; then meson configure -Dmachine=default && meson compile; fi && \
     ninja && meson install && ldconfig
 
 # Allow the lf-build user to use sudo without a password
