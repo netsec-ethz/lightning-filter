@@ -4,6 +4,7 @@ FROM ubuntu:jammy AS lf-builder
 ARG UID=1001
 ARG GID=1001
 ARG USER=lf
+ARG GITHUB_ACTION=false
 
 # Packages for building
 RUN apt-get update && \
@@ -23,7 +24,9 @@ ENV PATH /usr/local/go/bin:$PATH
 RUN curl -LO https://fast.dpdk.org/rel/dpdk-21.11.tar.xz && \
     echo "58660bbbe9e95abce86e47692b196555 dpdk-21.11.tar.xz" | md5sum -c && \
     tar xJf dpdk-21.11.tar.xz && cd dpdk-21.11 && \
-meson build && cd build && meson configure -Dmachine=default && ninja && ninja install
+    meson build && cd build && \
+    if [ "$GITHUB_ACTION" = "true" ] ; then meson configure -Dmachine=default && meson compile; else echo 'NO GITHUB ACTION $GITHUB_ACTION'; fi && \
+    ninja && ninja install
 
 # Allow the lf-build user to use sudo without a password
 RUN groupadd --gid $GID --non-unique $USER && \
