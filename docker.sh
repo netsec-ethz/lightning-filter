@@ -49,7 +49,7 @@ cmd_test () {
 }
 
 cmd_dev_image () {
-    docker build --target lf-developer -t lf-developer --build-arg UID=$(id -u) --build-arg GID=$(id -g) --build-arg USER="$CONTAINER_USER" --build-arg GITHUB_ACTION="${GITHUB_ACTION:-false}" .
+    docker build --target lf-developer -t lf-developer --build-arg UID=$(id -u) --build-arg GID=$(id -g) --build-arg USER="$CONTAINER_USER" --build-arg CI="${CI:-false}" .
 }
 
 cmd_dev_create () {

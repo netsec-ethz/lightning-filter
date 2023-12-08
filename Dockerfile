@@ -4,7 +4,7 @@ FROM ubuntu:jammy AS lf-builder
 ARG UID=1001
 ARG GID=1001
 ARG USER=lf
-ARG GITHUB_ACTION=false
+ARG CI=false
 
 # Packages for building
 RUN apt-get update && \
@@ -25,7 +25,7 @@ RUN curl -LO https://fast.dpdk.org/rel/dpdk-23.11.tar.xz && \
     echo "896c09f5b45b452bd77287994650b916 dpdk-23.11.tar.xz" | md5sum -c && \
     tar xJf dpdk-23.11.tar.xz && cd dpdk-23.11 && \
     meson setup build && cd build && \
-    if [ "$GITHUB_ACTION" = "true" ] ; then meson configure -Dmachine=default; else echo 'NO GITHUB ACTION $GITHUB_ACTION'; fi && \
+    if [ "$CI" = "true" ] ; then meson configure -Dmachine=default && meson compile; else echo "NO GITHUB ACTION $CI"; fi && \
     ninja && meson install && ldconfig
 
 # Allow the lf-build user to use sudo without a password
