@@ -169,7 +169,7 @@ test1()
 			&src_host_addr, &dst_host_addr, config->peers->drkey_protocol,
 			ns_now, 0, &drkey);
 	if (res != -2) {
-		printf("Error: ns_now = ns_now + 20*10e9; "
+		printf("Error: ns_now = ns_now + 3*24*3600*10e9; "
 			   "lf_keymanager_worker_inbound_get_drkey (expected = -2, res = "
 			   "%d)\n",
 				res);
@@ -180,7 +180,7 @@ test1()
 			&dst_host_addr, &src_host_addr, config->peers->drkey_protocol,
 			ns_now, &drkey);
 	if (res != -2) {
-		printf("Error: ns_now = ns_now + 20*10e9; "
+		printf("Error: ns_now = ns_now + 3*24*3600*10e9; "
 			   "lf_keymanager_worker_outbound_get_drkey (expected = -2, res = "
 			   "%d)\n",
 				res);
