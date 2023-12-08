@@ -106,13 +106,14 @@ derive_shared_key(struct lf_keymanager *km,
 					LF_DRKEY_VALIDITY_PERIOD;
 	uint64_t validity_not_after_ns =
 			validity_not_before_ns + LF_DRKEY_VALIDITY_PERIOD;
+	uint64_t validity_not_before_ns_be =
+			rte_cpu_to_be_64(validity_not_after_ns);
 
 	uint8_t buf[2 * LF_CRYPTO_CBC_BLOCK_SIZE] = { 0 };
 	buf[0] = LF_DRKEY_DERIVATION_TYPE_AS_AS;
 	memcpy(buf + 1, &dst_ia, 8);
 	memcpy(buf + 9, &src_ia, 8);
-	// TODO: byte order
-	memcpy(buf + 17, &validity_not_before_ns, 8);
+	memcpy(buf + 17, &validity_not_before_ns_be, 8);
 
 	lf_crypto_drkey_derivation_step(&km->drkey_ctx, secret, buf,
 			2 * LF_CRYPTO_CBC_BLOCK_SIZE, &key->key);
@@ -471,7 +472,7 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 		if (peer->drkey_level_1_configured_option) {
 			// TODO: change update behaviour
 			// - check if already exists and update accordingly
-			
+
 			// create entry of secret value for new hash table
 			shared_secret_data = rte_malloc(NULL,
 					sizeof(struct lf_keymanager_key_container), 0);
