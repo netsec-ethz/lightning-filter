@@ -56,6 +56,13 @@
 #define LF_DRKEY_VALIDITY_PERIOD \
 	(3 * 24 * 3600 * LF_TIME_NS_IN_S) /* in nanoseconds */
 
+
+/*
+ * IPv6 prefix for embedded IPv4 address
+ */
+static const uint8_t IPv4_IPv6_PREFIX[12] = { 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF };
+
 /**
  * The key container wraps all information required to use a key.
  * A DRKeys validity is usually defined in seconds. Because the workers operate
@@ -171,9 +178,8 @@ lf_keymanager_drkey_derive_host_as(struct lf_keymanager_worker *kmw,
 	uint8_t addr_len = LF_HOST_ADDR_LENGTH(fast_side_host);
 
 	// IPv4 mapped to IPv6
-	if (addr_type_len == 3 && *(uint64_t *)(fast_side_host->addr) == 0 &&
-			*(uint32_t *)((uint8_t *)(fast_side_host->addr) + 8) ==
-					0xFFFF0000) {
+	if (addr_type_len == 3 &&
+			memcmp(fast_side_host->addr, IPv4_IPv6_PREFIX, 12) == 0) {
 		addr += 12;
 		addr_len = 4;
 		addr_type_len = 0;
@@ -212,9 +218,8 @@ lf_keymanager_drkey_derive_host_host(struct lf_keymanager_worker *kmw,
 	uint8_t addr_len = LF_HOST_ADDR_LENGTH(slow_side_host);
 
 	// IPv4 mapped to IPv6
-	if (addr_type_len == 3 && *(uint64_t *)(slow_side_host->addr) == 0 &&
-			*(uint32_t *)((uint8_t *)(slow_side_host->addr) + 8) ==
-					0xFFFF0000) {
+	if (addr_type_len == 3 &&
+			memcmp(slow_side_host->addr, IPv4_IPv6_PREFIX, 12) == 0) {
 		addr += 12;
 		addr_len = 4;
 		addr_type_len = 0;

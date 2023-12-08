@@ -288,6 +288,16 @@ test2()
 	return error_count;
 }
 
+void
+print_keys(uint8_t expected[], uint8_t actual[])
+{
+	printf("Expected: \t");
+	for (int i = 0; i < 16; i++) printf("%02hhx", expected[i]);
+	printf("\nGot: \t\t");
+	for (int i = 0; i < 16; i++) printf("%02hhx", actual[i]);
+	printf("\n");
+}
+
 int
 test3()
 {
@@ -295,13 +305,15 @@ test3()
 	struct lf_keymanager *km;
 	struct lf_keymanager_worker *kmw;
 	struct lf_crypto_drkey drkey;
-	const struct lf_crypto_drkey as_as_zero_drkey = { .key = { 0 } };
-	const struct lf_crypto_drkey as_as_drkey = {
-		.key = { 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x01, 0x23,
-				0x45, 0x67, 0x89, 0xab, 0xcd, 0xef }
-	};
+	struct lf_crypto_drkey as_as_zero_drkey, as_as_drkey;
 	struct lf_host_addr src_host_addr;
 	struct lf_host_addr dst_host_addr;
+
+	const uint8_t zero_key[LF_CRYPTO_DRKEY_SIZE] = { 0 };
+	const uint8_t random_key[LF_CRYPTO_DRKEY_SIZE] = { 0x01, 0x23, 0x45, 0x67,
+		0x89, 0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd,
+		0xef };
+
 	uint32_t src_addr = 0;
 	uint32_t dst_addr = 0;
 
@@ -316,6 +328,9 @@ test3()
 	}
 	kmw = &km->workers[0];
 
+	lf_crypto_drkey_from_buf(&kmw->drkey_ctx, zero_key, &as_as_zero_drkey);
+	lf_crypto_drkey_from_buf(&kmw->drkey_ctx, random_key, &as_as_drkey);
+
 	// test most general derivation
 	uint8_t expected_key_1[LF_CRYPTO_DRKEY_SIZE] = { 0x82, 0x67, 0xa4, 0xe9,
 		0x10, 0x60, 0x8f, 0xa8, 0xdd, 0x46, 0xb1, 0x1b, 0x43, 0x95, 0x97,
@@ -325,6 +340,7 @@ test3()
 
 	if (memcmp(&expected_key_1, &drkey, LF_CRYPTO_DRKEY_SIZE) != 0) {
 		printf("Error: DRKey derivation wrong\n");
+		print_keys(expected_key_1, drkey.key);
 		error_count += 1;
 	}
 
@@ -340,6 +356,7 @@ test3()
 
 	if (memcmp(&expected_key_2, &drkey, LF_CRYPTO_DRKEY_SIZE) != 0) {
 		printf("Error: DRKey derivation wrong\n");
+		print_keys(expected_key_2, drkey.key);
 		error_count += 1;
 	}
 
@@ -352,6 +369,27 @@ test3()
 
 	if (memcmp(&expected_key_3, &drkey, LF_CRYPTO_DRKEY_SIZE) != 0) {
 		printf("Error: DRKey derivation wrong\n");
+		print_keys(expected_key_3, drkey.key);
+		error_count += 1;
+	}
+
+	// test IPv4 as IPv6 addresses
+	uint8_t src_addr_ipv6[16] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0xFF, 0xFF, 0x0a, 0xf8, 0x02, 0x02 }; // 10.248.2.2
+	uint8_t dst_addr_ipv6[16] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0xFF, 0xFF, 0x0a, 0xf8, 0x05, 0x05 }; // 10.248.5.5
+
+	src_host_addr.addr = &src_addr_ipv6;
+	src_host_addr.type_length = 0x03;
+	dst_host_addr.addr = &dst_addr_ipv6;
+	dst_host_addr.type_length = 0x03;
+
+	lf_keymanager_drkey_from_asas(kmw, &as_as_drkey, &src_host_addr,
+			&dst_host_addr, 0, &drkey);
+
+	if (memcmp(&expected_key_2, &drkey, LF_CRYPTO_DRKEY_SIZE) != 0) {
+		printf("Error: DRKey derivation wrong\n");
+		print_keys(expected_key_2, drkey.key);
 		error_count += 1;
 	}
 
