@@ -172,7 +172,8 @@ lf_keymanager_drkey_derive_host_as(struct lf_keymanager_worker *kmw,
 
 	// IPv4 mapped to IPv6
 	if (addr_type_len == 3 && *(uint64_t *)(fast_side_host->addr) == 0 &&
-			*(uint32_t *)(fast_side_host->addr + 8) == 0xFFFF0000) {
+			*(uint32_t *)((uint8_t *)(fast_side_host->addr) + 8) ==
+					0xFFFF0000) {
 		addr += 12;
 		addr_len = 4;
 		addr_type_len = 0;
@@ -212,7 +213,8 @@ lf_keymanager_drkey_derive_host_host(struct lf_keymanager_worker *kmw,
 
 	// IPv4 mapped to IPv6
 	if (addr_type_len == 3 && *(uint64_t *)(slow_side_host->addr) == 0 &&
-			*(uint32_t *)(slow_side_host->addr + 8) == 0xFFFF0000) {
+			*(uint32_t *)((uint8_t *)(slow_side_host->addr) + 8) ==
+					0xFFFF0000) {
 		addr += 12;
 		addr_len = 4;
 		addr_type_len = 0;
