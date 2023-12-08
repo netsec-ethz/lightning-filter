@@ -42,19 +42,19 @@ pushd $DEP_DIR
 ## Install required tools and libraries
 sudo apt -y install build-essential meson ninja-build python3-pyelftools libnuma-dev
 ## Get source
-curl -LO https://fast.dpdk.org/rel/dpdk-21.11.tar.xz
-echo "58660bbbe9e95abce86e47692b196555 dpdk-21.11.tar.xz" | md5sum -c
-tar xJf dpdk-21.11.tar.xz
-pushd dpdk-21.11
+curl -LO https://fast.dpdk.org/rel/dpdk-23.11.tar.xz
+echo "896c09f5b45b452bd77287994650b916 dpdk-23.11.tar.xz" | md5sum -c
+tar xJf dpdk-23.11.tar.xz
+pushd dpdk-23.11
 ## Build and Install DPDK
-meson --prefix $DEP_DIR/dpdk-21.11-inst build
+meson --prefix $DEP_DIR/dpdk-23.11-inst build
 pushd build
 ninja
 ninja install
 # Add to pkg-config PATH
 echo >> $ENV_VARS_FILE
 echo "# set PKG_CONFIG_PATH so it includes DPDK pkg-config" >> $ENV_VARS_FILE
-echo "export PKG_CONFIG_PATH=\$PKG_CONFIG_PATH:$DEP_DIR/dpdk-21.11-inst/lib/x86_64-linux-gnu/pkgconfig/" >> $ENV_VARS_FILE
+echo "export PKG_CONFIG_PATH=\$PKG_CONFIG_PATH:$DEP_DIR/dpdk-23.11-inst/lib/x86_64-linux-gnu/pkgconfig/" >> $ENV_VARS_FILE
 ## Return to working directory
 popd && popd && popd
 
@@ -79,5 +79,5 @@ popd
 # Set environmental variables for GitHub Actions
 if [ -n "$GITHUB_ENV" ]; then
     echo "$DEP_DIR/go/bin" >> $GITHUB_PATH
-    echo "PKG_CONFIG_PATH=$DEP_DIR/dpdk-21.11-inst/lib/x86_64-linux-gnu/pkgconfig/" >> $GITHUB_ENV
+    echo "PKG_CONFIG_PATH=$DEP_DIR/dpdk-23.11-inst/lib/x86_64-linux-gnu/pkgconfig/" >> $GITHUB_ENV
 fi

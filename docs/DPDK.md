@@ -1,6 +1,6 @@
 # DPDK Installation, Configuration, and Usage
 
-(Version 21.11)
+(Version 23.11)
 
 ## Installation
 
@@ -21,26 +21,18 @@ sudo apt install python3-pyelftools
 sudo apt install libnuma-dev
 ```
 
-### Get Source
+### Compiling and Installing DPDK System-wide
 
-From archive:
-
-```
-curl -LO https://fast.dpdk.org/rel/dpdk-21.11.tar.xz
-echo "58660bbbe9e95abce86e47692b196555 dpdk-21.11.tar.xz" | md5sum -c
-tar xJf dpdk-21.11.tar.xz
-cd dpdk-21.11
-```
-
-From GitHub:
+Source: [Compiling the DPDK Target from Source](http://doc.dpdk.org/guides-23.11/linux_gsg/build_dpdk.html)
 
 ```
-git clone https://github.com/DPDK/dpdk.git
-cd dpdk
-git checkout v21.11
+curl -LO https://fast.dpdk.org/rel/dpdk-23.11.tar.xz && \
+echo "896c09f5b45b452bd77287994650b916 dpdk-23.11.tar.xz" | md5sum -c && \
+tar xJf dpdk-23.11.tar.xz && cd dpdk-23.11 && \
+meson setup build && cd build && ninja && meson install && ldconfig
 ```
 
-### Configure Build
+#### Configure Build
 
 DPDK uses meson to configure its build.
 
@@ -48,10 +40,10 @@ DPDK uses meson to configure its build.
 meson <options> <build directory>
 ```
 
-E.g., to set the instal directory to `~/dpdk-21.11-inst`:
+E.g., to set the instal directory to `~/dpdk-23.11-inst`:
 
 ```
-meson --prefix ~/dpdk-21.11-inst build
+meson --prefix ~/dpdk-23.11-inst build
 ```
 
 In the build directory, meson can further be used to adjust the build configurations:
@@ -61,20 +53,6 @@ meson configure -D<option>=<value>
 ```
 
 Checkout ``meson configure`` to list the configuration options.
-
-### Build and Install
-
-For building, DPDK uses ninja.
-
-```
-ninja [-C <build directory>]
-```
-
-For installing:
-
-```
-ninja [-C <build directory>] install
-```
 
 ### Linux Drivers
 

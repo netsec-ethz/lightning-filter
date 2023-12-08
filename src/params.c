@@ -23,11 +23,12 @@ static const struct lf_params default_params = {
 	/* config */
 	.config_file = "",
 
-	/* setup (port and queues) */
+	/* setup (port, queues, and mirrors) */
 	.portmask = 0,
 	.rx_portmask = 0,
 	.tx_portmask = 0,
 	.mtu = 1500,
+	.disable_mirrors = false,
 
 	/* timestamp filter */
 	.tf_threshold = 1000,
@@ -39,18 +40,10 @@ static const struct lf_params default_params = {
 	.bf_bytes = 131072, /* 2^20 / 8 */
 
 	/* ratelimiter */
-	.rl_config_file = "",
 	.rl_size = 1024,
 
 	/* keymanager */
-	.km_config_file = "",
 	.km_size = 1024,
-
-	/* control traffic worker */
-	.ct_worker_enabled = false,
-
-	/* distributor */
-	.dist_cores = 2,
 };
 
 #define LF_MAX_PORTPAIRS (2 * RTE_MAX_ETHPORTS)
@@ -68,23 +61,20 @@ static const char short_options[] = "v:" /* version */
 		;
 
 /* long options */
-#define CMD_LINE_OPT_VERSION        "version"
-#define CMD_LINE_OPT_CONFIG_FILE    "config-file"
-#define CMD_LINE_OPT_PORTMASK       "portmask"
-#define CMD_LINE_OPT_PROMISCUOUS    "promiscuous"
-#define CMD_LINE_OPT_PORTMAP        "portmap"
-#define CMD_LINE_OPT_MTU            "mtu"
-#define CMD_LINE_OPT_TF_THRESHOLD   "tf-threshold"
-#define CMD_LINE_OPT_BF_NB          "bf-nb"
-#define CMD_LINE_OPT_BF_PERIOD      "bf-period"
-#define CMD_LINE_OPT_BF_HASHES      "bf-hashes"
-#define CMD_LINE_OPT_BF_BYTES       "bf-bytes"
-#define CMD_LINE_OPT_RL_CONFIG_FILE "rl-config-file"
-#define CMD_LINE_OPT_RL_SIZE        "rl-size"
-#define CMD_LINE_OPT_KM_CONFIG_FILE "km-config-file"
-#define CMD_LINE_OPT_KM_SIZE        "km-size"
-#define CMD_LINE_OPT_CT_WORKER      "ct-worker"
-#define CMD_LINE_OPT_DIST_CORES     "dist-cores"
+#define CMD_LINE_OPT_VERSION         "version"
+#define CMD_LINE_OPT_CONFIG_FILE     "config-file"
+#define CMD_LINE_OPT_PORTMASK        "portmask"
+#define CMD_LINE_OPT_PROMISCUOUS     "promiscuous"
+#define CMD_LINE_OPT_PORTMAP         "portmap"
+#define CMD_LINE_OPT_MTU             "mtu"
+#define CMD_LINE_OPT_TF_THRESHOLD    "tf-threshold"
+#define CMD_LINE_OPT_BF_NB           "bf-nb"
+#define CMD_LINE_OPT_BF_PERIOD       "bf-period"
+#define CMD_LINE_OPT_BF_HASHES       "bf-hashes"
+#define CMD_LINE_OPT_BF_BYTES        "bf-bytes"
+#define CMD_LINE_OPT_RL_SIZE         "rl-size"
+#define CMD_LINE_OPT_KM_SIZE         "km-size"
+#define CMD_LINE_OPT_DISABLE_MIRRORS "disable-mirrors"
 
 /* map long options to number */
 enum {
@@ -106,8 +96,7 @@ enum {
 	CMD_LINE_OPT_RL_SIZE_NUM,
 	CMD_LINE_OPT_KM_CONFIG_FILE_NUM,
 	CMD_LINE_OPT_KM_SIZE_NUM,
-	CMD_LINE_OPT_CT_WORKER_NUM,
-	CMD_LINE_OPT_DIST_CORES_NUM,
+	CMD_LINE_OPT_DISABLE_MIRRORS_NUM,
 };
 
 static const struct option long_options[] = {
@@ -127,15 +116,10 @@ static const struct option long_options[] = {
 	{ CMD_LINE_OPT_BF_HASHES, required_argument, 0,
 			CMD_LINE_OPT_BF_HASHES_NUM },
 	{ CMD_LINE_OPT_BF_BYTES, required_argument, 0, CMD_LINE_OPT_BF_BYTES_NUM },
-	{ CMD_LINE_OPT_RL_CONFIG_FILE, required_argument, 0,
-			CMD_LINE_OPT_RL_CONFIG_FILE_NUM },
 	{ CMD_LINE_OPT_RL_SIZE, required_argument, 0, CMD_LINE_OPT_RL_SIZE_NUM },
-	{ CMD_LINE_OPT_KM_CONFIG_FILE, required_argument, 0,
-			CMD_LINE_OPT_KM_CONFIG_FILE_NUM },
 	{ CMD_LINE_OPT_KM_SIZE, required_argument, 0, CMD_LINE_OPT_KM_SIZE_NUM },
-	{ CMD_LINE_OPT_CT_WORKER, no_argument, 0, CMD_LINE_OPT_CT_WORKER_NUM },
-	{ CMD_LINE_OPT_DIST_CORES, required_argument, 0,
-			CMD_LINE_OPT_DIST_CORES_NUM },
+	{ CMD_LINE_OPT_DISABLE_MIRRORS, no_argument, 0,
+			CMD_LINE_OPT_DISABLE_MIRRORS_NUM },
 	{ NULL, 0, 0, 0 },
 };
 
@@ -174,18 +158,12 @@ lf_usage(const char *prgname)
 			"  --bf-bytes=NUM\n"
 			"         Size of each Bloom filter bit arrays in bytes\n"
 			"         Must be a power of 2 and at least 8\n"
-			"  --rl-config-file=CONFIG_FILE\n"
-			"         configuration file to be loaded for the ratelimiter\n"
 			"  --rl-size=NUM\n"
 			"         Size of ratelimiter hash table.\n"
-			"  --km-config-file=CONFIG_FILE\n"
-			"         configuration file to be loaded for the keymanager\n"
 			"  --km-size=NUM\n"
 			"         Size of keymanager hash table.\n"
-			"  --ct_worker\n"
-			"         Enables control traffic worker.\n",
-			"  --dist-cores=NUM\n"
-			"         Number of distributor cores allocated.\n",
+			"  --disable-mirrors\n"
+			"         Disables mirrors for all ports.\n",
 			prgname);
 }
 
@@ -526,28 +504,12 @@ lf_params_parse(int argc, char **argv, struct lf_params *params)
 				return -1;
 			}
 			break;
-		/* config file */
-		case CMD_LINE_OPT_RL_CONFIG_FILE_NUM:
-			if (strlen(optarg) > PATH_MAX || strlen(optarg) == 0) {
-				LF_LOG(ERR, "Invalid ratelimiter config file name\n");
-				return -1;
-			}
-			(void)strcpy(params->rl_config_file, optarg);
-			break;
 		case CMD_LINE_OPT_RL_SIZE_NUM:
 			res = parse_uint(optarg, &params->rl_size);
 			if (res != 0 || params->rl_size == 0) {
 				LF_LOG(ERR, "Invalid rl-size\n");
 				return -1;
 			}
-			break;
-		/* config file */
-		case CMD_LINE_OPT_KM_CONFIG_FILE_NUM:
-			if (strlen(optarg) > PATH_MAX || strlen(optarg) == 0) {
-				LF_LOG(ERR, "Invalid keymanager config file name\n");
-				return -1;
-			}
-			(void)strcpy(params->km_config_file, optarg);
 			break;
 		case CMD_LINE_OPT_KM_SIZE_NUM:
 			res = parse_uint(optarg, &params->km_size);
@@ -556,22 +518,9 @@ lf_params_parse(int argc, char **argv, struct lf_params *params)
 				return -1;
 			}
 			break;
-		/* control traffic worker enabled */
-		case CMD_LINE_OPT_CT_WORKER_NUM:
-			params->ct_worker_enabled = true;
-			break;
-		/* distributor core number */
-		case CMD_LINE_OPT_DIST_CORES_NUM:
-			res = parse_uint(optarg, &params->dist_cores);
-			if (res != 0 || params->dist_cores == 0) {
-				LF_LOG(ERR, "Invalid dist-cores\n");
-				return -1;
-			}
-#if !LF_DISTRIBUTOR
-			/* provide a warning if distributor cores are not enabled */
-			LF_LOG(WARNING, "Parameter (dist-cores) for inactive distributor "
-							"cores detected.\n");
-#endif
+		/* disable mirrors for all ports */
+		case CMD_LINE_OPT_DISABLE_MIRRORS_NUM:
+			params->disable_mirrors = true;
 			break;
 		/* unknown option */
 		default:

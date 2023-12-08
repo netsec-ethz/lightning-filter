@@ -146,6 +146,8 @@ init_test1_config(struct lf_config *config)
 	config->peers = peer0;
 	peer0->next = peer1;
 	peer1->next = NULL;
+
+	return 0;
 }
 
 int
@@ -292,12 +294,9 @@ check_modifier(struct lf_config_pkt_mod *pmod,
 }
 
 int
-check_ratelimiter(struct lf_config_ratelimiter *config,
-		struct lf_config_ratelimiter *config_exp)
+check_ratelimiter()
 {
 	int error_count = 0;
-	(void)config;
-	(void)config_exp;
 	return error_count;
 }
 

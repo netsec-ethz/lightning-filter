@@ -84,6 +84,10 @@ sudo ip netns exec eh0ns ncat 10.248.2.1 2000
 The integration test script `integration_test.sh` a ping message can be transmitted between the two end-hosts with LightningFilter protection.
 Therefore, the scripts sets up the test network, and starts the LightingFilter. After testing a ping, the LightningFilter are stopped, and the test network is closed.
 
+```
+./integration_test.sh ../../build/src/lf
+```
+
 ## WireGuard Setup
 To setup WireGuard between the end hosts (over the LightningFilter), the following command can be used:
 ```

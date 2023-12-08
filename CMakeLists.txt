@@ -6,7 +6,7 @@ project(LightningFilter
 
 # DPDK library
 find_package(PkgConfig REQUIRED)
-pkg_search_module(DPDK REQUIRED libdpdk=21.11.0)
+pkg_search_module(DPDK REQUIRED libdpdk=23.11.0)
 
 # OpenSSL library
 set(OPENSSL_USE_STATIC_LIBS TRUE)

@@ -5,7 +5,7 @@ For building LightningFilter, we recommended our docker setup (see [Docker](#Doc
 ## Dependencies
 
 Some of the significant dependencies with specific versions required:
-- DPDK 21.11 (see [DPDK.md](DPDK.md))
+- DPDK 23.11 (see [DPDK.md](DPDK.md))
 - OpenSSL Version >= 3.0
 - CMake >= 3.20
 
@@ -41,6 +41,7 @@ The following presents an incomplete list:
 LF_WORKER={SCION,IPV4,FWD}
 LF_DRKEY_FETCHER={SCION,MOCK}
 LF_LOG_DP_LEVEL={MIN,MAX,EMERG,ALERT,CRIT,ERR,WARNING,NOTICE,INFO,DEBUG}
+LF_CBCMAC={OPENSSL,AESNI}
 ```
 
 Set CMake variables as follows:

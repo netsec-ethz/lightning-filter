@@ -34,8 +34,11 @@ endif()
 add_compile_definitions(LF_DRKEY_FETCHER=${LF_DRKEY_FETCHER})
 add_compile_definitions(LF_DRKEY_FETCHER_${LF_DRKEY_FETCHER}=1)
 
-set(LF_CBCMAC "OPENSSL" CACHE STRING "CBC MAC implementation (OPENSSL).")
-if(LF_CBCMAC MATCHES "OPENSSL")
+set(LF_CBCMAC "OPENSSL" CACHE STRING "CBC MAC implementation (OPENSSL, AESNI). AESNI requires hardware support.")
+if(LF_CBCMAC STREQUAL "AESNI")
+    add_subdirectory(lib/aesni/)
+    target_link_libraries(${EXEC}  PRIVATE aesni)
+elseif(LF_CBCMAC STREQUAL "OPENSSL")
     target_link_libraries(${EXEC}  PRIVATE OpenSSL::SSL)
 else()
     message( FATAL_ERROR "Unknown LF_CBCMAC parameter: ${LF_CBCMAC}" )
@@ -58,9 +61,6 @@ function(option_compile_definition flag help default )
 endfunction()
 
 option_compile_definition(LF_PDUMP "Enable packet capture framework" OFF)
-
-option_compile_definition(LF_DISTRIBUTOR "Enable distributor lcores" OFF)
-option_compile_definition(LF_DISTRIBUTOR_REORDER "Enable reorder buffer for best-effort reordering." ON)
 
 option_compile_definition(LF_IPV6 "Use IPv6 (ON, OFF)" OFF)
 option_compile_definition(LF_OFFLOAD_CKSUM "Offload checksum calculation to NIC (ON, OFF)" ON)
