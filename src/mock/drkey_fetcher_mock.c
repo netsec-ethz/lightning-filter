@@ -13,7 +13,7 @@
 
 // TODO remove this warning supression once implemented.
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 
 int
 lf_drkey_fetcher_host_as_key(const char drkey_service_addr[48], uint64_t src_ia,
