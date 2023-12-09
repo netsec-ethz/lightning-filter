@@ -60,8 +60,8 @@
 /*
  * IPv6 prefix for embedded IPv4 address
  */
-static const uint8_t IPv4_IPv6_PREFIX[12] = { 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF };
+static const uint8_t IPv4_MAPPED_IPv6_PREFIX[12] = { 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF };
 
 /**
  * The key container wraps all information required to use a key.
@@ -179,7 +179,7 @@ lf_keymanager_drkey_derive_host_as(struct lf_keymanager_worker *kmw,
 
 	// IPv4 mapped to IPv6
 	if (addr_type_len == 3 &&
-			memcmp(fast_side_host->addr, IPv4_IPv6_PREFIX, 12) == 0) {
+			memcmp(fast_side_host->addr, IPv4_MAPPED_IPv6_PREFIX, 12) == 0) {
 		addr += 12;
 		addr_len = 4;
 		addr_type_len = 0;
@@ -219,7 +219,7 @@ lf_keymanager_drkey_derive_host_host(struct lf_keymanager_worker *kmw,
 
 	// IPv4 mapped to IPv6
 	if (addr_type_len == 3 &&
-			memcmp(slow_side_host->addr, IPv4_IPv6_PREFIX, 12) == 0) {
+			memcmp(slow_side_host->addr, IPv4_MAPPED_IPv6_PREFIX, 12) == 0) {
 		addr += 12;
 		addr_len = 4;
 		addr_type_len = 0;

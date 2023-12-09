@@ -44,8 +44,8 @@ struct lf_config_peer {
 	bool ratelimit_option; /* if a rate limit is defined */
 	struct lf_config_ratelimit ratelimit;
 
-	/* preconfigured AS-AS keys */
-	bool drkey_level_1_configured_option; /* if level_1 drkeys are defined*/
+	/* preconfigured shared keys */
+	bool shared_secret_configured_option; /* if shared secrets are defined*/
 	struct lf_config_shared_secret shared_secret;
 
 	/* LF-IP: ip -> isd_as map (TODO: move this to a separate map) */

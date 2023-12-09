@@ -469,7 +469,7 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 			break;
 		}
 
-		if (peer->drkey_level_1_configured_option) {
+		if (peer->shared_secret_configured_option) {
 			// TODO: change update behaviour
 			// - check if already exists and update accordingly
 

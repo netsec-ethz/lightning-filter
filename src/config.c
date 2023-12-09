@@ -91,7 +91,7 @@ peer_init(struct lf_config_peer *config_peer)
 		.isd_as = 1,
 		.next = NULL,
 
-		.drkey_level_1_configured_option = false,
+		.shared_secret_configured_option = false,
 		.shared_secret =
 				(struct lf_config_shared_secret){
 						.sv = { 0 },
@@ -322,7 +322,7 @@ parse_peer(json_value *json_val, struct lf_config_peer *peer)
 						field_value->line, field_value->col);
 				error_count++;
 			}
-			peer->drkey_level_1_configured_option = true;
+			peer->shared_secret_configured_option = true;
 		} else {
 			LF_LOG(ERR, "Unknown field %s (%d:%d)\n", field_name,
 					field_value->line, field_value->col);
