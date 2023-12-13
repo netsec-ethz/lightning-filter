@@ -22,6 +22,8 @@ jobs:
           context: .
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            CI=true
 
   docker-test:
     runs-on: ubuntu-22.04
