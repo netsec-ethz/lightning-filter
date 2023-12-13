@@ -184,7 +184,7 @@ handle_worker_stats(const char *cmd __rte_unused, const char *params,
 		aggregate_worker_statistics(telemetry_ctx);
 		values = (uint64_t *)&telemetry_ctx->aggregate_worker[worker_id];
 		for (i = 0; i < WORKER_COUNTER_NUM; i++) {
-			rte_tel_data_add_dict_u64(d, worker_counter_strings[i].name,
+			rte_tel_data_add_dict_uint(d, worker_counter_strings[i].name,
 					values[i]);
 		}
 		rte_spinlock_unlock(&telemetry_ctx->lock);
@@ -193,7 +193,7 @@ handle_worker_stats(const char *cmd __rte_unused, const char *params,
 		aggregate_worker_statistics(telemetry_ctx);
 		values = (uint64_t *)&telemetry_ctx->aggregate_global;
 		for (i = 0; i < WORKER_COUNTER_NUM; i++) {
-			rte_tel_data_add_dict_u64(d, worker_counter_strings[i].name,
+			rte_tel_data_add_dict_uint(d, worker_counter_strings[i].name,
 					values[i]);
 		}
 		(void)rte_spinlock_unlock(&telemetry_ctx->lock);

@@ -15,9 +15,9 @@
 #define LF_TIME_WORKER_UPDATE_INTERVAL 0.1 /* Seconds */
 
 static const uint64_t LF_TIME_NS_IN_S =
-		(uint64_t)10e9; /* nanoseconds in seconds */
+		(uint64_t)1e9; /* nanoseconds in seconds */
 static const uint64_t LF_TIME_NS_IN_MS =
-		(uint64_t)10e6; /* nanoseconds in milliseconds */
+		(uint64_t)1e6; /* nanoseconds in milliseconds */
 
 struct lf_time_worker {
 	/* current cached time value */
@@ -97,6 +97,10 @@ lf_time_worker_update(struct lf_time_worker *ctx)
 	int res = 0;
 	uint64_t current_tsc;
 	uint64_t current_ns;
+
+#if LF_WORKER_OMIT_TIME_UPDATE
+	return 0;
+#endif
 
 	current_tsc = rte_rdtsc();
 	if (unlikely(current_tsc - ctx->last_update_tsc >=

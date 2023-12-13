@@ -62,9 +62,6 @@ endfunction()
 
 option_compile_definition(LF_PDUMP "Enable packet capture framework" OFF)
 
-option_compile_definition(LF_DISTRIBUTOR "Enable distributor lcores" OFF)
-option_compile_definition(LF_DISTRIBUTOR_REORDER "Enable reorder buffer for best-effort reordering." ON)
-
 option_compile_definition(LF_IPV6 "Use IPv6 (ON, OFF)" OFF)
 option_compile_definition(LF_OFFLOAD_CKSUM "Offload checksum calculation to NIC (ON, OFF)" ON)
 option_compile_definition(LF_JUMBO_FRAME "Enable jumbo frame support (ON, OFF)" OFF)

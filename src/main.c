@@ -26,6 +26,7 @@
 #include "lf.h"
 #include "lib/ipc/ipc.h"
 #include "lib/log/log.h"
+#include "lib/mirror/mirror.h"
 #include "lib/time/time.h"
 #include "params.h"
 #include "plugins/plugins.h"
@@ -34,7 +35,6 @@
 #include "statistics.h"
 #include "version.h"
 #include "worker.h"
-#include "worker_ct.h"
 
 /**
  * This is the main application file.
@@ -42,26 +42,20 @@
  * as well as the  initialization and management of all modules and all workers.
  */
 
-#if LF_DISTRIBUTOR
-#include "distributor.h"
-#endif
-
 /* lcore assignemnts */
 uint16_t lf_nb_workers;
-uint16_t lf_worker_lcores[RTE_MAX_LCORE];
+bool lf_worker_lcores[RTE_MAX_LCORE];
+uint16_t lf_worker_lcore_map[RTE_MAX_LCORE];
 uint16_t lf_keymanager_lcore;
-uint16_t lf_nb_distributors;
-uint16_t lf_distributor_lcores[LF_MAX_DISTRIBUTOR];
 
 /* module contextes */
-static struct lf_worker_context worker_contexts[LF_MAX_WORKER];
-static struct lf_distributor distributor;
+static struct lf_worker_context worker_contexts[RTE_MAX_LCORE];
 static struct lf_configmanager configmanager;
 static struct lf_statistics statistics;
 static struct lf_keymanager keymanager;
 static struct lf_ratelimiter ratelimiter;
 static struct lf_duplicate_filter duplicate_filter;
-static struct lf_worker_ct worker_ct;
+static struct lf_mirror mirror_ctx;
 
 /**
  * Global force quit flag.
@@ -107,6 +101,25 @@ lf_print(const char *format, ...)
 	va_end(args);
 }
 
+int lf_pkt_action_dynfield_offset = -1;
+static int
+register_dynfield()
+{
+	static const struct rte_mbuf_dynfield pkt_action_dynfield_desc = {
+		.name = LF_PKT_ACTION_DYNFIELD_NAME,
+		.size = sizeof(lf_pkt_action_t),
+		.align = __alignof__(lf_pkt_action_t),
+	};
+	lf_pkt_action_dynfield_offset =
+			rte_mbuf_dynfield_register(&pkt_action_dynfield_desc);
+	if (lf_pkt_action_dynfield_offset < 0) {
+		LF_LOG(ERR, "Failed to register mbuf dynfield field (%d)\n", rte_errno);
+		return -1;
+	}
+	LF_LOG(DEBUG, "Registered mbuf dynfield field at offset %d\n",
+			lf_pkt_action_dynfield_offset);
+	return 0;
+}
 
 /**
  * Initialize the Worker RCU QS variable qsv.
@@ -137,29 +150,23 @@ init_rcu_qs(uint16_t nb_qs_vars, struct rte_rcu_qsbr **qsv)
 }
 
 /**
- * Distribute the available lcores among manager threads, workers and
- * distributors if enables.
- *
- * This function sets the variables nb_workers,
- * worker_lcores, keymanager_lcore. If distributors are enabled, also
- * nb_distributor and distributor_lcores are also set.
+ * Distribute the available lcores among manager threads, and workers.
  *
  * @return int 0 on success.
  */
 int
 assign_lcores(__rte_unused struct lf_params *params)
 {
-	uint16_t lcore_id, worker_id, distributor_id;
+	uint16_t lcore_id, worker_counter;
 	uint16_t nb_cores_required;
+
+	for (lcore_id = 0; lcore_id < RTE_MAX_LCORE; lcore_id++) {
+		lf_worker_lcores[lcore_id] = false;
+		lf_worker_lcore_map[lcore_id] = RTE_MAX_LCORE;
+	}
 
 	/* main lcore + key manager lcore + at least one worker lcore */
 	nb_cores_required = 3;
-
-	if (LF_DISTRIBUTOR) {
-		/* add distributor lcores */
-		lf_nb_distributors = params->dist_cores;
-		nb_cores_required += lf_nb_distributors;
-	}
 
 	if (nb_cores_required > rte_lcore_count()) {
 		LF_LOG(ERR, "Not enough lcores: detected %d but require at least %d\n",
@@ -172,8 +179,7 @@ assign_lcores(__rte_unused struct lf_params *params)
 	 */
 	lf_keymanager_lcore = RTE_MAX_LCORE;
 
-	worker_id = 0;
-	distributor_id = 0;
+	worker_counter = 0;
 	RTE_LCORE_FOREACH_WORKER(lcore_id) {
 
 		/* first (non-main) lcore is assigned to the keymanager service */
@@ -183,22 +189,14 @@ assign_lcores(__rte_unused struct lf_params *params)
 			continue;
 		}
 
-		/* the following lcores are assigned to the distributor */
-		if (distributor_id < lf_nb_distributors) {
-			lf_distributor_lcores[distributor_id] = lcore_id;
-			LF_LOG(DEBUG, "lcore %u: distributor %u\n", lcore_id,
-					distributor_id);
-			++distributor_id;
-			continue;
-		}
-
 		/* the following lcores are assigned to workers */
-		lf_worker_lcores[worker_id] = lcore_id;
+		lf_worker_lcores[lcore_id] = true;
+		lf_worker_lcore_map[worker_counter] = lcore_id;
 
-		LF_LOG(DEBUG, "lcore %u: worker %u\n", lcore_id, worker_id);
-		++worker_id;
+		LF_LOG(DEBUG, "lcore %u: worker count %u\n", lcore_id, worker_counter);
+		++worker_counter;
 	}
-	lf_nb_workers = worker_id;
+	lf_nb_workers = worker_counter;
 
 	if (lf_nb_workers == 0) {
 		LF_LOG(ERR, "Not enough lcores: detected %d but require at least %d\n",
@@ -210,13 +208,9 @@ assign_lcores(__rte_unused struct lf_params *params)
 }
 
 /**
- * Setup ports and rx/tx queues according the given application parameters
- * (params). Furthermore, it initializes the distributor context.
+ * Setup ports and rx/tx queues according the given application parameters.
  *
  * This function configures the queues for each worker context struct.
- * If the control traffic worker is enabled, the queues for the control traffic.
- * If distributor is enabled, the queues for each distributor context.
- *
  * @param params Application parameters.
  * @return 0 on success
  */
@@ -224,47 +218,48 @@ static int
 setup_rx_tx(struct lf_params *params)
 {
 	int res;
-	uint16_t worker_id;
-	int nb_port_queues;
-	struct lf_setup_port_queue port_queues[LF_MAX_WORKER];
-	uint16_t *port_queue_lcores;
-	struct lf_setup_ct_port_queue *ct_port_queue;
-	struct lf_distributor_worker *distributor_workers[LF_MAX_WORKER];
+	uint16_t lcore_id, port_id;
+	struct lf_worker_context *w_ctx;
+	struct lf_setup_port_queue_pair port_queues[RTE_MAX_LCORE]
+											   [RTE_MAX_ETHPORTS];
 
-	nb_port_queues = lf_nb_workers;
-	port_queue_lcores = lf_worker_lcores;
-	if (LF_DISTRIBUTOR) {
-		nb_port_queues = lf_nb_distributors;
-		port_queue_lcores = lf_distributor_lcores;
-	}
-
-	/* Set the control traffic queues if the ct worker is enabled */
-	if (params->ct_worker_enabled) {
-		ct_port_queue = &worker_ct.signal_port_queue;
-	} else {
-		ct_port_queue = NULL;
-	}
-
-	res = lf_setup_ports(nb_port_queues, port_queue_lcores, params, port_queues,
-			ct_port_queue);
+	res = lf_setup_ports(lf_worker_lcores, params, port_queues, &mirror_ctx);
 	if (res < 0) {
-		LF_LOG(ERR, "Application setup failed\n");
+		LF_LOG(ERR, "Failed to setup ports\n");
 		return -1;
 	}
+	LF_LOG(DEBUG, "Setup ports done\n");
 
-	for (worker_id = 0; worker_id < lf_nb_workers; worker_id++) {
-		distributor_workers[worker_id] =
-				&worker_contexts[worker_id].distributor;
+	RTE_LCORE_FOREACH(lcore_id) {
+		w_ctx = &worker_contexts[lcore_id];
+		w_ctx->max_rx_tx_index = 0;
+		w_ctx->current_rx_tx_index = 0;
+		RTE_ETH_FOREACH_DEV(port_id) {
+			if (port_queues[lcore_id][port_id].rx_queue_id ==
+					LF_SETUP_INVALID_ID) {
+				continue;
+			}
+			w_ctx->rx_port_id[w_ctx->max_rx_tx_index] = port_id;
+			w_ctx->tx_port_id[w_ctx->max_rx_tx_index] = port_id;
+			w_ctx->rx_queue_id[w_ctx->max_rx_tx_index] =
+					port_queues[lcore_id][port_id].rx_queue_id;
+			w_ctx->tx_queue_id[w_ctx->max_rx_tx_index] =
+					port_queues[lcore_id][port_id].tx_queue_id;
+			w_ctx->tx_queue_id_by_port[port_id] =
+					port_queues[lcore_id][port_id].tx_queue_id;
+
+			w_ctx->tx_buffer[w_ctx->max_rx_tx_index] =
+					port_queues[lcore_id][port_id].tx_buffer;
+			w_ctx->tx_buffer_by_port[port_id] =
+					port_queues[lcore_id][port_id].tx_buffer;
+
+			w_ctx->max_rx_tx_index++;
+		}
+		LF_LOG(DEBUG, "lcore %u, nb_rx_tx %u\n", lcore_id,
+				w_ctx->max_rx_tx_index);
+
+		w_ctx->mirror_ctx = &mirror_ctx.workers[lcore_id];
 	}
-	res = lf_distributor_init(&distributor, port_queues, nb_port_queues,
-			distributor_workers);
-	if (res < 0) {
-		LF_LOG(ERR, "Distributor setup failed\n");
-		return -1;
-	}
-
-	/* TODO: Set forwarding direction in worker context */
-
 	return 0;
 }
 
@@ -273,8 +268,6 @@ setup_rx_tx(struct lf_params *params)
  *
  * This function requires following variables to be initialized appropriately:
  * keymanager, keymanager_lcore, worker_contexts, worker_lcores, nb_workers.
- * If distributors are enabled, also nb_distributor and distributor_lcores are
- * required.
  *
  * @return 0 on success.
  */
@@ -289,18 +282,12 @@ launch_lcores()
 
 	/* launch workers */
 	LF_LOG(NOTICE, "Launch workers\n");
-	for (uint16_t worker_id = 0; worker_id < lf_nb_workers; ++worker_id) {
+	for (uint16_t lcore_id = 0; lcore_id < RTE_MAX_LCORE; ++lcore_id) {
+		if (!lf_worker_lcores[lcore_id]) {
+			continue;
+		}
 		(void)rte_eal_remote_launch((lcore_function_t *)lf_worker_run,
-				&worker_contexts[worker_id], lf_worker_lcores[worker_id]);
-	}
-
-	/* launch distributors */
-	LF_LOG(NOTICE, "Launch distributors\n");
-	for (uint16_t distributor_id = 0; distributor_id < lf_nb_distributors;
-			++distributor_id) {
-		(void)rte_eal_remote_launch((lcore_function_t *)lf_distributor_run,
-				&distributor.distributor_contexts[distributor_id],
-				lf_distributor_lcores[distributor_id]);
+				&worker_contexts[lcore_id], lcore_id);
 	}
 
 	return 0;
@@ -310,10 +297,9 @@ int
 main(int argc, char **argv)
 {
 	int res;
-	uint16_t lcore_id, worker_id;
+	uint16_t lcore_id, worker_id, worker_counter;
 	struct lf_params params;
-	struct lf_config *global_config, *config;
-	struct lf_ratelimiter_worker *ratelimiter_workers[LF_MAX_WORKER];
+	struct lf_ratelimiter_worker *ratelimiter_workers[RTE_MAX_LCORE];
 
 	/* Worker RCU QS Variable */
 	struct rte_rcu_qsbr *qsv;
@@ -348,19 +334,6 @@ main(int argc, char **argv)
 	}
 
 	/*
-	 * Load Global Config
-	 */
-	if (params.config_file[0] != '\0') {
-		global_config = lf_config_new_from_file(params.config_file);
-		if (global_config == NULL) {
-			rte_exit(EXIT_FAILURE, "Failed to load config file %s\n",
-					params.config_file);
-		}
-	} else {
-		global_config = NULL;
-	}
-
-	/*
 	 * Assign the available lcores to the managers and workers.
 	 */
 	res = assign_lcores(&params);
@@ -371,9 +344,17 @@ main(int argc, char **argv)
 	/*
 	 * Initialize Worker Contexts
 	 */
-	res = lf_worker_init(lf_nb_workers, lf_worker_lcores, worker_contexts);
+	res = lf_worker_init(lf_worker_lcores, worker_contexts);
 	if (res < 0) {
 		rte_exit(EXIT_FAILURE, "Failed to initialize worker contexts.\n");
+	}
+
+	/*
+	 * Register MBuf dynamic fields
+	 */
+	res = register_dynfield();
+	if (res != 0) {
+		return -1;
 	}
 
 	/*
@@ -382,6 +363,19 @@ main(int argc, char **argv)
 	res = setup_rx_tx(&params);
 	if (res != 0) {
 		rte_exit(EXIT_FAILURE, "Failed to setup port and queues.\n");
+	}
+
+	/*
+	 * Setup Forwarding Logic
+	 * Currently, we only use the forwarding port pair provided by the
+	 * parameters.
+	 */
+	RTE_LCORE_FOREACH(lcore_id) {
+		if (!lf_worker_lcores[lcore_id]) {
+			continue;
+		}
+		memcpy(worker_contexts[lcore_id].port_pair, params.dst_port,
+				sizeof(params.dst_port));
 	}
 
 	/*
@@ -404,32 +398,44 @@ main(int argc, char **argv)
 	if (res != 0) {
 		rte_exit(EXIT_FAILURE, "RCU QS variable initialization failed\n");
 	}
-	for (worker_id = 0; worker_id < lf_nb_workers; ++worker_id) {
-		worker_contexts[worker_id].qsv = qsv;
+	worker_counter = 0;
+	RTE_LCORE_FOREACH(lcore_id) {
+		if (!lf_worker_lcores[lcore_id]) {
+			continue;
+		}
+		worker_contexts[lcore_id].qsv = qsv;
+		worker_contexts[lcore_id].qsv_id = worker_counter;
+		worker_counter++;
 	}
 
 	/*
 	 * Setup Time Context
 	 */
-	for (worker_id = 0; worker_id < lf_nb_workers; ++worker_id) {
-		lf_time_worker_init(&worker_contexts[worker_id].time);
+	RTE_LCORE_FOREACH(lcore_id) {
+		if (!lf_worker_lcores[lcore_id]) {
+			continue;
+		}
+		lf_time_worker_init(&worker_contexts[lcore_id].time);
 
 		/* also set timestamp threshold in the worker's context */
-		worker_contexts[worker_id].timestamp_threshold =
+		worker_contexts[lcore_id].timestamp_threshold =
 				params.tf_threshold * LF_TIME_NS_IN_MS;
 	}
 
 	/*
 	 * Setup Crypto Context
 	 */
-	for (worker_id = 0; worker_id < lf_nb_workers; ++worker_id) {
+	RTE_LCORE_FOREACH(lcore_id) {
+		if (!lf_worker_lcores[lcore_id]) {
+			continue;
+		}
 		res = lf_crypto_hash_ctx_init(
-				&worker_contexts[worker_id].crypto_hash_ctx);
+				&worker_contexts[lcore_id].crypto_hash_ctx);
 		if (res != 0) {
 			rte_exit(EXIT_FAILURE, "Init crypto hash context failed\n");
 		}
 		res = lf_crypto_drkey_ctx_init(
-				&worker_contexts[worker_id].crypto_drkey_ctx);
+				&worker_contexts[lcore_id].crypto_drkey_ctx);
 		if (res != 0) {
 			rte_exit(EXIT_FAILURE, "Init crypto DRKey context failed\n");
 		}
@@ -443,8 +449,13 @@ main(int argc, char **argv)
 	if (res < 0) {
 		rte_exit(EXIT_FAILURE, "Unable to initiate keymanager\n");
 	}
-	for (worker_id = 0; worker_id < lf_nb_workers; ++worker_id) {
-		worker_contexts[worker_id].key_manager = &keymanager.workers[worker_id];
+	worker_id = 0;
+	RTE_LCORE_FOREACH(lcore_id) {
+		if (!lf_worker_lcores[lcore_id]) {
+			continue;
+		}
+		worker_contexts[lcore_id].key_manager = &keymanager.workers[worker_id];
+		worker_id++;
 	}
 	res = lf_keymanager_register_ipc(&keymanager);
 	if (res != 0) {
@@ -455,35 +466,19 @@ main(int argc, char **argv)
 		rte_exit(EXIT_FAILURE, "Unable to register keymanager telemetry\n");
 	}
 
-	/* apply config if provided */
-	res = 0;
-	if (params.km_config_file[0] != '\0') {
-		/* load keymanager specific config */
-		config = lf_config_new_from_file(params.km_config_file);
-		if (config == NULL) {
-			rte_exit(EXIT_FAILURE, "Failed to load keymanager config file %s\n",
-					params.km_config_file);
-		}
-		res = lf_keymanager_apply_config(&keymanager, config);
-		lf_config_free(config);
-	} else if (global_config != NULL) {
-		/* use global config */
-		res = lf_keymanager_apply_config(&keymanager, global_config);
-	}
-	if (res != 0) {
-		rte_exit(EXIT_FAILURE, "Failed to load ratelimiter config file %s\n",
-				params.rl_config_file);
-	}
-
 	/*
 	 * Setup Rate Limiter
 	 */
 	LF_LOG(NOTICE, "Prepare Ratelimiter\n");
-	for (worker_id = 0; worker_id < lf_nb_workers; ++worker_id) {
-		ratelimiter_workers[worker_id] =
-				&worker_contexts[worker_id].ratelimiter;
+	worker_id = 0;
+	RTE_LCORE_FOREACH(lcore_id) {
+		if (!lf_worker_lcores[lcore_id]) {
+			continue;
+		}
+		ratelimiter_workers[worker_id] = &worker_contexts[lcore_id].ratelimiter;
+		worker_id++;
 	}
-	res = lf_ratelimiter_init(&ratelimiter, lf_worker_lcores, lf_nb_workers,
+	res = lf_ratelimiter_init(&ratelimiter, lf_worker_lcore_map, lf_nb_workers,
 			params.rl_size, qsv, ratelimiter_workers);
 	if (res < 0) {
 		rte_exit(EXIT_FAILURE, "Unable to initiate ratelimiter\n");
@@ -493,50 +488,40 @@ main(int argc, char **argv)
 		rte_exit(EXIT_FAILURE, "Unable to register ratelimiter IPC\n");
 	}
 
-	/* apply config if provided */
-	res = 0;
-	if (params.rl_config_file[0] != '\0') {
-		/* load keymanager specific config */
-		config = lf_config_new_from_file(params.rl_config_file);
-		if (config == NULL) {
-			rte_exit(EXIT_FAILURE,
-					"Failed to load ratelimiter config file %s\n",
-					params.rl_config_file);
-		}
-		res = lf_ratelimiter_apply_config(&ratelimiter, config);
-		lf_config_free(config);
-	} else if (global_config != NULL) {
-		/* use global config */
-		res = lf_ratelimiter_apply_config(&ratelimiter, global_config);
-	}
-	if (res != 0) {
-		rte_exit(EXIT_FAILURE, "Failed to load ratelimiter config file %s\n",
-				params.rl_config_file);
-	}
-
 	/*
 	 * Setup Duplicate Filter
 	 */
-	res = lf_duplicate_filter_init(&duplicate_filter, lf_worker_lcores,
+	res = lf_duplicate_filter_init(&duplicate_filter, lf_worker_lcore_map,
 			lf_nb_workers, params.bf_nb, params.bf_period * LF_TIME_NS_IN_MS,
 			params.bf_hashes, params.bf_bytes, (unsigned int)rte_rand());
 	if (res < 0) {
 		rte_exit(EXIT_FAILURE, "Unable to initiate duplicate detection\n");
 	}
-	for (worker_id = 0; worker_id < lf_nb_workers; ++worker_id) {
-		worker_contexts[worker_id].duplicate_filter =
+	worker_id = 0;
+	RTE_LCORE_FOREACH(lcore_id) {
+		if (!lf_worker_lcores[lcore_id]) {
+			continue;
+		}
+		worker_contexts[lcore_id].duplicate_filter =
 				duplicate_filter.workers[worker_id];
+		worker_id++;
 	}
 
 	/*
 	 * Setup Statistics
 	 */
-	res = lf_statistics_init(&statistics, lf_worker_lcores, lf_nb_workers, qsv);
+	res = lf_statistics_init(&statistics, lf_worker_lcore_map, lf_nb_workers,
+			qsv);
 	if (res < 0) {
 		rte_exit(EXIT_FAILURE, "Unable to initiate statistics\n");
 	}
-	for (worker_id = 0; worker_id < lf_nb_workers; ++worker_id) {
-		worker_contexts[worker_id].statistics = statistics.worker[worker_id];
+	worker_id = 0;
+	RTE_LCORE_FOREACH(lcore_id) {
+		if (!lf_worker_lcores[lcore_id]) {
+			continue;
+		}
+		worker_contexts[lcore_id].statistics = statistics.worker[worker_id];
+		worker_id++;
 	}
 
 	/*
@@ -544,32 +529,33 @@ main(int argc, char **argv)
 	 */
 	lf_plugins_init(worker_contexts, lf_nb_workers);
 
-	if (global_config != NULL) {
-		res = lf_plugins_apply_config(global_config);
-		if (res != 0) {
-			rte_exit(EXIT_FAILURE, "Failed to load config file %s\n",
-					params.config_file);
-		}
-	}
-
 	/*
 	 * Setup Config Manager
 	 */
-	res = lf_configmanager_init(&configmanager, lf_nb_workers, qsv);
+	res = lf_configmanager_init(&configmanager, lf_nb_workers, qsv, &keymanager,
+			&ratelimiter);
 	if (res != 0) {
 		rte_exit(EXIT_FAILURE, "Fail to init config manager.\n");
 	}
-	for (worker_id = 0; worker_id < lf_nb_workers; ++worker_id) {
-		worker_contexts[worker_id].config = &configmanager.workers[worker_id];
+	worker_id = 0;
+	RTE_LCORE_FOREACH(lcore_id) {
+		if (!lf_worker_lcores[lcore_id]) {
+			continue;
+		}
+		worker_contexts[lcore_id].config = &configmanager.workers[worker_id];
+		worker_id++;
 	}
-	res = lf_configmanager_register_ipc(&configmanager, &keymanager,
-			&ratelimiter);
+	res = lf_configmanager_register_ipc(&configmanager);
 	if (res != 0) {
 		rte_exit(EXIT_FAILURE, "Unable to register ratelimiter IPC.\n");
 	}
 
 	if (params.config_file[0] != '\0') {
-		lf_configmanager_load_config(&configmanager, params.config_file);
+		res = lf_configmanager_apply_config_file(&configmanager,
+				params.config_file);
+		if (res != 0) {
+			rte_exit(EXIT_FAILURE, "Unable to apply config.\n");
+		}
 	}
 
 #ifdef LF_PDUMP
@@ -593,11 +579,6 @@ main(int argc, char **argv)
 	 * main core to run any management, such as the key manager.
 	 */
 
-	/* Run control traffic worker */
-	if (params.ct_worker_enabled) {
-		lf_worker_ct_run(&worker_ct);
-	}
-
 	RTE_LCORE_FOREACH_WORKER(lcore_id) {
 		(void)rte_eal_wait_lcore(lcore_id);
 		/* (fstreun): could check if workers terminate gracefully */
@@ -614,13 +595,12 @@ main(int argc, char **argv)
 	rte_pdump_uninit();
 #endif
 
-	(void)lf_setup_terminate(params.portmask);
+	(void)lf_setup_terminate(params.portmask, &mirror_ctx);
 
 	lf_duplicate_filter_close(&duplicate_filter);
 	lf_ratelimiter_close(&ratelimiter);
 	lf_keymanager_close(&keymanager);
 	lf_statistics_close(&statistics);
-	lf_distributor_close(&distributor);
 
 	/* clean up the EAL */
 	(void)rte_eal_cleanup();

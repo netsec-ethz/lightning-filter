@@ -15,7 +15,7 @@ The LightningFilter help option prints the available parameters:
 ## DPDK EAL Parameters
 
 DPDK documentation: 
-https://doc.dpdk.org/guides-21.11/linux_gsg/linux_eal_parameters.html
+http://doc.dpdk.org/guides-23.11/linux_gsg/linux_eal_parameters.html
 
 ### Lcore-relation option
 

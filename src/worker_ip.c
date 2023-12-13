@@ -24,13 +24,8 @@
 #include "lib/utils/lf_ip.h"
 #include "lib/utils/packet.h"
 #include "ratelimiter.h"
+#include "statistics.h"
 #include "worker.h"
-
-/*
- * Include generic worker source for better optimizations.
- * Ignore warnings from the linter.
- */
-#include "worker.c" // NOLINT
 
 #if LF_IPV6
 #error IPv6 support is not yet implemented!
@@ -339,8 +334,6 @@ handle_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m)
 	struct rte_udp_hdr *udp_hdr;
 
 	uint16_t lf_port = lf_configmanager_worker_get_port(worker_context->config);
-	enum lf_forwarding_direction forwarding_direction =
-			worker_context->forwarding_direction;
 
 	if (unlikely(m->data_len != m->pkt_len)) {
 		LF_WORKER_LOG_DP(NOTICE,
@@ -372,52 +365,19 @@ handle_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m)
 	 * With the destination UDP port number, it is determined
 	 * if the packet is a inbound or outbound packet.
 	 */
-	switch (forwarding_direction) {
-	case LF_FORWARDING_DIRECTION_INBOUND:
-		if (unlikely(ipv4_hdr->next_proto_id != IP_PROTO_ID_UDP)) {
-			LF_WORKER_LOG_DP(NOTICE,
-					"Expected inbound packet but no UDP header.\n");
+	if (ipv4_hdr->next_proto_id == IP_PROTO_ID_UDP) {
+		offset_tmp = lf_get_udp_hdr(m, offset, &udp_hdr);
+		if (unlikely(offset_tmp == 0)) {
 			return LF_PKT_UNKNOWN_DROP;
 		}
-		offset = lf_get_udp_hdr(m, offset, &udp_hdr);
-		if (unlikely(offset == 0)) {
-			return LF_PKT_UNKNOWN_DROP;
+		if (udp_hdr->dst_port == lf_port) {
+			LF_WORKER_LOG_DP(DEBUG, "Inbound packet\n");
+			return handle_inbound_pkt(worker_context, m, offset_tmp, ether_hdr,
+					ipv4_hdr, udp_hdr);
 		}
-		if (unlikely(udp_hdr->dst_port != lf_port)) {
-			LF_WORKER_LOG_DP(NOTICE,
-					"Expected inbound packet with UDP port %u but UDP port is "
-					"%u.\n",
-					rte_be_to_cpu_16(lf_port),
-					rte_be_to_cpu_16(udp_hdr->dst_port));
-			return LF_PKT_UNKNOWN_DROP;
-		}
-
-		LF_WORKER_LOG_DP(DEBUG, "Inbound packet\n");
-		return handle_inbound_pkt(worker_context, m, offset, ether_hdr,
-				ipv4_hdr, udp_hdr);
-
-	case LF_FORWARDING_DIRECTION_OUTBOUND:
-		LF_WORKER_LOG_DP(DEBUG, "Outbound packet\n");
-		return handle_outbound_pkt(worker_context, m, offset, ether_hdr,
-				ipv4_hdr);
-	default: // LF_FORWARDING_DIRECTION_BOTH
-		if (ipv4_hdr->next_proto_id == IP_PROTO_ID_UDP) {
-			offset_tmp = lf_get_udp_hdr(m, offset, &udp_hdr);
-			if (unlikely(offset_tmp == 0)) {
-				return LF_PKT_UNKNOWN_DROP;
-			}
-			if (udp_hdr->dst_port == lf_port) {
-				LF_WORKER_LOG_DP(DEBUG, "Inbound packet\n");
-				return handle_inbound_pkt(worker_context, m, offset_tmp,
-						ether_hdr, ipv4_hdr, udp_hdr);
-			}
-		}
-
-		/* in all other cases, the packet is considered an outbound packet */
-		LF_WORKER_LOG_DP(DEBUG, "Outbound packet\n");
-		return handle_outbound_pkt(worker_context, m, offset, ether_hdr,
-				ipv4_hdr);
 	}
+	LF_WORKER_LOG_DP(DEBUG, "Outbound packet\n");
+	return handle_outbound_pkt(worker_context, m, offset, ether_hdr, ipv4_hdr);
 }
 
 void

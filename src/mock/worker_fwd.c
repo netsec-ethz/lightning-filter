@@ -18,9 +18,6 @@
 #include "../lib/utils/packet.h"
 #include "../worker.h"
 
-/* Include generic worker source */
-#include "../worker.c"
-
 static enum lf_pkt_action
 handle_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m)
 {
@@ -28,9 +25,6 @@ handle_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m)
 	unsigned int offset;
 	struct rte_ether_hdr *ether_hdr;
 	struct rte_ipv4_hdr *ipv4_hdr;
-
-	const enum lf_forwarding_direction forwarding_direction =
-			worker_context->forwarding_direction;
 
 	if (unlikely(m->data_len != m->pkt_len)) {
 		LF_WORKER_LOG_DP(NOTICE,
@@ -56,29 +50,12 @@ handle_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m)
 		return LF_PKT_UNKNOWN_DROP;
 	}
 
-	if (forwarding_direction == LF_FORWARDING_DIRECTION_INBOUND) {
-		LF_WORKER_LOG_DP(DEBUG, "Inbound packet\n");
-		pkt_action = LF_PKT_INBOUND_FORWARD;
+	/* Consider the packet as inbound */
+	pkt_action = LF_PKT_INBOUND_FORWARD;
 
-		(void)lf_worker_pkt_mod(m, ether_hdr, ipv4_hdr,
-				lf_configmanager_worker_get_inbound_pkt_mod(
-						worker_context->config));
-	} else if (forwarding_direction == LF_FORWARDING_DIRECTION_OUTBOUND) {
-		LF_WORKER_LOG_DP(DEBUG, "Outbound packet\n");
-		pkt_action = LF_PKT_OUTBOUND_FORWARD;
-
-		(void)lf_worker_pkt_mod(m, ether_hdr, ipv4_hdr,
-				lf_configmanager_worker_get_outbound_pkt_mod(
-						worker_context->config));
-
-	} else {
-		/* Consider the packet as inbound if the direction is unknown */
-		pkt_action = LF_PKT_INBOUND_FORWARD;
-
-		(void)lf_worker_pkt_mod(m, ether_hdr, ipv4_hdr,
-				lf_configmanager_worker_get_inbound_pkt_mod(
-						worker_context->config));
-	}
+	(void)lf_worker_pkt_mod(m, ether_hdr, ipv4_hdr,
+			lf_configmanager_worker_get_inbound_pkt_mod(
+					worker_context->config));
 
 	return pkt_action;
 }

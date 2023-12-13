@@ -91,8 +91,6 @@ struct lf_config_pkt_mod {
 #endif
 };
 
-struct lf_config_ratelimiter {};
-
 struct lf_config_dst_ratelimiter {
 	uint32_t dst_ip; /* in network byte order */
 	struct lf_config_ratelimit ratelimit;

@@ -5,7 +5,7 @@ For building LightningFilter, we recommended our docker setup (see [Docker](#Doc
 ## Dependencies
 
 Some of the significant dependencies with specific versions required:
-- DPDK 21.11 (see [DPDK.md](DPDK.md))
+- DPDK 23.11 (see [DPDK.md](DPDK.md))
 - OpenSSL Version >= 3.0
 - CMake >= 3.20
 

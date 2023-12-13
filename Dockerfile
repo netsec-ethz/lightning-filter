@@ -4,6 +4,7 @@ FROM ubuntu:jammy AS lf-builder
 ARG UID=1001
 ARG GID=1001
 ARG USER=lf
+ARG CI=false
 
 # Packages for building
 RUN apt-get update && \
@@ -20,10 +21,12 @@ RUN curl -LO https://golang.org/dl/go1.21.2.linux-amd64.tar.gz && \
 ENV PATH /usr/local/go/bin:$PATH
 
 # Install DPDK
-RUN curl -LO https://fast.dpdk.org/rel/dpdk-21.11.tar.xz && \
-    echo "58660bbbe9e95abce86e47692b196555 dpdk-21.11.tar.xz" | md5sum -c && \
-    tar xJf dpdk-21.11.tar.xz && cd dpdk-21.11 && \
-    meson build && cd build && ninja && ninja install
+RUN curl -LO https://fast.dpdk.org/rel/dpdk-23.11.tar.xz && \
+    echo "896c09f5b45b452bd77287994650b916 dpdk-23.11.tar.xz" | md5sum -c && \
+    tar xJf dpdk-23.11.tar.xz && cd dpdk-23.11 && \
+    meson setup build && cd build && \
+    if [ "$CI" = "true" ] ; then meson configure -Dmachine=default && meson compile; fi && \
+    ninja && meson install && ldconfig
 
 # Allow the lf-build user to use sudo without a password
 RUN groupadd --gid $GID --non-unique $USER && \
