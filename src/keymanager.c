@@ -450,6 +450,28 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 		}
 	}
 
+	for (iterator = 0;
+			rte_hash_iterate(km->shared_secret_dict, (void *)&key_ptr,
+					(void **)&shared_secret_data, &iterator) >= 0;) {
+		is_in_list = false;
+		for (peer = config->peers; peer != NULL; peer = peer->next) {
+			if (peer->isd_as == key_ptr->as &&
+					peer->drkey_protocol == key_ptr->drkey_protocol) {
+				is_in_list = true;
+				break;
+			}
+		}
+		if (!is_in_list) {
+			LF_KEYMANAGER_LOG(DEBUG,
+					"Remove SV entry for AS " PRIISDAS " DRKey protocol %u\n",
+					PRIISDAS_VAL(rte_be_to_cpu_64(key_ptr->as)),
+					rte_be_to_cpu_16(key_ptr->drkey_protocol));
+			(void)rte_hash_del_key(km->shared_secret_dict, key_ptr);
+			/* free data later */
+			(void)linked_list_push(&free_list, shared_secret_data);
+		}
+	}
+
 	for (peer = config->peers; peer != NULL; peer = peer->next) {
 		key.as = peer->isd_as;
 		key.drkey_protocol = peer->drkey_protocol;
