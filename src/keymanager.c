@@ -427,6 +427,7 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 		goto exit_unlock;
 	}
 
+	// TODO: (abojarski) remove also preshared secret values
 	/* remove dictionary entries which are not anymore in config */
 	for (iterator = 0; rte_hash_iterate(km->dict, (void *)&key_ptr,
 							   (void **)&dictionary_data, &iterator) >= 0;) {
@@ -455,8 +456,21 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 
 		key_id = rte_hash_lookup(km->dict, &key);
 		if (key_id >= 0) {
+			if (peer->shared_secret_configured_option) {
+				// update the secret value
+				int key_id_shared = rte_hash_lookup_data(km->shared_secret_dict,
+						key_ptr, (void **)&shared_secret_data);
+				if (key_id_shared < 0) {
+					LF_KEYMANAGER_LOG(ERR,
+							"Shared secret data not found. Can not update.\n");
+					break;
+				}
+				shared_secret_data->validity_not_before =
+						peer->shared_secret.not_before;
+				lf_crypto_drkey_from_buf(&km->drkey_ctx, peer->shared_secret.sv,
+						&shared_secret_data->key);
+			}
 			/* key is already in table */
-			// TODO: however the shared secret could still need to be updated
 			continue;
 		}
 
@@ -470,9 +484,6 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 		}
 
 		if (peer->shared_secret_configured_option) {
-			// TODO: change update behaviour
-			// - check if already exists and update accordingly
-
 			// create entry of secret value for new hash table
 			shared_secret_data = rte_malloc(NULL,
 					sizeof(struct lf_keymanager_key_container), 0);
