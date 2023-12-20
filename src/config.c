@@ -92,11 +92,12 @@ peer_init(struct lf_config_peer *config_peer)
 		.next = NULL,
 
 		.shared_secret_configured_option = false,
-		.shared_secret =
-				(struct lf_config_shared_secret){
-						.sv = { 0 },
-						.not_before = 0,
-				},
+		.shared_secret = {
+			{
+				.sv = { 0 },
+				.not_before = 0
+			},
+		},
 
 		/* per default no rate limit is defined for a peer */
 		.ratelimit_option = false,

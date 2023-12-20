@@ -442,7 +442,6 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 		goto exit_unlock;
 	}
 
-	// TODO: (abojarski) remove also preshared secret values
 	/* remove dictionary entries which are not anymore in config */
 	for (iterator = 0; rte_hash_iterate(km->dict, (void *)&key_ptr,
 							   (void **)&dictionary_data, &iterator) >= 0;) {
@@ -527,7 +526,7 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 		if (peer->shared_secret_configured_option) {
 			// create entry of secret value for new hash table
 			shared_secret_data = rte_malloc(NULL,
-					sizeof(struct lf_keymanager_key_container), 0);
+					sizeof(struct lf_keymanager_sv_dictionary_data), 0);
 			if (shared_secret_data == NULL) {
 				LF_KEYMANAGER_LOG(ERR, "Fail to allocate memory for key\n");
 				err = 1;
