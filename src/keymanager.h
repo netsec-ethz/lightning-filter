@@ -56,7 +56,6 @@
 #define LF_DRKEY_VALIDITY_PERIOD \
 	(3 * 24 * 3600 * LF_TIME_NS_IN_S) /* in nanoseconds */
 
-
 /*
  * IPv6 prefix for embedded IPv4 address
  */
@@ -73,6 +72,15 @@ struct lf_keymanager_key_container {
 	uint64_t validity_not_before; /* Unix timestamp (nanoseconds) */
 	uint64_t validity_not_after;  /* Unix timestamp (nanoseconds) */
 	struct lf_crypto_drkey key;
+};
+
+struct lf_keymanager_sv_container {
+	uint64_t validity_not_before; /* Unix timestamp (nanoseconds) */
+	struct lf_crypto_drkey key;
+};
+
+struct lf_keymanager_sv_dictionary_data {
+	struct lf_keymanager_sv_container secret_values[LF_CONFIG_SV_MAX];
 };
 
 struct lf_keymanager_worker {

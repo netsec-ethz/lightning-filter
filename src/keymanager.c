@@ -76,7 +76,7 @@ synchronize_worker(struct lf_keymanager *km)
 /**
  * Derive AS-AS key (Level 1).
  *
- * @param secret: shared secret lf_crypto_drkey where the value is configured in
+ * @param secret_node: shared secrets that were configured in
  * the config
  * @param src_ia: slow side of the DRKey (network byte order)
  * @param dst_ia: fast side of the DRKey (network byte order)
@@ -90,19 +90,36 @@ synchronize_worker(struct lf_keymanager *km)
  */
 static int
 derive_shared_key(struct lf_keymanager *km,
-		const struct lf_crypto_drkey *secret, uint64_t src_ia, uint64_t dst_ia,
-		uint16_t drkey_protocol, uint64_t ns_start_ts, uint64_t ns_valid,
+		struct lf_keymanager_sv_dictionary_data *secret_node, uint64_t src_ia,
+		uint64_t dst_ia, uint16_t drkey_protocol, uint64_t ns_valid,
 		struct lf_keymanager_key_container *key)
 {
-	if (ns_valid < ns_start_ts) {
+	struct lf_keymanager_sv_container *secret = NULL;
+	for (int i = 0; i < LF_CONFIG_SV_MAX; i++) {
+		// not configureds
+		if (secret_node->secret_values[i].validity_not_before == 0) {
+			break;
+		}
+		if (secret_node->secret_values[i].validity_not_before < ns_valid) {
+			if (secret == NULL) {
+				secret = &secret_node->secret_values[i];
+			} else if (secret_node->secret_values[i].validity_not_before >
+					   secret->validity_not_before) {
+				secret = &secret_node->secret_values[i];
+			}
+		}
+	}
+
+	if (secret == NULL) {
 		return -1;
 	}
 
 	uint64_t ms_valid;
 	ms_valid = ns_valid / LF_TIME_NS_IN_MS;
 	uint64_t validity_not_before_ns =
-			ns_start_ts +
-			(int)((ns_valid - ns_start_ts) / LF_DRKEY_VALIDITY_PERIOD) *
+			secret->validity_not_before +
+			(int)((ns_valid - secret->validity_not_before) /
+					LF_DRKEY_VALIDITY_PERIOD) *
 					LF_DRKEY_VALIDITY_PERIOD;
 	uint64_t validity_not_after_ns =
 			validity_not_before_ns + LF_DRKEY_VALIDITY_PERIOD;
@@ -115,7 +132,7 @@ derive_shared_key(struct lf_keymanager *km,
 	memcpy(buf + 9, &src_ia, 8);
 	memcpy(buf + 17, &validity_not_before_ns_be, 8);
 
-	lf_crypto_drkey_derivation_step(&km->drkey_ctx, secret, buf,
+	lf_crypto_drkey_derivation_step(&km->drkey_ctx, &secret->key, buf,
 			2 * LF_CRYPTO_CBC_BLOCK_SIZE, &key->key);
 
 	LF_KEYMANAGER_LOG(INFO,
@@ -145,7 +162,7 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 	uint32_t iterator;
 	struct lf_keymanager_dictionary_data *data, *new_data;
 	uint64_t ns_now;
-	struct lf_keymanager_key_container *shared_secret_node;
+	struct lf_keymanager_sv_dictionary_data *shared_secret_node;
 
 	/* memory to be freed later */
 	struct linked_list *free_list = NULL;
@@ -187,9 +204,8 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 				goto exit;
 			}
 
-			res = derive_shared_key(km, &shared_secret_node->key, (*key_ptr).as,
-					km->src_as, (*key_ptr).drkey_protocol,
-					shared_secret_node->validity_not_before, ns_now,
+			res = derive_shared_key(km, shared_secret_node, (*key_ptr).as,
+					km->src_as, (*key_ptr).drkey_protocol, ns_now,
 					&new_data->inbound_key);
 			if (res < 0) {
 				new_data->inbound_key.validity_not_after = 0;
@@ -245,9 +261,8 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 				goto exit;
 			}
 
-			res = derive_shared_key(km, &shared_secret_node->key, km->src_as,
-					(*key_ptr).as, (*key_ptr).drkey_protocol,
-					shared_secret_node->validity_not_before, ns_now,
+			res = derive_shared_key(km, shared_secret_node, km->src_as,
+					(*key_ptr).as, (*key_ptr).drkey_protocol, ns_now,
 					&new_data->outbound_key);
 			if (res < 0) {
 				new_data->outbound_key.validity_not_after = 0;
@@ -391,7 +406,7 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 	bool is_in_list;
 	struct lf_keymanager_dictionary_key key, *key_ptr;
 	struct lf_keymanager_dictionary_data *dictionary_data;
-	struct lf_keymanager_key_container *shared_secret_data;
+	struct lf_keymanager_sv_dictionary_data *shared_secret_data;
 	struct lf_config_peer *peer;
 	uint64_t ns_now;
 
@@ -487,10 +502,14 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 							"Shared secret data not found. Can not update.\n");
 					break;
 				}
-				shared_secret_data->validity_not_before =
-						peer->shared_secret.not_before;
-				lf_crypto_drkey_from_buf(&km->drkey_ctx, peer->shared_secret.sv,
-						&shared_secret_data->key);
+
+				for (int i = 0; i < LF_CONFIG_SV_MAX; i++) {
+					shared_secret_data->secret_values[i].validity_not_before =
+							peer->shared_secret[i].not_before;
+					lf_crypto_drkey_from_buf(&km->drkey_ctx,
+							peer->shared_secret[i].sv,
+							&shared_secret_data->secret_values[i].key);
+				}
 			}
 			/* key is already in table */
 			continue;
@@ -516,10 +535,17 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 			}
 
 			// populate secret data and add to dict
-			shared_secret_data->validity_not_before =
-					peer->shared_secret.not_before;
-			lf_crypto_drkey_from_buf(&km->drkey_ctx, peer->shared_secret.sv,
-					&shared_secret_data->key);
+			for (int i = 0; i < LF_CONFIG_SV_MAX; i++) {
+				if (peer->shared_secret[i].not_before == 0) {
+					break;
+				}
+				shared_secret_data->secret_values[i].validity_not_before =
+						peer->shared_secret[i].not_before;
+				lf_crypto_drkey_from_buf(&km->drkey_ctx,
+						peer->shared_secret[i].sv,
+						&shared_secret_data->secret_values[i].key);
+			}
+
 			res = rte_hash_add_key_data(km->shared_secret_dict, &key,
 					(void *)shared_secret_data);
 			if (res != 0) {
@@ -529,17 +555,15 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 				break;
 			}
 
-			res = derive_shared_key(km, &shared_secret_data->key, key.as,
-					config->isd_as, key.drkey_protocol,
-					peer->shared_secret.not_before, ns_now,
+			res = derive_shared_key(km, shared_secret_data, key.as,
+					config->isd_as, key.drkey_protocol, ns_now,
 					&dictionary_data->inbound_key);
 			if (res < 0) {
 				dictionary_data->inbound_key.validity_not_after = 0;
 			}
 
-			res = derive_shared_key(km, &shared_secret_data->key,
-					config->isd_as, key.as, key.drkey_protocol,
-					peer->shared_secret.not_before, ns_now,
+			res = derive_shared_key(km, shared_secret_data, config->isd_as,
+					key.as, key.drkey_protocol, ns_now,
 					&dictionary_data->outbound_key);
 			if (res < 0) {
 				dictionary_data->outbound_key.validity_not_after = 0;

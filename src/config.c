@@ -259,6 +259,34 @@ parse_shared_secret(json_value *json_val,
 
 	return 0;
 }
+static int
+parse_shared_secret_list(json_value *json_val,
+		struct lf_config_shared_secret shared_secret[LF_CONFIG_SV_MAX])
+{
+	unsigned int length;
+	unsigned int i;
+
+	if (json_val == NULL) {
+		return -1;
+	}
+
+	if (json_val->type != json_array) {
+		return -1;
+	}
+
+	length = json_val->u.array.length;
+	if (length > LF_CONFIG_SV_MAX) {
+		LF_LOG(ERR, "Exceed shared secret limit (%d:%d)\n", json_val->line,
+				json_val->col);
+		return -1;
+	}
+
+	for (i = 0; i < length; ++i) {
+		parse_shared_secret(json_val->u.array.values[i], &shared_secret[i]);
+	}
+
+	return 0;
+}
 
 static int
 parse_peer(json_value *json_val, struct lf_config_peer *peer)
@@ -316,7 +344,7 @@ parse_peer(json_value *json_val, struct lf_config_peer *peer)
 			}
 			peer->ratelimit_option = true;
 		} else if (strcmp(field_name, FIELD_SHARED_SECRET) == 0) {
-			res = parse_shared_secret(field_value, &peer->shared_secret);
+			res = parse_shared_secret_list(field_value, peer->shared_secret);
 			if (res != 0) {
 				LF_LOG(ERR, "Invalid shared secret (%d:%d)\n",
 						field_value->line, field_value->col);
