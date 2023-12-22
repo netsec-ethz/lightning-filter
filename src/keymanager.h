@@ -56,12 +56,6 @@
 #define LF_DRKEY_VALIDITY_PERIOD \
 	(3 * 24 * 3600 * LF_TIME_NS_IN_S) /* in nanoseconds */
 
-/**
- * Log function for key manager service (not on data path).
- * Format: "Keymanager: log message here"
- */
-#define LF_KEYMANAGER_LOG(level, ...) LF_LOG(level, "Keymanager: " __VA_ARGS__)
-
 /*
  * IPv6 prefix for embedded IPv4 address
  */
@@ -143,85 +137,6 @@ struct lf_keymanager {
 	/* statistics counters */
 	struct lf_keymanager_statistics statistics;
 };
-
-/**
- * Derive AS-AS key (Level 1).
- *
- * @param secret_node: shared secrets that were configured in
- * the config
- * @param src_ia: slow side of the DRKey (network byte order)
- * @param dst_ia: fast side of the DRKey (network byte order)
- * @param drkey_protocol: (network byte order)
- * @param ns_start_ts: Unix timestamp in nanoseconds, to determine the validity
- * period
- * @param ns_valid: Unix timestamp in nanoseconds, at which the requested key
- * must be valid.
- * @param key: pointer to key container struct to store result in.
- * @return 0 on success, otherwise, < 0.
- */
-static int
-lf_keymanager_derive_shared_key(struct lf_keymanager *km,
-		struct lf_keymanager_sv_dictionary_data *secret_node, uint64_t src_ia,
-		uint64_t dst_ia, uint16_t drkey_protocol, uint64_t ns_valid,
-		struct lf_keymanager_key_container *key)
-{
-	struct lf_keymanager_sv_container *secret = NULL;
-	for (int i = 0; i < LF_CONFIG_SV_MAX; i++) {
-		if (secret_node->secret_values[i].validity_not_before == 0) {
-			break;
-		}
-		if (secret_node->secret_values[i].validity_not_before < ns_valid) {
-			if (secret == NULL) {
-				secret = &secret_node->secret_values[i];
-			} else if (secret_node->secret_values[i].validity_not_before >
-					   secret->validity_not_before) {
-				secret = &secret_node->secret_values[i];
-			}
-		}
-	}
-
-	if (secret == NULL) {
-		return -1;
-	}
-
-	uint64_t ms_valid;
-	ms_valid = ns_valid / LF_TIME_NS_IN_MS;
-	uint64_t validity_not_before_ns =
-			secret->validity_not_before +
-			(int)((ns_valid - secret->validity_not_before) /
-					LF_DRKEY_VALIDITY_PERIOD) *
-					LF_DRKEY_VALIDITY_PERIOD;
-	uint64_t validity_not_after_ns =
-			validity_not_before_ns + LF_DRKEY_VALIDITY_PERIOD;
-	uint64_t validity_not_before_ns_be =
-			rte_cpu_to_be_64(validity_not_before_ns);
-
-	uint8_t buf[2 * LF_CRYPTO_CBC_BLOCK_SIZE] = { 0 };
-	buf[0] = LF_DRKEY_DERIVATION_TYPE_AS_AS;
-	memcpy(buf + 1, &dst_ia, 8);
-	memcpy(buf + 9, &src_ia, 8);
-	memcpy(buf + 17, &validity_not_before_ns_be, 8);
-
-	lf_crypto_drkey_derivation_step(&km->drkey_ctx, &secret->key, buf,
-			2 * LF_CRYPTO_CBC_BLOCK_SIZE, &key->key);
-
-	LF_KEYMANAGER_LOG(INFO,
-			"Derived shared AS AS Key: src_as " PRIISDAS ", dst_as " PRIISDAS
-			", drkey_protocol %u, ms_valid %" PRIu64
-			", validity_not_before_ms %" PRIu64
-			", validity_not_after_ms %" PRIu64 "\n",
-			PRIISDAS_VAL(rte_be_to_cpu_64(src_ia)),
-			PRIISDAS_VAL(rte_be_to_cpu_64(dst_ia)),
-			rte_be_to_cpu_16(drkey_protocol), ms_valid,
-			(validity_not_before_ns / LF_TIME_NS_IN_MS),
-			(validity_not_after_ns / LF_TIME_NS_IN_MS));
-
-	/* set values in returned key structure */
-	key->validity_not_before = validity_not_before_ns;
-	key->validity_not_after = validity_not_after_ns;
-
-	return 0;
-}
 
 /**
  * Check if DRKey is valid at the requested time.
@@ -472,6 +387,27 @@ lf_keymanager_worker_outbound_get_drkey(struct lf_keymanager_worker *kmw,
 
 	return -2;
 }
+
+/**
+ * Derive AS-AS key (Level 1).
+ *
+ * @param secret_node: shared secrets that were configured in
+ * the config
+ * @param src_ia: slow side of the DRKey (network byte order)
+ * @param dst_ia: fast side of the DRKey (network byte order)
+ * @param drkey_protocol: (network byte order)
+ * @param ns_start_ts: Unix timestamp in nanoseconds, to determine the validity
+ * period
+ * @param ns_valid: Unix timestamp in nanoseconds, at which the requested key
+ * must be valid.
+ * @param key: pointer to key container struct to store result in.
+ * @return 0 on success, otherwise, < 0.
+ */
+int
+lf_keymanager_derive_shared_key(struct lf_keymanager *km,
+		struct lf_keymanager_sv_dictionary_data *secret_node, uint64_t src_ia,
+		uint64_t dst_ia, uint16_t drkey_protocol, uint64_t ns_valid,
+		struct lf_keymanager_key_container *key);
 
 /**
  * Launch function for keymanager service.
