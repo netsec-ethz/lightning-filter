@@ -80,6 +80,8 @@ lf_keymanager_derive_shared_key(struct lf_keymanager *km,
 		struct lf_keymanager_key_container *key)
 {
 	struct lf_keymanager_sv_container *secret = NULL;
+
+	// Find the correct shared secret to be used for current timestamp.
 	for (int i = 0; i < LF_CONFIG_SV_MAX; i++) {
 		if (secret_node->secret_values[i].validity_not_before == 0) {
 			break;
@@ -140,7 +142,7 @@ lf_keymanager_derive_shared_key(struct lf_keymanager *km,
 void
 lf_keymanager_service_update(struct lf_keymanager *km)
 {
-	int res;
+	int res, key_id;
 	int err = 0;
 	struct lf_keymanager_dictionary_key *key_ptr;
 	uint32_t iterator;
@@ -176,7 +178,7 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 			(void)rte_memcpy(new_data, data,
 					sizeof(struct lf_keymanager_dictionary_data));
 
-			int key_id = rte_hash_lookup_data(km->shared_secret_dict, key_ptr,
+			key_id = rte_hash_lookup_data(km->shared_secret_dict, key_ptr,
 					(void **)&shared_secret_node);
 			if (key_id < 0) {
 				LF_KEYMANAGER_LOG(ERR,
@@ -233,7 +235,7 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 			(void)rte_memcpy(new_data, data,
 					sizeof(struct lf_keymanager_dictionary_data));
 
-			int key_id = rte_hash_lookup_data(km->shared_secret_dict, key_ptr,
+			key_id = rte_hash_lookup_data(km->shared_secret_dict, key_ptr,
 					(void **)&shared_secret_node);
 			if (key_id < 0) {
 				LF_KEYMANAGER_LOG(ERR,

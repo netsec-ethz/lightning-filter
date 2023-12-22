@@ -266,6 +266,7 @@ parse_shared_secret_list(json_value *json_val,
 {
 	unsigned int length;
 	unsigned int i;
+	unsigned int res;
 
 	if (json_val == NULL) {
 		return -1;
@@ -281,9 +282,18 @@ parse_shared_secret_list(json_value *json_val,
 				json_val->col);
 		return -1;
 	}
+	if (length < 1) {
+		LF_LOG(ERR, "Must define at least one shared secret (%d:%d)\n",
+				json_val->line, json_val->col);
+		return -1;
+	}
 
 	for (i = 0; i < length; ++i) {
-		parse_shared_secret(json_val->u.array.values[i], &shared_secret[i]);
+		res = parse_shared_secret(json_val->u.array.values[i],
+				&shared_secret[i]);
+		if (res != 0) {
+			return -1;
+		}
 	}
 
 	return 0;
