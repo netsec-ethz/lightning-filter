@@ -70,6 +70,7 @@ add_custom_target(keymanager_test_file
     copy_if_different
     ${CMAKE_CURRENT_LIST_DIR}/keymanager_test1.json
     ${CMAKE_CURRENT_LIST_DIR}/keymanager_test2.json
+    ${CMAKE_CURRENT_LIST_DIR}/keymanager_test3.json
     ${CMAKE_CURRENT_BINARY_DIR}/
 )
 add_dependencies(keymanager_test keymanager_test_file)

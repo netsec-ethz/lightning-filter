@@ -15,6 +15,7 @@
 
 #define TEST1_JSON "keymanager_test1.json"
 #define TEST2_JSON "keymanager_test2.json"
+#define TEST3_JSON "keymanager_test3.json"
 
 #define LF_TEST_NO_RCU 1
 
@@ -298,6 +299,11 @@ print_keys(uint8_t expected[], uint8_t actual[])
 	printf("\n");
 }
 
+/**
+ * Test that the DRKey derivation is correct.
+ *
+ * @return int
+ */
 int
 test3()
 {
@@ -396,6 +402,93 @@ test3()
 	return error_count;
 }
 
+/**
+ * Test that the config replacement changes keys as expected.
+ *
+ * @return int
+ */
+int
+test4()
+{
+	int res = 0, error_count = 0;
+	struct lf_keymanager *km;
+	uint64_t ns_timestamp = 1702422000 * LF_TIME_NS_IN_S;
+
+	struct lf_keymanager_dictionary_key key;
+	struct lf_keymanager_sv_dictionary_data *shared_secret_node;
+	struct lf_keymanager_key_container asas_key1, asas_key3;
+
+	km = new_test_context();
+	if (km == NULL) {
+		return 1;
+	}
+
+	struct lf_config *config1 = lf_config_new_from_file(TEST1_JSON);
+	if (config1 == NULL) {
+		printf("Error: lf_config_new_from_file\n");
+		return 1;
+	}
+
+	res = lf_keymanager_apply_config(km, config1);
+	if (res != 0) {
+		printf("Error: lf_keymanager_apply_config\n");
+		return 1;
+	}
+
+	key.as = config1->peers->isd_as;
+	key.drkey_protocol = config1->peers->drkey_protocol;
+	res = rte_hash_lookup_data(km->shared_secret_dict, &key,
+			(void **)&shared_secret_node);
+	if (res != 0) {
+		printf("Error: rte_hash_lookup_data\n");
+		return 1;
+	}
+
+	res = lf_keymanager_derive_shared_key(km, shared_secret_node, km->src_as,
+			key.as, key.drkey_protocol, ns_timestamp, &asas_key1);
+	if (res != 0) {
+		printf("Error: lf_keymanager_derive_shared_key\n");
+		error_count += 1;
+	}
+
+
+	struct lf_config *config3 = lf_config_new_from_file(TEST3_JSON);
+	if (config3 == NULL) {
+		printf("Error: lf_config_new_from_file\n");
+		return 1;
+	}
+
+	// apply new config with additional key
+	res = lf_keymanager_apply_config(km, config3);
+	if (res != 0) {
+		printf("Error: lf_keymanager_apply_config\n");
+		return 1;
+	}
+
+	res = rte_hash_lookup_data(km->shared_secret_dict, &key,
+			(void **)&shared_secret_node);
+	if (res != 0) {
+		printf("Error: rte_hash_lookup_data\n");
+		return 1;
+	}
+
+	res = lf_keymanager_derive_shared_key(km, shared_secret_node, km->src_as,
+			key.as, key.drkey_protocol, ns_timestamp, &asas_key3);
+	if (res != 0) {
+		printf("Error: lf_keymanager_derive_shared_key\n");
+		error_count += 1;
+	}
+
+	if (memcmp(&asas_key1.key, &asas_key3.key, LF_CRYPTO_DRKEY_SIZE) == 0) {
+		printf("Error: Key replacement failed\n");
+		error_count += 1;
+	}
+
+	free_test_context(km);
+
+	return error_count;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -408,6 +501,7 @@ main(int argc, char *argv[])
 	error_counter += test1();
 	error_counter += test2();
 	error_counter += test3();
+	error_counter += test4();
 
 	if (error_counter > 0) {
 		printf("Error Count: %d\n", error_counter);

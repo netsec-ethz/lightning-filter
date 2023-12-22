@@ -32,12 +32,6 @@
  * The manager lock ensures that updates to the dictionary cannot interleave.
  */
 
-/**
- * Log function for key manager service (not on data path).
- * Format: "Keymanager: log message here"
- */
-#define LF_KEYMANAGER_LOG(level, ...) LF_LOG(level, "Keymanager: " __VA_ARGS__)
-
 struct linked_list {
 	void *data;
 	void *next;
@@ -71,86 +65,6 @@ inline static void
 synchronize_worker(struct lf_keymanager *km)
 {
 	(void)rte_rcu_qsbr_synchronize(km->qsv, RTE_QSBR_THRID_INVALID);
-}
-
-/**
- * Derive AS-AS key (Level 1).
- *
- * @param secret_node: shared secrets that were configured in
- * the config
- * @param src_ia: slow side of the DRKey (network byte order)
- * @param dst_ia: fast side of the DRKey (network byte order)
- * @param drkey_protocol: (network byte order)
- * @param ns_start_ts: Unix timestamp in nanoseconds, to determine the validity
- * period
- * @param ns_valid: Unix timestamp in nanoseconds, at which the requested key
- * must be valid.
- * @param key: pointer to key container struct to store result in.
- * @return 0 on success, otherwise, < 0.
- */
-static int
-derive_shared_key(struct lf_keymanager *km,
-		struct lf_keymanager_sv_dictionary_data *secret_node, uint64_t src_ia,
-		uint64_t dst_ia, uint16_t drkey_protocol, uint64_t ns_valid,
-		struct lf_keymanager_key_container *key)
-{
-	struct lf_keymanager_sv_container *secret = NULL;
-	for (int i = 0; i < LF_CONFIG_SV_MAX; i++) {
-		// not configureds
-		if (secret_node->secret_values[i].validity_not_before == 0) {
-			break;
-		}
-		if (secret_node->secret_values[i].validity_not_before < ns_valid) {
-			if (secret == NULL) {
-				secret = &secret_node->secret_values[i];
-			} else if (secret_node->secret_values[i].validity_not_before >
-					   secret->validity_not_before) {
-				secret = &secret_node->secret_values[i];
-			}
-		}
-	}
-
-	if (secret == NULL) {
-		return -1;
-	}
-
-	uint64_t ms_valid;
-	ms_valid = ns_valid / LF_TIME_NS_IN_MS;
-	uint64_t validity_not_before_ns =
-			secret->validity_not_before +
-			(int)((ns_valid - secret->validity_not_before) /
-					LF_DRKEY_VALIDITY_PERIOD) *
-					LF_DRKEY_VALIDITY_PERIOD;
-	uint64_t validity_not_after_ns =
-			validity_not_before_ns + LF_DRKEY_VALIDITY_PERIOD;
-	uint64_t validity_not_before_ns_be =
-			rte_cpu_to_be_64(validity_not_after_ns);
-
-	uint8_t buf[2 * LF_CRYPTO_CBC_BLOCK_SIZE] = { 0 };
-	buf[0] = LF_DRKEY_DERIVATION_TYPE_AS_AS;
-	memcpy(buf + 1, &dst_ia, 8);
-	memcpy(buf + 9, &src_ia, 8);
-	memcpy(buf + 17, &validity_not_before_ns_be, 8);
-
-	lf_crypto_drkey_derivation_step(&km->drkey_ctx, &secret->key, buf,
-			2 * LF_CRYPTO_CBC_BLOCK_SIZE, &key->key);
-
-	LF_KEYMANAGER_LOG(INFO,
-			"Derived shared AS AS Key: src_as " PRIISDAS ", dst_as " PRIISDAS
-			", drkey_protocol %u, ms_valid %" PRIu64
-			", validity_not_before_ms %" PRIu64
-			", validity_not_after_ms %" PRIu64 "\n",
-			PRIISDAS_VAL(rte_be_to_cpu_64(src_ia)),
-			PRIISDAS_VAL(rte_be_to_cpu_64(dst_ia)),
-			rte_be_to_cpu_16(drkey_protocol), ms_valid,
-			(validity_not_before_ns / LF_TIME_NS_IN_MS),
-			(validity_not_after_ns / LF_TIME_NS_IN_MS));
-
-	/* set values in returned key structure */
-	key->validity_not_before = validity_not_before_ns;
-	key->validity_not_after = validity_not_after_ns;
-
-	return 0;
 }
 
 void
@@ -204,9 +118,9 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 				goto exit;
 			}
 
-			res = derive_shared_key(km, shared_secret_node, (*key_ptr).as,
-					km->src_as, (*key_ptr).drkey_protocol, ns_now,
-					&new_data->inbound_key);
+			res = lf_keymanager_derive_shared_key(km, shared_secret_node,
+					(*key_ptr).as, km->src_as, (*key_ptr).drkey_protocol,
+					ns_now, &new_data->inbound_key);
 			if (res < 0) {
 				new_data->inbound_key.validity_not_after = 0;
 			}
@@ -261,9 +175,9 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 				goto exit;
 			}
 
-			res = derive_shared_key(km, shared_secret_node, km->src_as,
-					(*key_ptr).as, (*key_ptr).drkey_protocol, ns_now,
-					&new_data->outbound_key);
+			res = lf_keymanager_derive_shared_key(km, shared_secret_node,
+					km->src_as, (*key_ptr).as, (*key_ptr).drkey_protocol,
+					ns_now, &new_data->outbound_key);
 			if (res < 0) {
 				new_data->outbound_key.validity_not_after = 0;
 			}
@@ -298,7 +212,6 @@ exit:
 	}
 	(void)rte_spinlock_unlock(&km->management_lock);
 }
-
 
 int
 lf_keymanager_service_launch(struct lf_keymanager *km)
@@ -495,7 +408,7 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 			if (peer->shared_secret_configured_option) {
 				// update the secret value
 				int key_id_shared = rte_hash_lookup_data(km->shared_secret_dict,
-						key_ptr, (void **)&shared_secret_data);
+						&key, (void **)&shared_secret_data);
 				if (key_id_shared < 0) {
 					LF_KEYMANAGER_LOG(ERR,
 							"Shared secret data not found. Can not update.\n");
@@ -554,15 +467,15 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 				break;
 			}
 
-			res = derive_shared_key(km, shared_secret_data, key.as,
-					config->isd_as, key.drkey_protocol, ns_now,
+			res = lf_keymanager_derive_shared_key(km, shared_secret_data,
+					key.as, config->isd_as, key.drkey_protocol, ns_now,
 					&dictionary_data->inbound_key);
 			if (res < 0) {
 				dictionary_data->inbound_key.validity_not_after = 0;
 			}
 
-			res = derive_shared_key(km, shared_secret_data, config->isd_as,
-					key.as, key.drkey_protocol, ns_now,
+			res = lf_keymanager_derive_shared_key(km, shared_secret_data,
+					config->isd_as, key.as, key.drkey_protocol, ns_now,
 					&dictionary_data->outbound_key);
 			if (res < 0) {
 				dictionary_data->outbound_key.validity_not_after = 0;
