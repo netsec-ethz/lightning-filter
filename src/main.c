@@ -143,7 +143,7 @@ init_rcu_qs(uint16_t nb_qs_vars, struct rte_rcu_qsbr **qsv)
 	/* initialize QS variable for all workers */
 	if (rte_rcu_qsbr_init(*qsv, nb_qs_vars) != 0) {
 		LF_LOG(ERR, "RCU QSBR init failed\n");
-		(void)rte_free(*qsv);
+		rte_free(*qsv);
 		return -1;
 	}
 	return 0;

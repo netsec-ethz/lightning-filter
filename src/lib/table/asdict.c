@@ -75,9 +75,9 @@ lf_asdict_new_with_data(int initial_size, int data_size)
 void
 lf_asdict_free(struct lf_asdict *dic)
 {
-	(void)rte_free(dic->data_array);
+	rte_free(dic->data_array);
 	rte_hash_free(dic->hash_table);
-	(void)rte_free(dic);
+	rte_free(dic);
 }
 
 int

@@ -184,7 +184,7 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 					ns_now + LF_DRKEY_PREFETCHING_PERIOD,
 					&new_data->inbound_key);
 			if (key_id < 0) {
-				(void)rte_free(new_data);
+				rte_free(new_data);
 				err = -1;
 				goto exit;
 			}
@@ -232,7 +232,7 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 					ns_now + LF_DRKEY_PREFETCHING_PERIOD,
 					&new_data->outbound_key);
 			if (key_id < 0) {
-				(void)rte_free(new_data);
+				rte_free(new_data);
 				err = -1;
 				goto exit;
 			}
@@ -259,8 +259,8 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 exit:
 	if (free_list != NULL) {
 		/* free old data after no worker accesses it anymore */
-		(void)synchronize_worker(km);
-		(void)linked_list_free(free_list);
+		synchronize_worker(km);
+		linked_list_free(free_list);
 	}
 	if (err != 0) {
 		LF_KEYMANAGER_LOG(ERR, "Error occurred during update (err = %d)\n",
@@ -340,7 +340,7 @@ key_dictionary_init(uint32_t size)
 
 	if (dic == NULL) {
 		LF_KEYMANAGER_LOG(ERR, "Hash creation failed with: %d\n", errno);
-		(void)rte_hash_free(dic);
+		rte_hash_free(dic);
 		return NULL;
 	}
 
@@ -361,9 +361,9 @@ key_dictionary_free(struct rte_hash *dict)
 
 	for (iterator = 0; rte_hash_iterate(dict, (void *)&key_ptr, (void **)&data,
 							   &iterator) >= 0;) {
-		(void)rte_free(data);
+		rte_free(data);
 	}
-	(void)rte_hash_free(dict);
+	rte_hash_free(dict);
 }
 
 int
@@ -475,7 +475,7 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 		res = rte_hash_add_key_data(km->dict, &key, (void *)dictionary_data);
 		if (res != 0) {
 			LF_KEYMANAGER_LOG(ERR, "Add key failed with %d!\n", key_id);
-			(void)rte_free(dictionary_data);
+			rte_free(dictionary_data);
 			err = 1;
 			break;
 		}
@@ -488,8 +488,8 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 exit_unlock:
 	if (free_list != NULL) {
 		/* free old data after no worker accesses it anymore */
-		(void)synchronize_worker(km);
-		(void)linked_list_free(free_list);
+		synchronize_worker(km);
+		linked_list_free(free_list);
 	}
 
 	(void)rte_spinlock_unlock(&km->management_lock);
