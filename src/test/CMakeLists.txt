@@ -51,7 +51,7 @@ add_executable(keymanager_test EXCLUDE_FROM_ALL keymanager_test.c)
 add_test(NAME keymanager_test COMMAND keymanager_test --no-huge)
 # Dependencies
 target_sources(keymanager_test PRIVATE log_mock.c)
-target_sources(keymanager_test PRIVATE ../keymanager.c ../lib/crypto/crypto.c ../config.c ../lib/ipc/ipc.c)
+target_sources(keymanager_test PRIVATE ../mock/drkey_fetcher_mock.c ../keyfetcher.c ../keymanager.c ../lib/crypto/crypto.c ../config.c ../lib/ipc/ipc.c)
 # DPDK
 add_definitions(${DPDK_STATIC_CFLAGS}) # TODO: target
 target_include_directories(keymanager_test PRIVATE ${DPDK_SATIC_INCLUDE_DIRS})

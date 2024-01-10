@@ -8,6 +8,8 @@
 #include <rte_rcu_qsbr.h>
 
 #include "../config.h"
+#include "../drkey.h"
+#include "../keyfetcher.h"
 #include "../keymanager.h"
 #include "../lf.h"
 #include "../lib/log/log.h"
@@ -96,6 +98,16 @@ new_test_context()
 	}
 
 	return keymanager;
+}
+
+void
+print_keys(uint8_t expected[], uint8_t actual[])
+{
+	printf("Expected: \t");
+	for (int i = 0; i < 16; i++) printf("%02hhx", expected[i]);
+	printf("\nGot: \t\t");
+	for (int i = 0; i < 16; i++) printf("%02hhx", actual[i]);
+	printf("\n");
 }
 
 int
@@ -281,22 +293,13 @@ test2()
 	if (memcmp(&drkey1, &drkey2, sizeof(drkey1)) != 0) {
 		printf("Error: DRKey are not the same\n");
 		error_count += 1;
+		print_keys(drkey1.key, drkey2.key);
 	}
 
 	free_test_context(km1);
 	free_test_context(km2);
 
 	return error_count;
-}
-
-void
-print_keys(uint8_t expected[], uint8_t actual[])
-{
-	printf("Expected: \t");
-	for (int i = 0; i < 16; i++) printf("%02hhx", expected[i]);
-	printf("\nGot: \t\t");
-	for (int i = 0; i < 16; i++) printf("%02hhx", actual[i]);
-	printf("\n");
 }
 
 /**
@@ -341,7 +344,7 @@ test3()
 	uint8_t expected_key_1[LF_CRYPTO_DRKEY_SIZE] = { 0x82, 0x67, 0xa4, 0xe9,
 		0x10, 0x60, 0x8f, 0xa8, 0xdd, 0x46, 0xb1, 0x1b, 0x43, 0x95, 0x97,
 		0x49 };
-	lf_keymanager_drkey_from_asas(kmw, &as_as_zero_drkey, &src_host_addr,
+	lf_drkey_from_asas(&kmw->drkey_ctx, &as_as_zero_drkey, &src_host_addr,
 			&dst_host_addr, 0, &drkey);
 
 	if (memcmp(&expected_key_1, &drkey, LF_CRYPTO_DRKEY_SIZE) != 0) {
@@ -357,7 +360,7 @@ test3()
 	uint8_t expected_key_2[LF_CRYPTO_DRKEY_SIZE] = { 0x75, 0xde, 0xfa, 0x86,
 		0xd5, 0x6d, 0x26, 0x5b, 0x0c, 0xc7, 0xe6, 0x31, 0x3a, 0x9a, 0x13,
 		0x14 };
-	lf_keymanager_drkey_from_asas(kmw, &as_as_drkey, &src_host_addr,
+	lf_drkey_from_asas(&kmw->drkey_ctx, &as_as_drkey, &src_host_addr,
 			&dst_host_addr, 0, &drkey);
 
 	if (memcmp(&expected_key_2, &drkey, LF_CRYPTO_DRKEY_SIZE) != 0) {
@@ -370,7 +373,7 @@ test3()
 	uint8_t expected_key_3[LF_CRYPTO_DRKEY_SIZE] = { 0x81, 0xc0, 0x7f, 0xbc,
 		0x5c, 0xdd, 0xb1, 0xda, 0x18, 0xaa, 0xa0, 0x56, 0xbc, 0x22, 0xef,
 		0x56 };
-	lf_keymanager_drkey_from_asas(kmw, &as_as_drkey, &src_host_addr,
+	lf_drkey_from_asas(&kmw->drkey_ctx, &as_as_drkey, &src_host_addr,
 			&dst_host_addr, 0x0300, &drkey);
 
 	if (memcmp(&expected_key_3, &drkey, LF_CRYPTO_DRKEY_SIZE) != 0) {
@@ -390,7 +393,7 @@ test3()
 	dst_host_addr.addr = &dst_addr_ipv6;
 	dst_host_addr.type_length = 0x03;
 
-	lf_keymanager_drkey_from_asas(kmw, &as_as_drkey, &src_host_addr,
+	lf_drkey_from_asas(&kmw->drkey_ctx, &as_as_drkey, &src_host_addr,
 			&dst_host_addr, 0, &drkey);
 
 	if (memcmp(&expected_key_2, &drkey, LF_CRYPTO_DRKEY_SIZE) != 0) {
@@ -415,7 +418,7 @@ test4()
 	uint64_t ns_timestamp = 1702422000 * LF_TIME_NS_IN_S;
 
 	struct lf_keymanager_dictionary_key key;
-	struct lf_keymanager_sv_dictionary_data *shared_secret_node;
+	struct lf_keyfetcher_sv_dictionary_data *shared_secret_node;
 	struct lf_keymanager_key_container asas_key1, asas_key3;
 
 	km = new_test_context();
@@ -437,15 +440,8 @@ test4()
 
 	key.as = config1->peers->isd_as;
 	key.drkey_protocol = config1->peers->drkey_protocol;
-	res = rte_hash_lookup_data(km->shared_secret_dict, &key,
-			(void **)&shared_secret_node);
-	if (res != 0) {
-		printf("Error: rte_hash_lookup_data\n");
-		return 1;
-	}
-
-	res = lf_keymanager_derive_shared_key(km, shared_secret_node, km->src_as,
-			key.as, key.drkey_protocol, ns_timestamp, &asas_key1);
+	res = lf_keyfetcher_fetch_as_as_key(km->fetcher, km->src_as, key.as,
+			key.drkey_protocol, ns_timestamp, &asas_key1);
 	if (res != 0) {
 		printf("Error: lf_keymanager_derive_shared_key\n");
 		error_count += 1;
@@ -465,15 +461,15 @@ test4()
 		return 1;
 	}
 
-	res = rte_hash_lookup_data(km->shared_secret_dict, &key,
+	res = rte_hash_lookup_data(km->fetcher->dict, &key,
 			(void **)&shared_secret_node);
 	if (res != 0) {
 		printf("Error: rte_hash_lookup_data\n");
 		return 1;
 	}
 
-	res = lf_keymanager_derive_shared_key(km, shared_secret_node, km->src_as,
-			key.as, key.drkey_protocol, ns_timestamp, &asas_key3);
+	res = lf_keyfetcher_fetch_as_as_key(km->fetcher, km->src_as, key.as,
+			key.drkey_protocol, ns_timestamp, &asas_key3);
 	if (res != 0) {
 		printf("Error: lf_keymanager_derive_shared_key\n");
 		error_count += 1;

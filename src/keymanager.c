@@ -15,6 +15,7 @@
 
 #include "config.h"
 #include "drkey_fetcher.h"
+#include "keyfetcher.h"
 #include "keymanager.h"
 #include "lib/crypto/crypto.h"
 #include "lib/ipc/ipc.h"
@@ -73,82 +74,16 @@ synchronize_worker(struct lf_keymanager *km)
 	(void)rte_rcu_qsbr_synchronize(km->qsv, RTE_QSBR_THRID_INVALID);
 }
 
-int
-lf_keymanager_derive_shared_key(struct lf_keymanager *km,
-		struct lf_keymanager_sv_dictionary_data *secret_node, uint64_t src_ia,
-		uint64_t dst_ia, uint16_t drkey_protocol, uint64_t ns_valid,
-		struct lf_keymanager_key_container *key)
-{
-	struct lf_keymanager_sv_container *secret = NULL;
-
-	// Find the correct shared secret to be used for current timestamp.
-	for (int i = 0; i < LF_CONFIG_SV_MAX; i++) {
-		if (secret_node->secret_values[i].validity_not_before == 0) {
-			break;
-		}
-		if (secret_node->secret_values[i].validity_not_before < ns_valid) {
-			if (secret == NULL) {
-				secret = &secret_node->secret_values[i];
-			} else if (secret_node->secret_values[i].validity_not_before >
-					   secret->validity_not_before) {
-				secret = &secret_node->secret_values[i];
-			}
-		}
-	}
-
-	if (secret == NULL) {
-		return -1;
-	}
-
-	uint64_t ms_valid;
-	ms_valid = ns_valid / LF_TIME_NS_IN_MS;
-	uint64_t validity_not_before_ns =
-			secret->validity_not_before +
-			(int)((ns_valid - secret->validity_not_before) /
-					LF_DRKEY_VALIDITY_PERIOD) *
-					LF_DRKEY_VALIDITY_PERIOD;
-	uint64_t validity_not_after_ns =
-			validity_not_before_ns + LF_DRKEY_VALIDITY_PERIOD;
-	uint64_t validity_not_before_ns_be =
-			rte_cpu_to_be_64(validity_not_before_ns);
-
-	uint8_t buf[2 * LF_CRYPTO_CBC_BLOCK_SIZE] = { 0 };
-	buf[0] = LF_DRKEY_DERIVATION_TYPE_AS_AS;
-	memcpy(buf + 1, &dst_ia, 8);
-	memcpy(buf + 9, &src_ia, 8);
-	memcpy(buf + 17, &validity_not_before_ns_be, 8);
-
-	lf_crypto_drkey_derivation_step(&km->drkey_ctx, &secret->key, buf,
-			2 * LF_CRYPTO_CBC_BLOCK_SIZE, &key->key);
-
-	LF_KEYMANAGER_LOG(INFO,
-			"Derived shared AS AS Key: src_as " PRIISDAS ", dst_as " PRIISDAS
-			", drkey_protocol %u, ms_valid %" PRIu64
-			", validity_not_before_ms %" PRIu64
-			", validity_not_after_ms %" PRIu64 "\n",
-			PRIISDAS_VAL(rte_be_to_cpu_64(src_ia)),
-			PRIISDAS_VAL(rte_be_to_cpu_64(dst_ia)),
-			rte_be_to_cpu_16(drkey_protocol), ms_valid,
-			(validity_not_before_ns / LF_TIME_NS_IN_MS),
-			(validity_not_after_ns / LF_TIME_NS_IN_MS));
-
-	/* set values in returned key structure */
-	key->validity_not_before = validity_not_before_ns;
-	key->validity_not_after = validity_not_after_ns;
-
-	return 0;
-}
 
 void
 lf_keymanager_service_update(struct lf_keymanager *km)
 {
-	int res, key_id;
+	int res;
 	int err = 0;
 	struct lf_keymanager_dictionary_key *key_ptr;
 	uint32_t iterator;
 	struct lf_keymanager_dictionary_data *data, *new_data;
 	uint64_t ns_now;
-	struct lf_keymanager_sv_dictionary_data *shared_secret_node;
 
 	/* memory to be freed later */
 	struct linked_list *free_list = NULL;
@@ -178,21 +113,9 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 			(void)rte_memcpy(new_data, data,
 					sizeof(struct lf_keymanager_dictionary_data));
 
-			key_id = rte_hash_lookup_data(km->shared_secret_dict, key_ptr,
-					(void **)&shared_secret_node);
-			if (key_id < 0) {
-				LF_KEYMANAGER_LOG(ERR,
-						"Shared Secret not found. DRKey fetching will be added "
-						"at later point. (err = %d)\n",
-						res);
-				rte_free(new_data);
-				err = -1;
-				goto exit;
-			}
-
-			res = lf_keymanager_derive_shared_key(km, shared_secret_node,
-					(*key_ptr).as, km->src_as, (*key_ptr).drkey_protocol,
-					ns_now, &new_data->inbound_key);
+			res = lf_keyfetcher_fetch_as_as_key(km->fetcher, (*key_ptr).as,
+					km->src_as, (*key_ptr).drkey_protocol, ns_now,
+					&new_data->inbound_key);
 			if (res < 0) {
 				new_data->inbound_key.validity_not_after = 0;
 			}
@@ -235,21 +158,9 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 			(void)rte_memcpy(new_data, data,
 					sizeof(struct lf_keymanager_dictionary_data));
 
-			key_id = rte_hash_lookup_data(km->shared_secret_dict, key_ptr,
-					(void **)&shared_secret_node);
-			if (key_id < 0) {
-				LF_KEYMANAGER_LOG(ERR,
-						"Shared Secret not found. DRKey fetching will be added "
-						"at later point. (err = %d)\n",
-						res);
-				rte_free(new_data);
-				err = -1;
-				goto exit;
-			}
-
-			res = lf_keymanager_derive_shared_key(km, shared_secret_node,
-					km->src_as, (*key_ptr).as, (*key_ptr).drkey_protocol,
-					ns_now, &new_data->outbound_key);
+			res = lf_keyfetcher_fetch_as_as_key(km->fetcher, km->src_as,
+					(*key_ptr).as, (*key_ptr).drkey_protocol, ns_now,
+					&new_data->outbound_key);
 			if (res < 0) {
 				new_data->outbound_key.validity_not_after = 0;
 			}
@@ -391,7 +302,6 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 	bool is_in_list;
 	struct lf_keymanager_dictionary_key key, *key_ptr;
 	struct lf_keymanager_dictionary_data *dictionary_data;
-	struct lf_keymanager_sv_dictionary_data *shared_secret_data;
 	struct lf_config_peer *peer;
 	uint64_t ns_now;
 
@@ -400,6 +310,8 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 
 	rte_spinlock_lock(&km->management_lock);
 	LF_KEYMANAGER_LOG(NOTICE, "Apply config...\n");
+
+	lf_keyfetcher_apply_config(km->fetcher, config);
 
 	/*
 	 * Update general keymanager configurations
@@ -449,52 +361,12 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 		}
 	}
 
-	for (iterator = 0;
-			rte_hash_iterate(km->shared_secret_dict, (void *)&key_ptr,
-					(void **)&shared_secret_data, &iterator) >= 0;) {
-		is_in_list = false;
-		for (peer = config->peers; peer != NULL; peer = peer->next) {
-			if (peer->isd_as == key_ptr->as &&
-					peer->drkey_protocol == key_ptr->drkey_protocol) {
-				is_in_list = true;
-				break;
-			}
-		}
-		if (!is_in_list) {
-			LF_KEYMANAGER_LOG(DEBUG,
-					"Remove SV entry for AS " PRIISDAS " DRKey protocol %u\n",
-					PRIISDAS_VAL(rte_be_to_cpu_64(key_ptr->as)),
-					rte_be_to_cpu_16(key_ptr->drkey_protocol));
-			(void)rte_hash_del_key(km->shared_secret_dict, key_ptr);
-			/* free data later */
-			(void)linked_list_push(&free_list, shared_secret_data);
-		}
-	}
-
 	for (peer = config->peers; peer != NULL; peer = peer->next) {
 		key.as = peer->isd_as;
 		key.drkey_protocol = peer->drkey_protocol;
 
 		key_id = rte_hash_lookup(km->dict, &key);
 		if (key_id >= 0) {
-			if (peer->shared_secret_configured_option) {
-				// update the secret value
-				int key_id_shared = rte_hash_lookup_data(km->shared_secret_dict,
-						&key, (void **)&shared_secret_data);
-				if (key_id_shared < 0) {
-					LF_KEYMANAGER_LOG(ERR,
-							"Shared secret data not found. Can not update.\n");
-					break;
-				}
-
-				for (int i = 0; i < LF_CONFIG_SV_MAX; i++) {
-					shared_secret_data->secret_values[i].validity_not_before =
-							peer->shared_secret[i].not_before;
-					lf_crypto_drkey_from_buf(&km->drkey_ctx,
-							peer->shared_secret[i].sv,
-							&shared_secret_data->secret_values[i].key);
-				}
-			}
 			/* key is already in table */
 			continue;
 		}
@@ -508,56 +380,15 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 			break;
 		}
 
-		if (peer->shared_secret_configured_option) {
-			// create entry of secret value for new hash table
-			shared_secret_data = rte_malloc(NULL,
-					sizeof(struct lf_keymanager_sv_dictionary_data), 0);
-			if (shared_secret_data == NULL) {
-				LF_KEYMANAGER_LOG(ERR, "Fail to allocate memory for key\n");
-				err = 1;
-				break;
-			}
-
-			// populate secret data and add to dict
-			for (int i = 0; i < LF_CONFIG_SV_MAX; i++) {
-				if (peer->shared_secret[i].not_before == 0) {
-					break;
-				}
-				shared_secret_data->secret_values[i].validity_not_before =
-						peer->shared_secret[i].not_before;
-				lf_crypto_drkey_from_buf(&km->drkey_ctx,
-						peer->shared_secret[i].sv,
-						&shared_secret_data->secret_values[i].key);
-			}
-
-			res = rte_hash_add_key_data(km->shared_secret_dict, &key,
-					(void *)shared_secret_data);
-			if (res != 0) {
-				LF_KEYMANAGER_LOG(ERR, "Add key failed with %d!\n", key_id);
-				(void)rte_free(shared_secret_data);
-				err = 1;
-				break;
-			}
-
-			res = lf_keymanager_derive_shared_key(km, shared_secret_data,
-					key.as, config->isd_as, key.drkey_protocol, ns_now,
-					&dictionary_data->inbound_key);
-			if (res < 0) {
-				dictionary_data->inbound_key.validity_not_after = 0;
-			}
-
-			res = lf_keymanager_derive_shared_key(km, shared_secret_data,
-					config->isd_as, key.as, key.drkey_protocol, ns_now,
-					&dictionary_data->outbound_key);
-			if (res < 0) {
-				dictionary_data->outbound_key.validity_not_after = 0;
-			}
-		} else {
-			LF_KEYMANAGER_LOG(ERR,
-					"Fetching AS-AS keys is no longer supported. Will be "
-					"replaced by fetching HOST-AS / HOST-HOST keys in a future "
-					"version.\n");
+		res = lf_keyfetcher_fetch_as_as_key(km->fetcher, key.as, config->isd_as,
+				key.drkey_protocol, ns_now, &dictionary_data->inbound_key);
+		if (res < 0) {
 			dictionary_data->inbound_key.validity_not_after = 0;
+		}
+
+		res = lf_keyfetcher_fetch_as_as_key(km->fetcher, config->isd_as, key.as,
+				key.drkey_protocol, ns_now, &dictionary_data->outbound_key);
+		if (res < 0) {
 			dictionary_data->outbound_key.validity_not_after = 0;
 		}
 
@@ -608,13 +439,13 @@ lf_keymanager_close(struct lf_keymanager *km)
 
 	key_dictionary_free(km->dict);
 	km->dict = NULL;
-	key_dictionary_free(km->shared_secret_dict);
-	km->shared_secret_dict = NULL;
 	lf_crypto_drkey_ctx_close(&km->drkey_ctx);
 	for (worker_id = 0; worker_id < km->nb_workers; worker_id++) {
 		km->workers[worker_id].dict = NULL;
 		lf_crypto_drkey_ctx_close(&km->workers[worker_id].drkey_ctx);
 	}
+	lf_keyfetcher_close(km->fetcher);
+	km->fetcher = NULL;
 	return 0;
 }
 
@@ -642,10 +473,6 @@ lf_keymanager_init(struct lf_keymanager *km, uint16_t nb_workers,
 	if (km->dict == NULL) {
 		return -1;
 	}
-	km->shared_secret_dict = key_dictionary_init(initial_size);
-	if (km->shared_secret_dict == NULL) {
-		return -1;
-	}
 
 	km->src_as = 0;
 	memset(km->drkey_service_addr, 0, sizeof km->drkey_service_addr);
@@ -666,6 +493,15 @@ lf_keymanager_init(struct lf_keymanager *km, uint16_t nb_workers,
 	}
 
 	reset_statistics(&km->statistics);
+
+	struct lf_keyfetcher *fetcher;
+	fetcher = malloc(sizeof(struct lf_keyfetcher));
+	if (fetcher == NULL) {
+		return -1;
+	}
+	fetcher->dict = key_dictionary_init(initial_size);
+	lf_keyfetcher_init(fetcher, initial_size);
+	km->fetcher = fetcher;
 
 	return 0;
 }
