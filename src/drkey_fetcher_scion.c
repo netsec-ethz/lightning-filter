@@ -29,7 +29,7 @@ lf_drkey_fetcher_host_as_key(const char drkey_service_addr[48], uint64_t src_ia,
 #pragma GCC diagnostic pop
 #endif
 
-	return (int)GetHOSTASKey(non_const_addr, src_ia, dst_ia, src_addr,
+	return (int)GetHostASKey(non_const_addr, src_ia, dst_ia, src_addr,
 			drkey_protocol, val_time_ms, (GoInt64 *)validity_not_before,
 			(GoInt64 *)validity_not_after, key);
 }
@@ -56,7 +56,7 @@ lf_drkey_fetcher_host_host_key(const char drkey_service_addr[48],
 #pragma GCC diagnostic pop
 #endif
 
-	return (int)GetHOSTHOSTKey(non_const_addr, src_ia, dst_ia, src_addr,
+	return (int)GetHostHostKey(non_const_addr, src_ia, dst_ia, src_addr,
 			dst_addr, drkey_protocol, val_time_ms,
 			(GoInt64 *)validity_not_before, (GoInt64 *)validity_not_after, key);
 }

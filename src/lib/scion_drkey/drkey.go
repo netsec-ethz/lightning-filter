@@ -8,17 +8,19 @@ import (
 	"unsafe"
 )
 
-//export GetHOSTASKey
-func GetHOSTASKey(sciondAddr *C.char, fastIA, slowIA, fastAddr uint64, drkeyProtocol uint16, valTime int64,
+//export GetHostASKey
+func GetHostASKey(sciondAddr *C.char, fastIA, slowIA, fastAddr uint64, drkeyProtocol uint16, valTime int64,
 	validityNotBefore, validityNotAfter *int64, keyPtr unsafe.Pointer) int {
-
+	
+	// TODO: implement key fetching from SCION control service
 	return -1
 }
 
-//export GetHOSTHOSTKey
-func GetHOSTHOSTKey(sciondAddr *C.char, fastIA, slowIA, fastAddr, slowAddr uint64, drkeyProtocol uint16, valTime int64,
+//export GetHostHostKey
+func GetHostHostKey(sciondAddr *C.char, fastIA, slowIA, fastAddr, slowAddr uint64, drkeyProtocol uint16, valTime int64,
 	validityNotBefore, validityNotAfter *int64, keyPtr unsafe.Pointer) int {
 
+	// TODO: implement key fetching from SCION control service
 	return -1
 }
 
