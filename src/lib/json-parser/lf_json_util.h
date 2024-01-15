@@ -225,8 +225,8 @@ lf_json_parse_byte_buffer(const json_value *json_val, int len, uint8_t val[])
 	}
 
 	bufstr = json_val->u.string.ptr;
-	int bufstr_len = json_val->u.string.length;
 
+	int bufstr_len = json_val->u.string.length;
 	if (bufstr_len != 2 * len) {
 		return -1;
 	}
@@ -234,7 +234,7 @@ lf_json_parse_byte_buffer(const json_value *json_val, int len, uint8_t val[])
 	for (uint8_t i = 0; i < len; i++) {
 		val[i] = 0;
 		for (uint8_t j = 2 * i; j < 2 * i + 2; j++) {
-			assert(j <= bufstr_len);
+			assert(j < bufstr_len);
 			if (('0' <= bufstr[j]) && (bufstr[j] <= '9')) {
 				val[i] = (val[i] << 4) | (uint8_t)(bufstr[j] - '0');
 			} else if (('a' <= bufstr[j]) && (bufstr[j] <= 'f')) {
@@ -261,6 +261,11 @@ lf_json_parse_timestamp(const json_value *json_val, uint64_t *val)
 
 	char *bufstr;
 	bufstr = json_val->u.string.ptr;
+
+	int bufstr_len = json_val->u.string.length;
+	if (bufstr_len != 19) {
+		return -1;
+	}
 
 	struct tm date;
 	// expect time in format "%Y-%m-%dT%H:%M:%S"

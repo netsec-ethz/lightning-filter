@@ -35,10 +35,10 @@ lf_keyfetcher_derive_shared_key(struct lf_crypto_drkey_ctx *drkey_ctx,
 		if (secret_node->secret_values[i].validity_not_before == 0) {
 			break;
 		}
-		if (secret_node->secret_values[i].validity_not_before < ns_valid) {
+		if (secret_node->secret_values[i].validity_not_before <= ns_valid) {
 			if (secret == NULL) {
 				secret = &secret_node->secret_values[i];
-			} else if (secret_node->secret_values[i].validity_not_before >
+			} else if (secret_node->secret_values[i].validity_not_before >=
 					   secret->validity_not_before) {
 				secret = &secret_node->secret_values[i];
 			}
@@ -56,10 +56,10 @@ lf_keyfetcher_derive_shared_key(struct lf_crypto_drkey_ctx *drkey_ctx,
 			(int)((ns_valid - secret->validity_not_before) /
 					LF_DRKEY_VALIDITY_PERIOD) *
 					LF_DRKEY_VALIDITY_PERIOD;
-	uint64_t validity_not_after_ns =
-			validity_not_before_ns + LF_DRKEY_VALIDITY_PERIOD;
 	uint64_t validity_not_before_ns_be =
 			rte_cpu_to_be_64(validity_not_before_ns);
+	uint64_t validity_not_after_ns =
+			validity_not_before_ns + LF_DRKEY_VALIDITY_PERIOD;
 
 	uint8_t buf[2 * LF_CRYPTO_CBC_BLOCK_SIZE] = { 0 };
 	buf[0] = LF_DRKEY_DERIVATION_TYPE_AS_AS;
@@ -278,9 +278,9 @@ lf_keyfetcher_apply_config(struct lf_keyfetcher *fetcher,
 			if (peer->shared_secret_configured_option) {
 				for (int i = 0; i < LF_CONFIG_SV_MAX; i++) {
 					shared_secret_data->secret_values[i].validity_not_before =
-							peer->shared_secret[i].not_before;
+							peer->shared_secrets[i].not_before;
 					lf_crypto_drkey_from_buf(&fetcher->drkey_ctx,
-							peer->shared_secret[i].sv,
+							peer->shared_secrets[i].sv,
 							&shared_secret_data->secret_values[i].key);
 				}
 			}
@@ -299,13 +299,13 @@ lf_keyfetcher_apply_config(struct lf_keyfetcher *fetcher,
 
 			// populate secret data and add to dict
 			for (int i = 0; i < LF_CONFIG_SV_MAX; i++) {
-				if (peer->shared_secret[i].not_before == 0) {
+				if (peer->shared_secrets[i].not_before == 0) {
 					break;
 				}
 				shared_secret_data->secret_values[i].validity_not_before =
-						peer->shared_secret[i].not_before;
+						peer->shared_secrets[i].not_before;
 				lf_crypto_drkey_from_buf(&fetcher->drkey_ctx,
-						peer->shared_secret[i].sv,
+						peer->shared_secrets[i].sv,
 						&shared_secret_data->secret_values[i].key);
 			}
 

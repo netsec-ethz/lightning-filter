@@ -113,8 +113,8 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 			(void)rte_memcpy(new_data, data,
 					sizeof(struct lf_keymanager_dictionary_data));
 
-			res = lf_keyfetcher_fetch_as_as_key(km->fetcher, (*key_ptr).as,
-					km->src_as, (*key_ptr).drkey_protocol, ns_now,
+			res = lf_keyfetcher_fetch_as_as_key(km->fetcher, key_ptr->as,
+					km->src_as, key_ptr->drkey_protocol, ns_now,
 					&new_data->inbound_key);
 			if (res < 0) {
 				new_data->inbound_key.validity_not_after = 0;
@@ -159,7 +159,7 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 					sizeof(struct lf_keymanager_dictionary_data));
 
 			res = lf_keyfetcher_fetch_as_as_key(km->fetcher, km->src_as,
-					(*key_ptr).as, (*key_ptr).drkey_protocol, ns_now,
+					key_ptr->as, key_ptr->drkey_protocol, ns_now,
 					&new_data->outbound_key);
 			if (res < 0) {
 				new_data->outbound_key.validity_not_after = 0;

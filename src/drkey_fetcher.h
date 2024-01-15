@@ -15,7 +15,7 @@
  */
 
 /**
- * Fetch a HOST to AS (level 2) DRKey from a DRKey service.
+ * Fetch a host-AS (level 2) DRKey from a DRKey service.
  *
  * @param drkey_service_addr Service address ("IP:Port")
  * @param src_ia DRKey slow side (CPU endian)
@@ -37,7 +37,7 @@ lf_drkey_fetcher_host_as_key(const char drkey_service_addr[48], uint64_t src_ia,
 		int64_t *validity_not_after, void *key);
 
 /**
- * Fetch a HOST to HOST (level 3) DRKey from a DRKey service.
+ * Fetch a host-host (level 3) DRKey from a DRKey service.
  *
  * @param drkey_service_addr Service address ("IP:Port")
  * @param src_ia DRKey slow side (CPU endian)

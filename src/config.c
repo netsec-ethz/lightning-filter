@@ -92,12 +92,7 @@ peer_init(struct lf_config_peer *config_peer)
 		.next = NULL,
 
 		.shared_secret_configured_option = false,
-		.shared_secret = {
-			{
-				.sv = { 0 },
-				.not_before = 0
-			},
-		},
+		.shared_secrets = { 0 },
 
 		/* per default no rate limit is defined for a peer */
 		.ratelimit_option = false,
@@ -203,7 +198,7 @@ parse_shared_secret(json_value *json_val,
 	unsigned int i;
 	char *field_name;
 	json_value *field_value;
-	bool sv_flag, ts_flag = false;
+	bool sv_flag = false, ts_flag = false;
 
 	/* Initialize drkey struct. Set all to 0. */
 	(void)memset(shared_secret, 0, sizeof *shared_secret);
@@ -355,7 +350,7 @@ parse_peer(json_value *json_val, struct lf_config_peer *peer)
 			}
 			peer->ratelimit_option = true;
 		} else if (strcmp(field_name, FIELD_SHARED_SECRET) == 0) {
-			res = parse_shared_secret_list(field_value, peer->shared_secret);
+			res = parse_shared_secret_list(field_value, peer->shared_secrets);
 			if (res != 0) {
 				LF_LOG(ERR, "Invalid shared secret (%d:%d)\n",
 						field_value->line, field_value->col);

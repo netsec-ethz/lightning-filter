@@ -21,7 +21,7 @@
 #define LF_CONFIG_PEERS_MAX 1000000 /* 1'000'000 */
 
 /*
- * Number of SV that can be configured per peer
+ * Maximum number of SV that can be configured per peer
  */
 #define LF_CONFIG_SV_MAX 5
 
@@ -51,7 +51,7 @@ struct lf_config_peer {
 
 	/* preconfigured shared keys */
 	bool shared_secret_configured_option; /* if shared secrets are defined*/
-	struct lf_config_shared_secret shared_secret[LF_CONFIG_SV_MAX];
+	struct lf_config_shared_secret shared_secrets[LF_CONFIG_SV_MAX];
 
 	/* LF-IP: ip -> isd_as map (TODO: move this to a separate map) */
 	uint32_t ip; /* in network byte order */

@@ -40,7 +40,7 @@
 /*
  * IPv6 prefix for embedded IPv4 address
  */
-static const uint8_t IPv4_MAPPED_IPv6_PREFIX[12] = { 0x00, 0x00, 0x00, 0x00,
+static const uint8_t IPV4_MAPPED_IPV6_PREFIX[12] = { 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF };
 
 /**
@@ -77,8 +77,8 @@ lf_drkey_derive_host_as(struct lf_crypto_drkey_ctx *drkey_ctx,
 	uint8_t addr_len = LF_HOST_ADDR_LENGTH(fast_side_host);
 
 	// IPv4 mapped to IPv6
-	if (addr_type_len == 3 &&
-			memcmp(fast_side_host->addr, IPv4_MAPPED_IPv6_PREFIX, 12) == 0) {
+	if (addr_type_len == 3 && memcmp(addr, IPV4_MAPPED_IPV6_PREFIX,
+									  sizeof IPV4_MAPPED_IPV6_PREFIX) == 0) {
 		addr += 12;
 		addr_len = 4;
 		addr_type_len = 0;
@@ -117,8 +117,8 @@ lf_drkey_derive_host_host(struct lf_crypto_drkey_ctx *drkey_ctx,
 	uint8_t addr_len = LF_HOST_ADDR_LENGTH(slow_side_host);
 
 	// IPv4 mapped to IPv6
-	if (addr_type_len == 3 &&
-			memcmp(slow_side_host->addr, IPv4_MAPPED_IPv6_PREFIX, 12) == 0) {
+	if (addr_type_len == 3 && memcmp(addr, IPV4_MAPPED_IPV6_PREFIX,
+									  sizeof IPV4_MAPPED_IPV6_PREFIX) == 0) {
 		addr += 12;
 		addr_len = 4;
 		addr_type_len = 0;
