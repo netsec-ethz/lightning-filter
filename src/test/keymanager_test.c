@@ -101,12 +101,14 @@ new_test_context()
 }
 
 void
-print_keys(uint8_t expected[], uint8_t actual[])
+print_keys(uint8_t expected[LF_CRYPTO_DRKEY_SIZE],
+		uint8_t actual[LF_CRYPTO_DRKEY_SIZE])
 {
 	printf("Expected: \t");
-	for (int i = 0; i < 16; i++) printf("%02hhx", expected[i]);
+	for (int i = 0; i < LF_CRYPTO_DRKEY_SIZE; i++)
+		printf("%02hhx", expected[i]);
 	printf("\nGot: \t\t");
-	for (int i = 0; i < 16; i++) printf("%02hhx", actual[i]);
+	for (int i = 0; i < LF_CRYPTO_DRKEY_SIZE; i++) printf("%02hhx", actual[i]);
 	printf("\n");
 }
 
@@ -175,9 +177,9 @@ test1()
 		error_count += 1;
 	}
 
-	ns_now = ns_now +
-	         3 * 24 * 3600 * LF_TIME_NS_IN_S; // 3 days (the max validity period
-	                                          // is 3 days)
+	ns_now =
+			ns_now +
+			3 * 24 * 3600 * LF_TIME_NS_IN_S; // 3 days (the max validity period)
 	res = lf_keymanager_worker_inbound_get_drkey(kmw, config->peers->isd_as,
 			&src_host_addr, &dst_host_addr, config->peers->drkey_protocol,
 			ns_now, 0, &drkey);
@@ -347,7 +349,7 @@ test3()
 	lf_drkey_from_asas(&kmw->drkey_ctx, &as_as_zero_drkey, &src_host_addr,
 			&dst_host_addr, 0, &drkey);
 
-	if (memcmp(&expected_key_1, &drkey, LF_CRYPTO_DRKEY_SIZE) != 0) {
+	if (memcmp(expected_key_1, drkey.key, sizeof expected_key_1) != 0) {
 		printf("Error: DRKey derivation wrong\n");
 		print_keys(expected_key_1, drkey.key);
 		error_count += 1;
@@ -363,7 +365,7 @@ test3()
 	lf_drkey_from_asas(&kmw->drkey_ctx, &as_as_drkey, &src_host_addr,
 			&dst_host_addr, 0, &drkey);
 
-	if (memcmp(&expected_key_2, &drkey, LF_CRYPTO_DRKEY_SIZE) != 0) {
+	if (memcmp(expected_key_2, drkey.key, sizeof expected_key_2) != 0) {
 		printf("Error: DRKey derivation wrong\n");
 		print_keys(expected_key_2, drkey.key);
 		error_count += 1;
@@ -376,7 +378,7 @@ test3()
 	lf_drkey_from_asas(&kmw->drkey_ctx, &as_as_drkey, &src_host_addr,
 			&dst_host_addr, 0x0300, &drkey);
 
-	if (memcmp(&expected_key_3, &drkey, LF_CRYPTO_DRKEY_SIZE) != 0) {
+	if (memcmp(expected_key_3, drkey.key, sizeof expected_key_3) != 0) {
 		printf("Error: DRKey derivation wrong\n");
 		print_keys(expected_key_3, drkey.key);
 		error_count += 1;
@@ -396,11 +398,13 @@ test3()
 	lf_drkey_from_asas(&kmw->drkey_ctx, &as_as_drkey, &src_host_addr,
 			&dst_host_addr, 0, &drkey);
 
-	if (memcmp(&expected_key_2, &drkey, LF_CRYPTO_DRKEY_SIZE) != 0) {
+	if (memcmp(expected_key_2, drkey.key, sizeof expected_key_2) != 0) {
 		printf("Error: DRKey derivation wrong\n");
 		print_keys(expected_key_2, drkey.key);
 		error_count += 1;
 	}
+
+	free_test_context(km);
 
 	return error_count;
 }
@@ -429,13 +433,15 @@ test4()
 	struct lf_config *config1 = lf_config_new_from_file(TEST1_JSON);
 	if (config1 == NULL) {
 		printf("Error: lf_config_new_from_file\n");
-		return 1;
+		error_count = 1;
+		goto free_context;
 	}
 
 	res = lf_keymanager_apply_config(km, config1);
 	if (res != 0) {
 		printf("Error: lf_keymanager_apply_config\n");
-		return 1;
+		error_count = 1;
+		goto free_config1;
 	}
 
 	key.as = config1->peers->isd_as;
@@ -447,25 +453,27 @@ test4()
 		error_count += 1;
 	}
 
-
 	struct lf_config *config3 = lf_config_new_from_file(TEST3_JSON);
 	if (config3 == NULL) {
 		printf("Error: lf_config_new_from_file\n");
-		return 1;
+		error_count = 1;
+		goto free_config1;
 	}
 
 	// apply new config with additional key
 	res = lf_keymanager_apply_config(km, config3);
 	if (res != 0) {
 		printf("Error: lf_keymanager_apply_config\n");
-		return 1;
+		error_count = 1;
+		goto free_config3;
 	}
 
 	res = rte_hash_lookup_data(km->fetcher->dict, &key,
 			(void **)&shared_secret_node);
 	if (res != 0) {
 		printf("Error: rte_hash_lookup_data\n");
-		return 1;
+		error_count = 1;
+		goto free_config3;
 	}
 
 	res = lf_keyfetcher_fetch_as_as_key(km->fetcher, km->src_as, key.as,
@@ -475,11 +483,17 @@ test4()
 		error_count += 1;
 	}
 
-	if (memcmp(&asas_key1.key, &asas_key3.key, LF_CRYPTO_DRKEY_SIZE) == 0) {
+	if (memcmp(asas_key1.key.key, asas_key3.key.key,
+				sizeof asas_key1.key.key) == 0) {
 		printf("Error: Key replacement failed\n");
 		error_count += 1;
 	}
 
+free_config3:
+	free(config3);
+free_config1:
+	free(config1);
+free_context:
 	free_test_context(km);
 
 	return error_count;

@@ -284,6 +284,7 @@ lf_keyfetcher_apply_config(struct lf_keyfetcher *fetcher,
 							&shared_secret_data->secret_values[i].key);
 				}
 			}
+			continue;
 		}
 
 		if (peer->shared_secret_configured_option) {
