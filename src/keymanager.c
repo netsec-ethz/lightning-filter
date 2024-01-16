@@ -117,7 +117,9 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 					km->src_as, key_ptr->drkey_protocol, ns_now,
 					&new_data->inbound_key);
 			if (res < 0) {
-				new_data->inbound_key.validity_not_after = 0;
+				(void)rte_free(new_data);
+				err = -1;
+				goto exit;
 			}
 
 			/* keep key as old key */
@@ -162,7 +164,9 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 					key_ptr->as, key_ptr->drkey_protocol, ns_now,
 					&new_data->outbound_key);
 			if (res < 0) {
-				new_data->outbound_key.validity_not_after = 0;
+				(void)rte_free(new_data);
+				err = -1;
+				goto exit;
 			}
 
 			/* keep key as old key */
