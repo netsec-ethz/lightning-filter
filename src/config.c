@@ -942,7 +942,7 @@ lf_config_new_from_file(const char *filename)
 	if (fread(file_content, file_size, 1, file) != 1) {
 		LF_LOG(ERR, "Unable to read content of %s\n", filename);
 		(void)fclose(file);
-		(void)free(file_content);
+		free(file_content);
 		return NULL;
 	}
 
@@ -951,29 +951,29 @@ lf_config_new_from_file(const char *filename)
 	/* Initialize config struct. Set all to 0. */
 	config = lf_config_new();
 	if (config == NULL) {
-		(void)free(file_content);
+		free(file_content);
 		return NULL;
 	}
 
 	json_val = json_parse(file_content, file_size);
 	if (json_val == NULL) {
 		LF_LOG(ERR, "Unable to parse json.\n");
-		(void)free(file_content);
-		(void)free(config);
+		free(file_content);
+		free(config);
 		return NULL;
 	}
 
 	res = parse_config(json_val, config);
 	if (res != 0) {
 		LF_LOG(ERR, "Unable to parse config.\n");
-		(void)free(file_content);
-		(void)free(config);
-		(void)json_value_free(json_val);
+		free(file_content);
+		free(config);
+		json_value_free(json_val);
 		return NULL;
 	}
 
-	(void)free(file_content);
-	(void)json_value_free(json_val);
+	free(file_content);
+	json_value_free(json_val);
 
 	return config;
 }

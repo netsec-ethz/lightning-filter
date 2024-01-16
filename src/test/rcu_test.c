@@ -23,7 +23,7 @@ new_rcu_qs(uint16_t nb_workers, struct rte_rcu_qsbr **qsv)
 	/* initialize QS variable for all workers */
 	if (rte_rcu_qsbr_init(*qsv, nb_workers) != 0) {
 		printf("RCU QSBR init failed\n");
-		(void)free(*qsv);
+		free(*qsv);
 		return -1;
 	}
 

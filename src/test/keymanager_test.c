@@ -50,7 +50,7 @@ new_rcu_qs(uint16_t nb_workers)
 	/* initialize QS variable for all workers */
 	if (rte_rcu_qsbr_init(qsv, nb_workers) != 0) {
 		LF_LOG(ERR, "RCU QSBR init failed\n");
-		(void)rte_free(qsv);
+		rte_free(qsv);
 		return NULL;
 	}
 	return qsv;
@@ -59,7 +59,7 @@ new_rcu_qs(uint16_t nb_workers)
 void
 free_rcu_qs(struct rte_rcu_qsbr *qsv)
 {
-	(void)rte_free(qsv);
+	rte_free(qsv);
 }
 
 void
