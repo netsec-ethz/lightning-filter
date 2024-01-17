@@ -51,12 +51,12 @@ lf_keyfetcher_derive_shared_key(struct lf_crypto_drkey_ctx *drkey_ctx,
 	uint64_t validity_not_before_ns =
 			secret->validity_not_before +
 			(int)((ns_valid - secret->validity_not_before) /
-					LF_DRKEY_VALIDITY_PERIOD) *
-					LF_DRKEY_VALIDITY_PERIOD;
+					LF_DRKEY_VALIDITY_PERIOD_NS) *
+					LF_DRKEY_VALIDITY_PERIOD_NS;
 	uint64_t validity_not_before_ns_be =
 			rte_cpu_to_be_64(validity_not_before_ns);
 	uint64_t validity_not_after_ns =
-			validity_not_before_ns + LF_DRKEY_VALIDITY_PERIOD;
+			validity_not_before_ns + LF_DRKEY_VALIDITY_PERIOD_NS - 1;
 
 	uint8_t buf[2 * LF_CRYPTO_CBC_BLOCK_SIZE] = { 0 };
 	buf[0] = LF_DRKEY_DERIVATION_TYPE_AS_AS;
@@ -149,6 +149,8 @@ lf_keyfetcher_fetch_host_as_key(struct lf_keyfetcher *fetcher, uint64_t src_ia,
 		}
 		lf_drkey_derive_host_as(&fetcher->drkey_ctx, &as_as_key.key,
 				fast_side_host, drkey_protocol, &key->key);
+		key->validity_not_before = as_as_key.validity_not_before;
+		key->validity_not_after = as_as_key.validity_not_after;
 	} else {
 		// fetch from control service
 		ms_valid = ns_valid / LF_TIME_NS_IN_MS;
@@ -201,6 +203,8 @@ lf_keyfetcher_fetch_host_host_key(struct lf_keyfetcher *fetcher,
 		}
 		lf_drkey_from_asas(&fetcher->drkey_ctx, &as_as_key.key, fast_side_host,
 				slow_side_host, drkey_protocol, &key->key);
+		key->validity_not_before = as_as_key.validity_not_before;
+		key->validity_not_after = as_as_key.validity_not_after;
 	} else {
 		// fetch from control service
 		ms_valid = ns_valid / LF_TIME_NS_IN_MS;
@@ -287,7 +291,7 @@ lf_keyfetcher_apply_config(struct lf_keyfetcher *fetcher,
 		if (peer->shared_secret_configured_option) {
 			// create entry of secret value for new hash table
 			shared_secret_data =
-					(struct lf_keyfetcher_sv_dictionary_data *)rte_malloc(NULL,
+					(struct lf_keyfetcher_sv_dictionary_data *)rte_zmalloc(NULL,
 							sizeof(struct lf_keyfetcher_sv_dictionary_data), 0);
 			if (shared_secret_data == NULL) {
 				LF_KEYFETCHER_LOG(ERR, "Failed to allocate memory for key\n");
@@ -320,7 +324,6 @@ lf_keyfetcher_apply_config(struct lf_keyfetcher *fetcher,
 	if (err == 0) {
 		return 0;
 	} else {
-		assert(1 == 0);
 		LF_KEYFETCHER_LOG(ERR, "Failed to set config");
 		return -1;
 	}

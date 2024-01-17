@@ -13,6 +13,8 @@
 #define DRKEY_SIZE      16
 #define VALIDITY_PERIOD 10000 /* 10 seconds */
 
+// TODO: add constant for drkey_service_addr len (48).
+
 int
 lf_drkey_fetcher_host_as_key(const char drkey_service_addr[48], uint64_t src_ia,
 		uint64_t dst_ia, uint64_t src_addr, uint16_t drkey_protocol,

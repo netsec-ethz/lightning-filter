@@ -34,7 +34,7 @@
 /*
  * DRKey validity period used for shared, configured keys.
  */
-#define LF_DRKEY_VALIDITY_PERIOD \
+#define LF_DRKEY_VALIDITY_PERIOD_NS \
 	(3 * 24 * 3600 * LF_TIME_NS_IN_S) /* in nanoseconds */
 
 /*
