@@ -14,6 +14,9 @@
  * long as it implements this interface.
  */
 
+// TODO (abojarski) use correct types for src_addr and dst_addr to accommodate
+// enough space for IPV6 addresses.
+
 /**
  * Fetch a host-AS (level 2) DRKey from a DRKey service.
  *
