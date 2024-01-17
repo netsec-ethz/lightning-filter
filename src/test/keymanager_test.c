@@ -346,8 +346,8 @@ test3()
 	uint8_t expected_key_1[LF_CRYPTO_DRKEY_SIZE] = { 0x82, 0x67, 0xa4, 0xe9,
 		0x10, 0x60, 0x8f, 0xa8, 0xdd, 0x46, 0xb1, 0x1b, 0x43, 0x95, 0x97,
 		0x49 };
-	lf_drkey_from_asas(&kmw->drkey_ctx, &as_as_zero_drkey, &src_host_addr,
-			&dst_host_addr, 0, &drkey);
+	lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx, &as_as_zero_drkey,
+			&src_host_addr, &dst_host_addr, 0, &drkey);
 
 	if (memcmp(expected_key_1, drkey.key, sizeof expected_key_1) != 0) {
 		printf("Error: DRKey derivation wrong\n");
@@ -362,8 +362,8 @@ test3()
 	uint8_t expected_key_2[LF_CRYPTO_DRKEY_SIZE] = { 0x75, 0xde, 0xfa, 0x86,
 		0xd5, 0x6d, 0x26, 0x5b, 0x0c, 0xc7, 0xe6, 0x31, 0x3a, 0x9a, 0x13,
 		0x14 };
-	lf_drkey_from_asas(&kmw->drkey_ctx, &as_as_drkey, &src_host_addr,
-			&dst_host_addr, 0, &drkey);
+	lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx, &as_as_drkey,
+			&src_host_addr, &dst_host_addr, 0, &drkey);
 
 	if (memcmp(expected_key_2, drkey.key, sizeof expected_key_2) != 0) {
 		printf("Error: DRKey derivation wrong\n");
@@ -375,8 +375,8 @@ test3()
 	uint8_t expected_key_3[LF_CRYPTO_DRKEY_SIZE] = { 0x81, 0xc0, 0x7f, 0xbc,
 		0x5c, 0xdd, 0xb1, 0xda, 0x18, 0xaa, 0xa0, 0x56, 0xbc, 0x22, 0xef,
 		0x56 };
-	lf_drkey_from_asas(&kmw->drkey_ctx, &as_as_drkey, &src_host_addr,
-			&dst_host_addr, 0x0300, &drkey);
+	lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx, &as_as_drkey,
+			&src_host_addr, &dst_host_addr, 0x0300, &drkey);
 
 	if (memcmp(expected_key_3, drkey.key, sizeof expected_key_3) != 0) {
 		printf("Error: DRKey derivation wrong\n");
@@ -395,8 +395,8 @@ test3()
 	dst_host_addr.addr = &dst_addr_ipv6;
 	dst_host_addr.type_length = 0x03;
 
-	lf_drkey_from_asas(&kmw->drkey_ctx, &as_as_drkey, &src_host_addr,
-			&dst_host_addr, 0, &drkey);
+	lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx, &as_as_drkey,
+			&src_host_addr, &dst_host_addr, 0, &drkey);
 
 	if (memcmp(expected_key_2, drkey.key, sizeof expected_key_2) != 0) {
 		printf("Error: DRKey derivation wrong\n");

@@ -58,8 +58,8 @@ lf_drkey_fetcher_host_as_key(const char drkey_service_addr[48], uint64_t src_ia,
 	lf_crypto_drkey_cbcmac(&drkey_ctx, &sv_drkey, buf, 16, as_as_drkey_buf);
 
 	lf_crypto_drkey_from_buf(&drkey_ctx, as_as_drkey_buf, &as_as_drkey);
-	lf_drkey_derive_host_as(&drkey_ctx, &as_as_drkey, &fast_side_addr,
-			drkey_protocol, &host_as_drkey);
+	lf_drkey_derive_host_as_from_as_as(&drkey_ctx, &as_as_drkey,
+			&fast_side_addr, drkey_protocol, &host_as_drkey);
 	memcpy(key, host_as_drkey.key, DRKEY_SIZE);
 
 	lf_crypto_drkey_ctx_close(&drkey_ctx);
@@ -112,8 +112,8 @@ lf_drkey_fetcher_host_host_key(const char drkey_service_addr[48],
 	lf_crypto_drkey_cbcmac(&drkey_ctx, &sv_drkey, buf, 16, as_as_drkey_buf);
 
 	lf_crypto_drkey_from_buf(&drkey_ctx, as_as_drkey_buf, &as_as_drkey);
-	lf_drkey_from_asas(&drkey_ctx, &as_as_drkey, &fast_side_addr,
-			&slow_side_addr, drkey_protocol, &host_host_drkey);
+	lf_drkey_derive_host_host_from_as_as(&drkey_ctx, &as_as_drkey,
+			&fast_side_addr, &slow_side_addr, drkey_protocol, &host_host_drkey);
 	memcpy(key, host_host_drkey.key, DRKEY_SIZE);
 
 	lf_crypto_drkey_ctx_close(&drkey_ctx);

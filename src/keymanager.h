@@ -157,8 +157,9 @@ lf_keymanager_worker_inbound_get_drkey(struct lf_keymanager_worker *kmw,
 	grace_period = 0;
 #endif
 	if (res >= 0 && (res == grace_period)) {
-		lf_drkey_from_asas(&kmw->drkey_ctx, &dict_node->inbound_key.key,
-				backend_addr, peer_addr, drkey_protocol, drkey);
+		lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx,
+				&dict_node->inbound_key.key, backend_addr, peer_addr,
+				drkey_protocol, drkey);
 		return 0;
 	}
 
@@ -167,8 +168,9 @@ lf_keymanager_worker_inbound_get_drkey(struct lf_keymanager_worker *kmw,
 	res = lf_keymanager_check_drkey_validity(&dict_node->old_inbound_key,
 			ns_valid);
 	if (res >= 0 && (res == grace_period)) {
-		lf_drkey_from_asas(&kmw->drkey_ctx, &dict_node->old_inbound_key.key,
-				backend_addr, peer_addr, drkey_protocol, drkey);
+		lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx,
+				&dict_node->old_inbound_key.key, backend_addr, peer_addr,
+				drkey_protocol, drkey);
 		return 0;
 	}
 
@@ -218,8 +220,9 @@ lf_keymanager_worker_outbound_get_drkey(struct lf_keymanager_worker *kmw,
 	res = 0;
 #endif
 	if (likely(res == 0 || res == 1)) {
-		lf_drkey_from_asas(&kmw->drkey_ctx, &dict_node->outbound_key.key,
-				peer_addr, backend_addr, drkey_protocol, drkey);
+		lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx,
+				&dict_node->outbound_key.key, peer_addr, backend_addr,
+				drkey_protocol, drkey);
 		return res;
 	}
 
@@ -227,8 +230,9 @@ lf_keymanager_worker_outbound_get_drkey(struct lf_keymanager_worker *kmw,
 	res = lf_keymanager_check_drkey_validity(&dict_node->old_outbound_key,
 			ns_valid);
 	if (likely(res == 0 || res == 1)) {
-		lf_drkey_from_asas(&kmw->drkey_ctx, &dict_node->old_outbound_key.key,
-				peer_addr, backend_addr, drkey_protocol, drkey);
+		lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx,
+				&dict_node->old_outbound_key.key, peer_addr, backend_addr,
+				drkey_protocol, drkey);
 		return res;
 	}
 

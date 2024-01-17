@@ -65,7 +65,7 @@ struct lf_keymanager_key_container {
  * @param drkey_ha Returning HOST-AS DRKey.
  */
 static inline void
-lf_drkey_derive_host_as(struct lf_crypto_drkey_ctx *drkey_ctx,
+lf_drkey_derive_host_as_from_as_as(struct lf_crypto_drkey_ctx *drkey_ctx,
 		const struct lf_crypto_drkey *drkey_asas,
 		const struct lf_host_addr *fast_side_host,
 		const uint16_t drkey_protocol, struct lf_crypto_drkey *drkey_ha)
@@ -105,7 +105,7 @@ lf_drkey_derive_host_as(struct lf_crypto_drkey_ctx *drkey_ctx,
  * @param drkey_hh Returning HOST-HOST DRKey.
  */
 static inline void
-lf_drkey_derive_host_host(struct lf_crypto_drkey_ctx *drkey_ctx,
+lf_drkey_derive_host_host_from_host_as(struct lf_crypto_drkey_ctx *drkey_ctx,
 		const struct lf_crypto_drkey *drkey_host_as,
 		const struct lf_host_addr *slow_side_host,
 		struct lf_crypto_drkey *drkey_hh)
@@ -146,17 +146,17 @@ lf_drkey_derive_host_host(struct lf_crypto_drkey_ctx *drkey_ctx,
  * @param drkey_hh Returning HOST-HOST DRKey.
  */
 static inline void
-lf_drkey_from_asas(struct lf_crypto_drkey_ctx *drkey_ctx,
+lf_drkey_derive_host_host_from_as_as(struct lf_crypto_drkey_ctx *drkey_ctx,
 		const struct lf_crypto_drkey *drkey_asas,
 		const struct lf_host_addr *fast_side_host,
 		const struct lf_host_addr *slow_side_host,
 		const uint16_t drkey_protocol, struct lf_crypto_drkey *drkey_hh)
 {
 	struct lf_crypto_drkey drkey_ha;
-	lf_drkey_derive_host_as(drkey_ctx, drkey_asas, fast_side_host,
+	lf_drkey_derive_host_as_from_as_as(drkey_ctx, drkey_asas, fast_side_host,
 			drkey_protocol, &drkey_ha);
-	lf_drkey_derive_host_host(drkey_ctx, &drkey_ha, slow_side_host, drkey_hh);
+	lf_drkey_derive_host_host_from_host_as(drkey_ctx, &drkey_ha, slow_side_host,
+			drkey_hh);
 }
-
 
 #endif // LF_DRKEY_H

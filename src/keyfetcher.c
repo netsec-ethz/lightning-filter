@@ -147,7 +147,7 @@ lf_keyfetcher_fetch_host_as_key(struct lf_keyfetcher *fetcher, uint64_t src_ia,
 		if (res < 0) {
 			return res;
 		}
-		lf_drkey_derive_host_as(&fetcher->drkey_ctx, &as_as_key.key,
+		lf_drkey_derive_host_as_from_as_as(&fetcher->drkey_ctx, &as_as_key.key,
 				fast_side_host, drkey_protocol, &key->key);
 		key->validity_not_before = as_as_key.validity_not_before;
 		key->validity_not_after = as_as_key.validity_not_after;
@@ -201,8 +201,9 @@ lf_keyfetcher_fetch_host_host_key(struct lf_keyfetcher *fetcher,
 		if (res < 0) {
 			return res;
 		}
-		lf_drkey_from_asas(&fetcher->drkey_ctx, &as_as_key.key, fast_side_host,
-				slow_side_host, drkey_protocol, &key->key);
+		lf_drkey_derive_host_host_from_as_as(&fetcher->drkey_ctx,
+				&as_as_key.key, fast_side_host, slow_side_host, drkey_protocol,
+				&key->key);
 		key->validity_not_before = as_as_key.validity_not_before;
 		key->validity_not_after = as_as_key.validity_not_after;
 	} else {
