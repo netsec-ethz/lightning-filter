@@ -4,9 +4,7 @@
 
 #include <inttypes.h>
 
-#include <rte_branch_prediction.h>
 #include <rte_byteorder.h>
-#include <rte_cycles.h>
 #include <rte_jhash.h>
 #include <rte_malloc.h>
 #include <rte_memcpy.h>
@@ -19,7 +17,6 @@
 #include "keymanager.h"
 #include "lib/crypto/crypto.h"
 #include "lib/log/log.h"
-#include "lib/telemetry/counters.h"
 #include "lib/time/time.h"
 
 static int
