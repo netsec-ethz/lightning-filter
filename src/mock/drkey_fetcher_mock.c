@@ -42,9 +42,9 @@ lf_drkey_fetcher_host_as_key(const char drkey_service_addr[48], uint64_t src_ia,
 
 	/* The DRKey's secret value (SV) has the drkey_protocol identifier (cpu
 	 * endian) as its first two bytes and zeros for the following bytes */
-	uint8_t sv[DRKEY_SIZE] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+	uint8_t sv[DRKEY_SIZE] = { 0 };
 	memcpy(sv, &drkey_protocol, sizeof(drkey_protocol));
-	uint8_t buf[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+	uint8_t buf[16] = { 0 };
 	memcpy(buf, &src_ia, sizeof src_ia);
 	memcpy(buf + 8, &dst_ia, sizeof dst_ia);
 
@@ -96,9 +96,9 @@ lf_drkey_fetcher_host_host_key(const char drkey_service_addr[48],
 
 	/* The DRKey's secret value (SV) has the drkey_protocol identifier (cpu
 	 * endian) as its first two bytes and zeros for the following bytes */
-	uint8_t sv[DRKEY_SIZE] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+	uint8_t sv[DRKEY_SIZE] = { 0 };
 	memcpy(sv, &drkey_protocol, sizeof(drkey_protocol));
-	uint8_t buf[16] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+	uint8_t buf[16] = { 0 };
 	memcpy(buf, &src_ia, sizeof src_ia);
 	memcpy(buf + 8, &dst_ia, sizeof dst_ia);
 

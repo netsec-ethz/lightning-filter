@@ -434,14 +434,14 @@ test4()
 	if (config1 == NULL) {
 		printf("Error: lf_config_new_from_file\n");
 		error_count = 1;
-		goto free_context;
+		goto exit;
 	}
 
 	res = lf_keymanager_apply_config(km, config1);
 	if (res != 0) {
 		printf("Error: lf_keymanager_apply_config\n");
 		error_count = 1;
-		goto free_config1;
+		goto exit;
 	}
 
 	key.as = config1->peers->isd_as;
@@ -457,7 +457,7 @@ test4()
 	if (config3 == NULL) {
 		printf("Error: lf_config_new_from_file\n");
 		error_count = 1;
-		goto free_config1;
+		goto exit;
 	}
 
 	// apply new config with additional key
@@ -465,7 +465,7 @@ test4()
 	if (res != 0) {
 		printf("Error: lf_keymanager_apply_config\n");
 		error_count = 1;
-		goto free_config3;
+		goto exit;
 	}
 
 	res = rte_hash_lookup_data(km->fetcher->dict, &key,
@@ -473,7 +473,7 @@ test4()
 	if (res != 0) {
 		printf("Error: rte_hash_lookup_data\n");
 		error_count = 1;
-		goto free_config3;
+		goto exit;
 	}
 
 	res = lf_keyfetcher_fetch_as_as_key(km->fetcher, km->src_as, key.as,
@@ -489,12 +489,16 @@ test4()
 		error_count += 1;
 	}
 
-free_config3:
-	free(config3);
-free_config1:
-	free(config1);
-free_context:
-	free_test_context(km);
+exit:
+	if (config3 != NULL) {
+		free(config3);
+	}
+	if (config1 != NULL) {
+		free(config1);
+	}
+	if (km != NULL) {
+		free_test_context(km);
+	}
 
 	return error_count;
 }

@@ -114,7 +114,8 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 					sizeof(struct lf_keymanager_dictionary_data));
 
 			res = lf_keyfetcher_fetch_as_as_key(km->fetcher, key_ptr->as,
-					km->src_as, key_ptr->drkey_protocol, ns_now,
+					km->src_as, key_ptr->drkey_protocol,
+					ns_now + LF_DRKEY_PREFETCHING_PERIOD,
 					&new_data->inbound_key);
 			if (res < 0) {
 				rte_free(new_data);
@@ -161,7 +162,8 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 					sizeof(struct lf_keymanager_dictionary_data));
 
 			res = lf_keyfetcher_fetch_as_as_key(km->fetcher, km->src_as,
-					key_ptr->as, key_ptr->drkey_protocol, ns_now,
+					key_ptr->as, key_ptr->drkey_protocol,
+					ns_now + LF_DRKEY_PREFETCHING_PERIOD,
 					&new_data->outbound_key);
 			if (res < 0) {
 				rte_free(new_data);
@@ -389,14 +391,13 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 		if (res < 0) {
 			dictionary_data->inbound_key.validity_not_after = 0;
 		}
+		dictionary_data->old_inbound_key.validity_not_after = 0;
 
 		res = lf_keyfetcher_fetch_as_as_key(km->fetcher, config->isd_as, key.as,
 				key.drkey_protocol, ns_now, &dictionary_data->outbound_key);
 		if (res < 0) {
 			dictionary_data->outbound_key.validity_not_after = 0;
 		}
-
-		dictionary_data->old_inbound_key.validity_not_after = 0;
 		dictionary_data->old_outbound_key.validity_not_after = 0;
 
 		res = rte_hash_add_key_data(km->dict, &key, (void *)dictionary_data);
@@ -477,7 +478,6 @@ lf_keymanager_init(struct lf_keymanager *km, uint16_t nb_workers,
 	if (km->dict == NULL) {
 		return -1;
 	}
-
 	km->src_as = 0;
 	memset(km->drkey_service_addr, 0, sizeof km->drkey_service_addr);
 
