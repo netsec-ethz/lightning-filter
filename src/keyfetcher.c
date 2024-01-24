@@ -85,7 +85,6 @@ lf_keyfetcher_derive_shared_key(struct lf_crypto_drkey_ctx *drkey_ctx,
 	return 0;
 }
 
-
 int
 lf_keyfetcher_fetch_as_as_key(struct lf_keyfetcher *kf, uint64_t src_ia,
 		uint64_t dst_ia, uint16_t drkey_protocol, uint64_t ns_valid,
@@ -105,15 +104,11 @@ lf_keyfetcher_fetch_as_as_key(struct lf_keyfetcher *kf, uint64_t src_ia,
 	key_id = rte_hash_lookup_data(kf->dict, &dict_key,
 			(void **)&shared_secret_node);
 	if (key_id >= 0) {
-		// derive next key locally
 		res = lf_keyfetcher_derive_shared_key(&kf->drkey_ctx,
 				shared_secret_node, src_ia, dst_ia, drkey_protocol, ns_valid,
 				key);
 	} else {
-		// fetch from control service
-		// for AS-AS keys there is no fetching from control service available.
-		LF_KEYFETCHER_LOG(ERR, "FETCH ASAS from DRKEY %d!\n", key_id);
-
+		LF_KEYFETCHER_LOG(ERR, "Fail to look up shared secret\n");
 		res = -1;
 	}
 	return res;
@@ -133,14 +128,12 @@ lf_keyfetcher_fetch_host_as_key(struct lf_keyfetcher *kf, uint64_t src_ia,
 	int64_t validity_not_before_ms, validity_not_after_ms;
 	uint8_t drkey_buf[LF_CRYPTO_DRKEY_SIZE];
 
-
 	// check if there is entry in cache
 	dict_key.as = src_ia;
 	dict_key.drkey_protocol = drkey_protocol;
 	key_id = rte_hash_lookup_data(kf->dict, &dict_key,
 			(void **)&shared_secret_node);
 	if (key_id >= 0) {
-		// derive next key locally
 		res = lf_keyfetcher_derive_shared_key(&kf->drkey_ctx,
 				shared_secret_node, src_ia, dst_ia, drkey_protocol, ns_valid,
 				&as_as_key);
@@ -172,11 +165,9 @@ lf_keyfetcher_fetch_host_as_key(struct lf_keyfetcher *kf, uint64_t src_ia,
 	return res;
 }
 
-
 int
-lf_keyfetcher_fetch_host_host_key(struct lf_keyfetcher *kf,
-		uint64_t src_ia, uint64_t dst_ia,
-		const struct lf_host_addr *fast_side_host,
+lf_keyfetcher_fetch_host_host_key(struct lf_keyfetcher *kf, uint64_t src_ia,
+		uint64_t dst_ia, const struct lf_host_addr *fast_side_host,
 		const struct lf_host_addr *slow_side_host, uint16_t drkey_protocol,
 		uint64_t ns_valid, struct lf_keymanager_key_container *key)
 {
@@ -194,16 +185,14 @@ lf_keyfetcher_fetch_host_host_key(struct lf_keyfetcher *kf,
 	key_id = rte_hash_lookup_data(kf->dict, &dict_key,
 			(void **)&shared_secret_node);
 	if (key_id >= 0) {
-		// derive next key locally
 		res = lf_keyfetcher_derive_shared_key(&kf->drkey_ctx,
 				shared_secret_node, src_ia, dst_ia, drkey_protocol, ns_valid,
 				&as_as_key);
 		if (res < 0) {
 			return res;
 		}
-		lf_drkey_derive_host_host_from_as_as(&kf->drkey_ctx,
-				&as_as_key.key, fast_side_host, slow_side_host, drkey_protocol,
-				&key->key);
+		lf_drkey_derive_host_host_from_as_as(&kf->drkey_ctx, &as_as_key.key,
+				fast_side_host, slow_side_host, drkey_protocol, &key->key);
 		key->validity_not_before = as_as_key.validity_not_before;
 		key->validity_not_after = as_as_key.validity_not_after;
 	} else {
@@ -233,14 +222,14 @@ int
 lf_keyfetcher_apply_config(struct lf_keyfetcher *kf,
 		const struct lf_config *config)
 {
-	LF_KEYFETCHER_LOG(ERR, "Apply config!\n");
-
 	int res, err = 0, key_id;
 	uint32_t iterator;
 	bool is_in_list;
 	struct lf_keyfetcher_dictionary_key key, *key_ptr;
 	struct lf_keyfetcher_sv_dictionary_data *shared_secret_data;
 	struct lf_config_peer *peer;
+
+	LF_KEYFETCHER_LOG(ERR, "Apply config!\n");
 
 	memcpy(kf->drkey_service_addr, config->drkey_service_addr,
 			sizeof kf->drkey_service_addr);
@@ -249,7 +238,6 @@ lf_keyfetcher_apply_config(struct lf_keyfetcher *kf,
 
 	for (iterator = 0; rte_hash_iterate(kf->dict, (void *)&key_ptr,
 							   (void **)&shared_secret_data, &iterator) >= 0;) {
-
 		is_in_list = false;
 		for (peer = config->peers; peer != NULL; peer = peer->next) {
 			if (peer->isd_as == key_ptr->as &&
@@ -263,9 +251,9 @@ lf_keyfetcher_apply_config(struct lf_keyfetcher *kf,
 					"Remove SV entry for AS " PRIISDAS " DRKey protocol %u\n",
 					PRIISDAS_VAL(rte_be_to_cpu_64(key_ptr->as)),
 					rte_be_to_cpu_16(key_ptr->drkey_protocol));
-			(void)rte_hash_del_key(kf->dict, key_ptr);
+			rte_hash_del_key(kf->dict, key_ptr);
 			// can be removed here since manager lock is beeing held
-			(void)rte_free(shared_secret_data);
+			rte_free(shared_secret_data);
 		}
 	}
 
@@ -316,7 +304,7 @@ lf_keyfetcher_apply_config(struct lf_keyfetcher *kf,
 					(void *)shared_secret_data);
 			if (res != 0) {
 				LF_KEYFETCHER_LOG(ERR, "Add key failed with %d!\n", key_id);
-				(void)rte_free(shared_secret_data);
+				rte_free(shared_secret_data);
 				err = 1;
 				break;
 			}
@@ -342,9 +330,9 @@ lf_keyfetcher_dictionary_free(struct rte_hash *dict)
 
 	for (iterator = 0; rte_hash_iterate(dict, (void *)&key_ptr, (void **)&data,
 							   &iterator) >= 0;) {
-		(void)rte_free(data);
+		rte_free(data);
 	}
-	(void)rte_hash_free(dict);
+	rte_hash_free(dict);
 }
 
 int

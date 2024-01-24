@@ -46,8 +46,8 @@
 #define FIELD_DRKEY_SERVICE_ADDR "drkey_service_addr"
 
 #define FIELD_SHARED_SECRETS "shared_secrets"
-#define FIELD_NOT_BEFORE    "not_before"
-#define FIELD_SECRET_VALUE  "sv"
+#define FIELD_NOT_BEFORE     "not_before"
+#define FIELD_SECRET_VALUE   "sv"
 
 #define FIELD_DST_RATELIMITER "dst_ratelimiter"
 
