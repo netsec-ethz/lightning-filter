@@ -50,7 +50,7 @@ struct lf_config_peer {
 	struct lf_config_ratelimit ratelimit;
 
 	/* preconfigured shared keys */
-	bool shared_secret_configured_option; /* if shared secrets are defined*/
+	bool shared_secrets_configured_option; /* if shared secrets are defined*/
 	struct lf_config_shared_secret shared_secrets[LF_CONFIG_SV_MAX];
 
 	/* LF-IP: ip -> isd_as map (TODO: move this to a separate map) */

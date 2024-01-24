@@ -14,7 +14,7 @@
 				"byte_rate": 9223372036854775807,
 				"packet_rate": 9223372036854775807
 			},
-			"shared_secret": [
+			"shared_secrets": [
 				{
 					"sv": "0123456789abcdef0000000000000000",
 					"not_before": "2023-11-29T00:00:00"
@@ -29,7 +29,7 @@
 				"packet_rate": 9223372036854775807
 			},
 			"ip": "10.248.1.1",
-			"shared_secret": [
+			"shared_secrets": [
 				{
 					"sv": "0123456789abcdef0123456789abcdef",
 					"not_before": "2023-11-29T00:00:00"

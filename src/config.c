@@ -45,7 +45,7 @@
 #define FIELD_DRKEY_PROTOCOL     "drkey_protocol"
 #define FIELD_DRKEY_SERVICE_ADDR "drkey_service_addr"
 
-#define FIELD_SHARED_SECRET "shared_secret"
+#define FIELD_SHARED_SECRETS "shared_secrets"
 #define FIELD_NOT_BEFORE    "not_before"
 #define FIELD_SECRET_VALUE  "sv"
 
@@ -91,7 +91,7 @@ peer_init(struct lf_config_peer *config_peer)
 		.isd_as = 1,
 		.next = NULL,
 
-		.shared_secret_configured_option = false,
+		.shared_secrets_configured_option = false,
 		.shared_secrets = { 0 },
 
 		/* per default no rate limit is defined for a peer */
@@ -255,6 +255,7 @@ parse_shared_secret(json_value *json_val,
 
 	return 0;
 }
+
 static int
 parse_shared_secret_list(json_value *json_val,
 		struct lf_config_shared_secret shared_secret[LF_CONFIG_SV_MAX])
@@ -278,9 +279,7 @@ parse_shared_secret_list(json_value *json_val,
 		return -1;
 	}
 	if (length < 1) {
-		LF_LOG(ERR, "Must define at least one shared secret (%d:%d)\n",
-				json_val->line, json_val->col);
-		return -1;
+		return 1;
 	}
 
 	for (i = 0; i < length; ++i) {
@@ -349,14 +348,16 @@ parse_peer(json_value *json_val, struct lf_config_peer *peer)
 				error_count++;
 			}
 			peer->ratelimit_option = true;
-		} else if (strcmp(field_name, FIELD_SHARED_SECRET) == 0) {
+		} else if (strcmp(field_name, FIELD_SHARED_SECRETS) == 0) {
 			res = parse_shared_secret_list(field_value, peer->shared_secrets);
-			if (res != 0) {
+			if (res == 0) {
+				peer->shared_secrets_configured_option = true;
+			}
+			if (res < 0) {
 				LF_LOG(ERR, "Invalid shared secret (%d:%d)\n",
 						field_value->line, field_value->col);
 				error_count++;
 			}
-			peer->shared_secret_configured_option = true;
 		} else {
 			LF_LOG(ERR, "Unknown field %s (%d:%d)\n", field_name,
 					field_value->line, field_value->col);
