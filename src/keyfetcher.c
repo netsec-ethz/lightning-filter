@@ -425,17 +425,16 @@ lf_keyfetcher_init(struct lf_keyfetcher *kf, uint32_t initial_size)
 	}
 	// NOLINTEND(readability-magic-numbers)
 	kf->size = initial_size;
+	kf->dict = key_dictionary_init(initial_size);
+	if (kf->dict == NULL) {
+		return -1;
+	}
 
 	memset(kf->drkey_service_addr, 0, sizeof kf->drkey_service_addr);
 
 	res = lf_crypto_drkey_ctx_init(&kf->drkey_ctx);
 	if (res != 0) {
 		/* TODO: error handling*/
-		return -1;
-	}
-
-	kf->dict = key_dictionary_init(initial_size);
-	if (kf->dict == NULL) {
 		return -1;
 	}
 
