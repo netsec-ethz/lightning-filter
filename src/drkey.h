@@ -12,7 +12,6 @@
 #include "lib/crypto/crypto.h"
 #include "lib/time/time.h"
 
-
 /*
  * A DRKey is valid during a certain epoch defined by a starting and ending
  * point in time. During the transition between an old key and a new key, both
@@ -59,14 +58,14 @@ struct lf_keymanager_key_container {
  * Derive HOST-AS DRKey from AS-AS DRKey.
  *
  * @param kmw Keymanager worker context.
- * @param drkey_asas AS-AS DRKey.
+ * @param drkey_as_as AS-AS DRKey.
  * @param fast_side_host Fast side host address.
  * @param drkey_protocol (network byte order).
  * @param drkey_ha Returning HOST-AS DRKey.
  */
 static inline void
 lf_drkey_derive_host_as_from_as_as(struct lf_crypto_drkey_ctx *drkey_ctx,
-		const struct lf_crypto_drkey *drkey_asas,
+		const struct lf_crypto_drkey *drkey_as_as,
 		const struct lf_host_addr *fast_side_host,
 		const uint16_t drkey_protocol, struct lf_crypto_drkey *drkey_ha)
 {
@@ -92,7 +91,7 @@ lf_drkey_derive_host_as_from_as_as(struct lf_crypto_drkey_ctx *drkey_ctx,
 	buf[3] = addr_type_len;
 	memcpy(buf + 4, addr, addr_len);
 
-	lf_crypto_drkey_derivation_step(drkey_ctx, drkey_asas, buf, buf_len,
+	lf_crypto_drkey_derivation_step(drkey_ctx, drkey_as_as, buf, buf_len,
 			drkey_ha);
 }
 
@@ -139,7 +138,7 @@ lf_drkey_derive_host_host_from_host_as(struct lf_crypto_drkey_ctx *drkey_ctx,
  * Derive HOST-HOST DRKey from AS-AS DRKey.
  *
  * @param kmw Keymanager worker context.
- * @param drkey_asas AS-AS DRKey.
+ * @param drkey_as_as AS-AS DRKey.
  * @param fast_side_host Fast side host address.
  * @param slow_side_host Slow side host address.
  * @param drkey_protocol (network byte order).
@@ -147,13 +146,13 @@ lf_drkey_derive_host_host_from_host_as(struct lf_crypto_drkey_ctx *drkey_ctx,
  */
 static inline void
 lf_drkey_derive_host_host_from_as_as(struct lf_crypto_drkey_ctx *drkey_ctx,
-		const struct lf_crypto_drkey *drkey_asas,
+		const struct lf_crypto_drkey *drkey_as_as,
 		const struct lf_host_addr *fast_side_host,
 		const struct lf_host_addr *slow_side_host,
 		const uint16_t drkey_protocol, struct lf_crypto_drkey *drkey_hh)
 {
 	struct lf_crypto_drkey drkey_ha;
-	lf_drkey_derive_host_as_from_as_as(drkey_ctx, drkey_asas, fast_side_host,
+	lf_drkey_derive_host_as_from_as_as(drkey_ctx, drkey_as_as, fast_side_host,
 			drkey_protocol, &drkey_ha);
 	lf_drkey_derive_host_host_from_host_as(drkey_ctx, &drkey_ha, slow_side_host,
 			drkey_hh);

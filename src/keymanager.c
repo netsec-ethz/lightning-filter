@@ -450,6 +450,7 @@ lf_keymanager_close(struct lf_keymanager *km)
 		lf_crypto_drkey_ctx_close(&km->workers[worker_id].drkey_ctx);
 	}
 	lf_keyfetcher_close(km->fetcher);
+	free(km->fetcher);
 	km->fetcher = NULL;
 	return 0;
 }
@@ -498,14 +499,14 @@ lf_keymanager_init(struct lf_keymanager *km, uint16_t nb_workers,
 
 	reset_statistics(&km->statistics);
 
-	struct lf_keyfetcher *fetcher;
-	fetcher = malloc(sizeof(struct lf_keyfetcher));
-	if (fetcher == NULL) {
+	km->fetcher = malloc(sizeof(struct lf_keyfetcher));
+	if (km->fetcher == NULL) {
 		return -1;
 	}
-	fetcher->dict = key_dictionary_init(initial_size);
-	lf_keyfetcher_init(fetcher, initial_size);
-	km->fetcher = fetcher;
+	res = lf_keyfetcher_init(km->fetcher, initial_size);
+	if (res != 0) {
+		return -1;
+	}
 
 	return 0;
 }

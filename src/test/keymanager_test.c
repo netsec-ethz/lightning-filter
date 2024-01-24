@@ -418,7 +418,9 @@ int
 test4()
 {
 	int res = 0, error_count = 0;
-	struct lf_keymanager *km;
+	struct lf_keymanager *km = NULL;
+	struct lf_config *config1 = NULL;
+	struct lf_config *config3 = NULL;
 	uint64_t ns_timestamp = 1702422000 * LF_TIME_NS_IN_S;
 
 	struct lf_keymanager_dictionary_key key;
@@ -430,7 +432,7 @@ test4()
 		return 1;
 	}
 
-	struct lf_config *config1 = lf_config_new_from_file(TEST1_JSON);
+	config1 = lf_config_new_from_file(TEST1_JSON);
 	if (config1 == NULL) {
 		printf("Error: lf_config_new_from_file\n");
 		error_count = 1;
@@ -453,7 +455,7 @@ test4()
 		error_count += 1;
 	}
 
-	struct lf_config *config3 = lf_config_new_from_file(TEST3_JSON);
+	config3 = lf_config_new_from_file(TEST3_JSON);
 	if (config3 == NULL) {
 		printf("Error: lf_config_new_from_file\n");
 		error_count = 1;
