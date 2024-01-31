@@ -58,6 +58,9 @@
 /* potential value for the ether field of a packet modifier */
 #define VALUE_ETHER_SRC_ADDR "src_addr"
 
+/* 16 byte buffer with zero value. */
+static const uint8_t zero_secret_value[16] = { 0 };
+
 /**
  * Ratelimit struct with the rate set to 0.
  *
@@ -225,6 +228,13 @@ parse_shared_secret(json_value *json_val,
 						field_value->line, field_value->col);
 				error_count++;
 			}
+			if (memcmp(shared_secret->sv, zero_secret_value,
+						sizeof shared_secret->sv) == 0) {
+				LF_LOG(ERR,
+						"Invalid shared secret. "
+						"Secret value can not be the all zero secret value.\n");
+				return -1;
+			}
 			sv_flag = true;
 		} else if (strcmp(field_name, FIELD_NOT_BEFORE) == 0) {
 			res = lf_json_parse_timestamp(field_value,
@@ -278,9 +288,6 @@ parse_shared_secret_list(json_value *json_val,
 				json_val->col);
 		return -1;
 	}
-	if (length < 1) {
-		return 1;
-	}
 
 	for (i = 0; i < length; ++i) {
 		res = parse_shared_secret(json_val->u.array.values[i],
@@ -290,7 +297,7 @@ parse_shared_secret_list(json_value *json_val,
 		}
 	}
 
-	return 0;
+	return length;
 }
 
 static int
@@ -350,7 +357,7 @@ parse_peer(json_value *json_val, struct lf_config_peer *peer)
 			peer->ratelimit_option = true;
 		} else if (strcmp(field_name, FIELD_SHARED_SECRETS) == 0) {
 			res = parse_shared_secret_list(field_value, peer->shared_secrets);
-			if (res == 0) {
+			if (res > 0) {
 				peer->shared_secrets_configured_option = true;
 			}
 			if (res < 0) {

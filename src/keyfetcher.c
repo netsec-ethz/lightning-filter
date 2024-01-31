@@ -19,6 +19,9 @@
 #include "lib/log/log.h"
 #include "lib/time/time.h"
 
+/* 16 byte buffer with zero value. */
+static const uint8_t zero_secret_value[16] = { 0 };
+
 static int
 lf_keyfetcher_derive_shared_key(struct lf_crypto_drkey_ctx *drkey_ctx,
 		struct lf_keyfetcher_sv_dictionary_data *secret_node, uint64_t src_ia,
@@ -31,8 +34,9 @@ lf_keyfetcher_derive_shared_key(struct lf_crypto_drkey_ctx *drkey_ctx,
 
 	// Find the correct shared secret to be used for current timestamp.
 	for (int i = 0; i < LF_CONFIG_SV_MAX; i++) {
-		if (secret_node->secret_values[i].validity_not_before == 0) {
-			break;
+		if (memcmp(secret_node->secret_values[i].key.key, zero_secret_value,
+					sizeof secret_node->secret_values[i].key.key) == 0) {
+			continue;
 		}
 		if (secret_node->secret_values[i].validity_not_before <= ns_valid) {
 			if (secret == NULL) {
