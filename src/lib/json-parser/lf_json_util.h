@@ -274,15 +274,50 @@ lf_json_parse_timestamp(const json_value *json_val, uint64_t *val)
 		return -1;
 	}
 
-	date.tm_year = atoi(bufstr) - 1900;
-	date.tm_mon = atoi(bufstr + 5) - 1;
-	date.tm_mday = atoi(bufstr + 8);
-	date.tm_hour = atoi(bufstr + 11);
-	date.tm_min = atoi(bufstr + 14);
-	date.tm_sec = atoi(bufstr + 17);
+	uint64_t pared_num;
+	int res;
+	res = lf_parse_unum(bufstr, &pared_num);
+	if (res < 0) {
+		return -1;
+	}
+	date.tm_year = (int)pared_num - 1900;
+
+	res = lf_parse_unum(bufstr + 5, &pared_num);
+	if (res < 0) {
+		return -1;
+	}
+	date.tm_mon = (int)pared_num - 1;
+
+	res = lf_parse_unum(bufstr + 8, &pared_num);
+	if (res < 0) {
+		return -1;
+	}
+	date.tm_mday = (int)pared_num;
+
+	res = lf_parse_unum(bufstr + 11, &pared_num);
+	if (res < 0) {
+		return -1;
+	}
+	date.tm_hour = (int)pared_num;
+
+	res = lf_parse_unum(bufstr + 14, &pared_num);
+	if (res < 0) {
+		return -1;
+	}
+	date.tm_min = (int)pared_num;
+
+	res = lf_parse_unum(bufstr + 17, &pared_num);
+	if (res < 0) {
+		return -1;
+	}
+	date.tm_sec = (int)pared_num;
 
 	// NOTE: timegm is only available on linux systems
 	time_t unix_time = timegm(&date);
+	if (unix_time < 0) {
+		return -1;
+	}
+
 	*val = (uint64_t)(unix_time) * (uint64_t)1e9;
 
 	return 0;
