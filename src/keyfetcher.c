@@ -267,6 +267,7 @@ lf_keyfetcher_apply_config(struct lf_keyfetcher *kf,
 			}
 		}
 		if (!is_in_list) {
+			// Remove SV since peer is no longer configured.
 			LF_KEYFETCHER_LOG(DEBUG,
 					"Remove SV entry for AS " PRIISDAS " DRKey protocol %u\n",
 					PRIISDAS_VAL(rte_be_to_cpu_64(key_ptr->as)),
@@ -293,6 +294,16 @@ lf_keyfetcher_apply_config(struct lf_keyfetcher *kf,
 							peer->shared_secrets[i].sv,
 							&shared_secret_data->secret_values[i].key);
 				}
+			} else {
+				// Peer still exists but has no longer secret values defined.
+				LF_KEYFETCHER_LOG(DEBUG,
+						"Peer has no longer SVs defined. Remove SV entry for "
+						"AS " PRIISDAS " DRKey protocol %u\n",
+						PRIISDAS_VAL(rte_be_to_cpu_64(key.as)),
+						rte_be_to_cpu_16(key.drkey_protocol));
+				rte_hash_del_key(kf->dict, &key);
+				// can be removed here since manager lock is beeing held
+				rte_free(shared_secret_data);
 			}
 			continue;
 		}
