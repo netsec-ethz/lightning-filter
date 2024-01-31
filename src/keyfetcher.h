@@ -15,9 +15,17 @@
 #include "lib/crypto/crypto.h"
 #include "lib/log/log.h"
 
-
-#define LF_KEYFETCHER_LOG(level, ...) LF_LOG(level, "Keyfetcher: " __VA_ARGS__)
-
+/**
+ * The keyfetcher fetches the requested DRKeys.
+ * It either fetches the keys from the control service or derives them for peers
+ * that have shared secret values configured. The configured shared values are
+ * stored in the keyfetcher.
+ *
+ * The keyfetcher does not implement additional caching.
+ *
+ * The CS fetching depends on a DRKey fetcher module, which depends on the
+ * deployment setup.
+ */
 
 struct lf_keyfetcher_sv_container {
 	uint64_t validity_not_before; /* Unix timestamp (nanoseconds) */

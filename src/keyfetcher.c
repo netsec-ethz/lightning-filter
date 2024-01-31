@@ -19,9 +19,41 @@
 #include "lib/log/log.h"
 #include "lib/time/time.h"
 
+/**
+ * Log function for key fetcher service (not on data path).
+ * Format: "Keyfetcher: log message here"
+ */
+#define LF_KEYFETCHER_LOG(level, ...) LF_LOG(level, "Keyfetcher: " __VA_ARGS__)
+
 /* 16 byte buffer with zero value. */
 static const uint8_t zero_secret_value[16] = { 0 };
 
+/**
+ * Derives a short term AS-AS key from the shared secret.
+ * The derivation is done using AES-CBC MAC keyed with the shared secret and the
+ * input:
+ *
+ * (type | ISD_AS1 | ISD_AS2 | start timestamp)
+ *
+ * "type" is the 1 byte fixed constant 0.
+ * "ISD_AS1" is the ISD_AS number (8 byte) in network byte order of the fast
+ * side AS.
+ * "ISD_AS2" is the ISD_AS number (8 byte) in network byte order of the slow
+ * side AS.
+ * "start timestamp" is the timestamp in ns (8 byte) of the start time of the
+ * validity period for the resulting key. This can be synchronized between peers
+ * since the initial start time is configured by both and consequent start times
+ * can be calculated by configured time + k * VALIDITY_PERIOD for some k such
+ * that the key is currently valid.
+ *
+ * @param drkey_ctx DRKey cipher context.
+ * @param secret_node configured shared secret values.
+ * @param src_ia DRKey slow side (CPU endian).
+ * @param dst_ia DRKey fast side (CPU endian).
+ * @param drkey_protocol (network byte order).
+ * @param ns_valid time in nanoseconds for which the key should be valid.
+ * @param key Returning AS-AS key.
+ */
 static int
 lf_keyfetcher_derive_shared_key(struct lf_crypto_drkey_ctx *drkey_ctx,
 		struct lf_keyfetcher_sv_dictionary_data *secret_node, uint64_t src_ia,

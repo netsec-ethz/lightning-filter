@@ -57,7 +57,7 @@ struct lf_keymanager_key_container {
 /**
  * Derive HOST-AS DRKey from AS-AS DRKey.
  *
- * @param kmw Keymanager worker context.
+ * @param drkey_ctx DRKey cipher context.
  * @param drkey_as_as AS-AS DRKey.
  * @param fast_side_host Fast side host address.
  * @param drkey_protocol (network byte order).
@@ -98,7 +98,7 @@ lf_drkey_derive_host_as_from_as_as(struct lf_crypto_drkey_ctx *drkey_ctx,
 /**
  * Derive HOST-HOST DRKey from HOST-AS DRKey.
  *
- * @param kmw Keymanager worker context.
+ * @param drkey_ctx DRKey cipher context.
  * @param drkey_host_as HOST-AS DRKey.
  * @param slow_side_host Slow side host address.
  * @param drkey_hh Returning HOST-HOST DRKey.
@@ -137,7 +137,7 @@ lf_drkey_derive_host_host_from_host_as(struct lf_crypto_drkey_ctx *drkey_ctx,
 /**
  * Derive HOST-HOST DRKey from AS-AS DRKey.
  *
- * @param kmw Keymanager worker context.
+ * @param drkey_ctx DRKey cipher context.
  * @param drkey_as_as AS-AS DRKey.
  * @param fast_side_host Fast side host address.
  * @param slow_side_host Slow side host address.

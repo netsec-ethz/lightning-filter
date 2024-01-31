@@ -25,11 +25,11 @@
 #include "lib/log/log.h"
 
 /**
- * The key manager manages the storage and fetching of the required DRKeys.
- * It provides an interface for workers to query host-to-host keys efficiently.
+ * The key manager manages the storage, caching and fetching of the required
+ * DRKeys. It provides an interface for workers to query host-to-host keys
+ * efficiently.
  *
- * For the fetching, it depends on a DRKey fetcher module, which depends on the
- * deployment setup.
+ * For the fetching, it uses the keyfetcher.
  */
 
 #define LF_KEYMANAGER_INTERVAL 0.5 /* seconds */
