@@ -357,7 +357,7 @@ parse_peer(json_value *json_val, struct lf_config_peer *peer)
 			peer->ratelimit_option = true;
 		} else if (strcmp(field_name, FIELD_SHARED_SECRETS) == 0) {
 			res = parse_shared_secret_list(field_value, peer->shared_secrets);
-			if (res > 0) {
+			if (res >= 0) {
 				peer->shared_secrets_configured_option = true;
 			}
 			if (res < 0) {
