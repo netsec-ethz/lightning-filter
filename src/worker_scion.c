@@ -483,7 +483,7 @@ check_pkt_hash(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 		lf_statistics_worker_counter_inc(worker_context->statistics,
 				invalid_hash);
 	} else {
-		LF_WORKER_LOG_DP(DEBUG, "Pack hash check passed.\n");
+		LF_WORKER_LOG_DP(DEBUG, "Packet hash check passed.\n");
 	}
 
 #if (LF_WORKER_IGNORE_HASH_CHECK)
