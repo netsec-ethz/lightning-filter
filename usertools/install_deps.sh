@@ -63,9 +63,9 @@ popd && popd && popd
 #######################################
 pushd $DEP_DIR
 # Get source
-curl -LO https://go.dev/dl/go1.17.9.linux-amd64.tar.gz
-echo "9dacf782028fdfc79120576c872dee488b81257b1c48e9032d122cfdb379cca6 go1.17.9.linux-amd64.tar.gz" | sha256sum -c
-sudo tar -C $DEP_DIR -xzf go1.17.9.linux-amd64.tar.gz
+curl -LO https://golang.org/dl/go1.21.2.linux-amd64.tar.gz
+echo "f5414a770e5e11c6e9674d4cd4dd1f4f630e176d1828d3427ea8ca4211eee90d go1.21.2.linux-amd64.tar.gz" | sha256sum -c
+sudo tar -C $DEP_DIR -xzf go1.21.2.linux-amd64.tar.gz
 # Add to PATH
 echo >> $ENV_VARS_FILE
 echo "# set PATH so it includes Go" >> $ENV_VARS_FILE

@@ -13,9 +13,9 @@ https://go.dev/doc/install
 
 On x86:
 ```
-curl -LO https://go.dev/dl/go1.17.9.linux-amd64.tar.gz
-echo "9dacf782028fdfc79120576c872dee488b81257b1c48e9032d122cfdb379cca6 go1.17.9.linux-amd64.tar.gz" | sha256sum -c
-sudo tar -C /usr/local -xzf go1.17.9.linux-amd64.tar.gz
+curl -LO https://golang.org/dl/go1.21.2.linux-amd64.tar.gz
+echo "f5414a770e5e11c6e9674d4cd4dd1f4f630e176d1828d3427ea8ca4211eee90d go1.21.2.linux-amd64.tar.gz" | sha256sum -c
+sudo tar -C /usr/local -xzf go1.21.2.linux-amd64.tar.gz
 ```
 
 ```
@@ -38,25 +38,21 @@ Don't forget to remove the PATH entry in `~/.profile`.
 
 ### Install SCION (Modules)
 
-Besides the official SCION repository, there also exists the experimental fork from the Network Security Group at ETH Zurich:
-https://github.com/netsec-ethz/scion
-
-Currently, only the experimental fork supports DRKey.
-Therefore, LightningFilter requires that version.
-
 To obtain the source, clone the repository:
 ```
-git clone https://github.com/netsec-ethz/scion.git
+git clone https://github.com/scionproto/scion.git
+cd scion
+git checkout v0.9.1
 ```
 
 Modules can be installed with `go build`.
-E.g., the `testnet_scion` setup requires the control service (cs), border router (posix-router), dispatcher (dispatcher), daemon (daemon), the PKI (scion-pki), and SCION tools like ping (scion):
+E.g., the `testnet_scion` setup requires the control service (control), border router (router), dispatcher (dispatcher), daemon (daemon), the PKI (scion-pki), and SCION tools like ping (scion):
 
 ```
-go build -o ./bin/ ./go/cs/
-go build -o ./bin/ ./go/posix-router/
-go build -o ./bin/ ./go/dispatcher/
-go build -o ./bin/ ./go/daemon/
-go build -o ./bin/ ./go/scion-pki/
-go build -o ./bin/ ./go/scion/
+go build -o ./bin/ ./control/cmd/control
+go build -o ./bin/ ./daemon/cmd/daemon
+go build -o ./bin/ ./dispatcher/cmd/dispatcher
+go build -o ./bin/ ./router/cmd/router
+go build -o ./bin/ ./scion/cmd/scion
+go build -o ./bin/ ./scion-pki/cmd/scion-pki
 ```
