@@ -9,6 +9,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include "lib/crypto/crypto.h"
+
 /**
  * This module defines the config structure and offers functionality to parse a
  * JSON configuration file, check its format, and return a C struct representing
@@ -17,6 +19,11 @@
  */
 
 #define LF_CONFIG_PEERS_MAX 1000000 /* 1'000'000 */
+
+/*
+ * Maximum number of SV that can be configured per peer
+ */
+#define LF_CONFIG_SV_MAX 5
 
 /*
  * Rate limits are always defined for bytes and packets.
@@ -28,6 +35,11 @@ struct lf_config_ratelimit {
 	uint64_t packet_burst;
 };
 
+struct lf_config_shared_secret {
+	uint8_t sv[LF_CRYPTO_DRKEY_SIZE];
+	uint64_t not_before;
+};
+
 struct lf_config_peer {
 	/* peer identifier */
 	uint64_t isd_as;         /* in network byte order */
@@ -36,6 +48,10 @@ struct lf_config_peer {
 	/* rate limit */
 	bool ratelimit_option; /* if a rate limit is defined */
 	struct lf_config_ratelimit ratelimit;
+
+	/* preconfigured shared keys */
+	bool shared_secrets_configured_option; /* if shared secrets are defined*/
+	struct lf_config_shared_secret shared_secrets[LF_CONFIG_SV_MAX];
 
 	/* LF-IP: ip -> isd_as map (TODO: move this to a separate map) */
 	uint32_t ip; /* in network byte order */

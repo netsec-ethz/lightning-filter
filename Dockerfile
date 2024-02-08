@@ -15,9 +15,9 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Golang
-RUN curl -LO https://go.dev/dl/go1.17.9.linux-amd64.tar.gz && \
-    echo "9dacf782028fdfc79120576c872dee488b81257b1c48e9032d122cfdb379cca6 go1.17.9.linux-amd64.tar.gz" | sha256sum -c && \
-    rm -rf /usr/local/go && tar -C /usr/local -xzf go1.17.9.linux-amd64.tar.gz
+RUN curl -LO https://golang.org/dl/go1.21.2.linux-amd64.tar.gz && \
+    echo "f5414a770e5e11c6e9674d4cd4dd1f4f630e176d1828d3427ea8ca4211eee90d go1.21.2.linux-amd64.tar.gz" | sha256sum -c && \
+    rm -rf /usr/local/go && tar -C /usr/local -xzf go1.21.2.linux-amd64.tar.gz
 ENV PATH /usr/local/go/bin:$PATH
 
 # Install DPDK
@@ -52,14 +52,16 @@ RUN sudo apt-get update && \
     sudo rm -rf /var/lib/apt/lists/* && \
     sudo pip3 install plumbum toml supervisor-wildcards
 
-# Require SCION NetSec binaries (contain DRKey) for SCION tests.
-RUN git clone https://github.com/netsec-ethz/scion.git && cd scion && \
-    go build -o ./bin/ ./go/cs/ && \
-    go build -o ./bin/ ./go/posix-router/ && \
-    go build -o ./bin/ ./go/dispatcher/ && \
-    go build -o ./bin/ ./go/daemon/ && \
-    go build -o ./bin/ ./go/scion-pki/ && \
-    go build -o ./bin/ ./go/scion/
+# Require SCION binaries for SCION tests.
+RUN git clone https://github.com/scionproto/scion.git && \
+    cd scion && \
+    git checkout v0.9.1 && \
+    go build -o ./bin/ ./control/cmd/control && \
+    go build -o ./bin/ ./daemon/cmd/daemon && \
+    go build -o ./bin/ ./dispatcher/cmd/dispatcher && \
+    go build -o ./bin/ ./router/cmd/router && \
+    go build -o ./bin/ ./scion/cmd/scion && \
+    go build -o ./bin/ ./scion-pki/cmd/scion-pki
 ENV SCION_DIR=/home/$USER/scion
 ENV SCION_BIN=/home/$USER/scion/bin
 

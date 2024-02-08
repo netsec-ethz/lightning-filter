@@ -81,7 +81,7 @@ dictionary_set(struct rte_hash *dict,
 				(void *)dictionary_data);
 		if (res != 0) {
 			LF_RATELIMITER_LOG(ERR, "Fail to add dictionary entry.\n");
-			(void)rte_free(dictionary_data);
+			rte_free(dictionary_data);
 			return res;
 		}
 		key_id = rte_hash_lookup(dict, dictionary_key);

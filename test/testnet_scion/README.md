@@ -32,20 +32,21 @@ To remove the network run
 The LightningFilter documentation provides instructions to install SCION on a machine (see [docs/SCION.md](../../docs/SCION.md)).
 
 For the test setup the following SCION modules are required:
-control service (cs), border router (posix-router), dispatcher (dispatcher), daemon (daemon), and the PKI (scion-pki).
+control service (control), border router (router), dispatcher (dispatcher), daemon (daemon), and the PKI (scion-pki), and SCION tools like ping (scion).
 
 For that run following code in the SCION directory:
 ```
-go build -o ./bin/ ./go/cs/
-go build -o ./bin/ ./go/posix-router/
-go build -o ./bin/ ./go/dispatcher/
-go build -o ./bin/ ./go/daemon/
-go build -o ./bin/ ./go/scion-pki/
+go build -o ./bin/ ./control/cmd/control
+go build -o ./bin/ ./daemon/cmd/daemon
+go build -o ./bin/ ./dispatcher/cmd/dispatcher
+go build -o ./bin/ ./router/cmd/router
+go build -o ./bin/ ./scion/cmd/scion
+go build -o ./bin/ ./scion-pki/cmd/scion-pki
 ```
 
 Optionally also build the SIG:
 ```
-go build -o ./bin/ ./go/posix-gateway/
+go build -o ./bin/ ./gateway/cmd/gateway
 ```
 
 ### SCION Topology

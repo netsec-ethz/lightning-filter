@@ -15,6 +15,8 @@
 #include <rte_spinlock.h>
 
 #include "config.h"
+#include "drkey.h"
+#include "keyfetcher.h"
 #include "lf.h"
 #include "lib/crypto/crypto.h"
 #include "lib/telemetry/counters.h"
@@ -23,36 +25,14 @@
 #include "lib/log/log.h"
 
 /**
- * The key manager manages the storage and fetching of the required DRKeys.
- * It provides an interface for workers to query host-to-host keys efficiently.
+ * The key manager manages the storage, caching and fetching of the required
+ * DRKeys. It provides an interface for workers to query host-to-host keys
+ * efficiently.
  *
- * For the fetching, it depends on a DRKey fetcher module, which depends on the
- * deployment setup.
+ * For the fetching, it uses the keyfetcher.
  */
 
 #define LF_KEYMANAGER_INTERVAL 0.5 /* seconds */
-
-/*
- * A DRKey is valid during a certain epoch defined by a starting and ending
- * point in time. During the transition between an old key and a new key, both
- * keys are valid. This transition period is defined by the
- * LF_DRKEY_GRACE_PERIOD, which extends the ending point of the old key by a
- * certain amount of time.
- */
-#define LF_DRKEY_GRACE_PERIOD       (2 * LF_TIME_NS_IN_S) /* in nanoseconds */
-#define LF_DRKEY_PREFETCHING_PERIOD (1 * LF_TIME_NS_IN_S) /* in nanoseconds */
-
-/**
- * The key container wraps all information required to use a key.
- * A DRKeys validity is usually defined in seconds. Because the workers operate
- * with nanosecond timestamps, the validity timestamps are also stored in
- * nanoseconds to avoid any conversion.
- */
-struct lf_keymanager_key_container {
-	uint64_t validity_not_before; /* Unix timestamp (nanoseconds) */
-	uint64_t validity_not_after;  /* Unix timestamp (nanoseconds) */
-	struct lf_crypto_drkey key;
-};
 
 struct lf_keymanager_worker {
 	struct rte_hash *dict;
@@ -93,6 +73,8 @@ struct lf_keymanager {
 
 	uint64_t src_as;
 
+	struct lf_keyfetcher *fetcher;
+
 	char drkey_service_addr[48];
 
 	/* crypto DRKey context */
@@ -131,36 +113,6 @@ lf_keymanager_check_drkey_validity(struct lf_keymanager_key_container *drkey,
 	}
 
 	return -1;
-}
-
-/**
- * Derive host-host DRKey from AS-AS DRKey.
- *
- * @param kmw Keymanager worker context.
- * @param drkey_asas AS-AS DRKey.
- * @param fast_side_host Fast side host address.
- * @param slow_side_host Slow side host address.
- * @param drkey_hh Returning host-host DRKey.
- */
-static inline void
-lf_keymanager_drkey_from_asas(struct lf_keymanager_worker *kmw,
-		const struct lf_crypto_drkey *drkey_asas,
-		const struct lf_host_addr *fast_side_host,
-		const struct lf_host_addr *slow_side_host,
-		struct lf_crypto_drkey *drkey_hh)
-{
-	assert(LF_HOST_ADDR_LENGTH(fast_side_host) <= LF_CRYPTO_CBC_BLOCK_SIZE);
-	assert(LF_HOST_ADDR_LENGTH(slow_side_host) <= LF_CRYPTO_CBC_BLOCK_SIZE);
-
-	/* TODO: prepend key type and address length/type */
-	uint8_t buf[2 * LF_CRYPTO_CBC_BLOCK_SIZE] = { 0 };
-
-	memcpy(buf, fast_side_host->addr, LF_HOST_ADDR_LENGTH(fast_side_host));
-	memcpy(buf + LF_CRYPTO_CBC_BLOCK_SIZE, slow_side_host->addr,
-			LF_HOST_ADDR_LENGTH(slow_side_host));
-
-	lf_crypto_drkey_derivation_step(&kmw->drkey_ctx, drkey_asas, buf,
-			sizeof(buf), drkey_hh);
 }
 
 /**
@@ -205,8 +157,9 @@ lf_keymanager_worker_inbound_get_drkey(struct lf_keymanager_worker *kmw,
 	grace_period = 0;
 #endif
 	if (res >= 0 && (res == grace_period)) {
-		lf_keymanager_drkey_from_asas(kmw, &dict_node->inbound_key.key,
-				backend_addr, peer_addr, drkey);
+		lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx,
+				&dict_node->inbound_key.key, backend_addr, peer_addr,
+				drkey_protocol, drkey);
 		return 0;
 	}
 
@@ -215,8 +168,9 @@ lf_keymanager_worker_inbound_get_drkey(struct lf_keymanager_worker *kmw,
 	res = lf_keymanager_check_drkey_validity(&dict_node->old_inbound_key,
 			ns_valid);
 	if (res >= 0 && (res == grace_period)) {
-		lf_keymanager_drkey_from_asas(kmw, &dict_node->old_inbound_key.key,
-				backend_addr, peer_addr, drkey);
+		lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx,
+				&dict_node->old_inbound_key.key, backend_addr, peer_addr,
+				drkey_protocol, drkey);
 		return 0;
 	}
 
@@ -266,8 +220,9 @@ lf_keymanager_worker_outbound_get_drkey(struct lf_keymanager_worker *kmw,
 	res = 0;
 #endif
 	if (likely(res == 0 || res == 1)) {
-		lf_keymanager_drkey_from_asas(kmw, &dict_node->outbound_key.key,
-				peer_addr, backend_addr, drkey);
+		lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx,
+				&dict_node->outbound_key.key, peer_addr, backend_addr,
+				drkey_protocol, drkey);
 		return res;
 	}
 
@@ -275,8 +230,9 @@ lf_keymanager_worker_outbound_get_drkey(struct lf_keymanager_worker *kmw,
 	res = lf_keymanager_check_drkey_validity(&dict_node->old_outbound_key,
 			ns_valid);
 	if (likely(res == 0 || res == 1)) {
-		lf_keymanager_drkey_from_asas(kmw, &dict_node->old_outbound_key.key,
-				peer_addr, backend_addr, drkey);
+		lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx,
+				&dict_node->old_outbound_key.key, peer_addr, backend_addr,
+				drkey_protocol, drkey);
 		return res;
 	}
 

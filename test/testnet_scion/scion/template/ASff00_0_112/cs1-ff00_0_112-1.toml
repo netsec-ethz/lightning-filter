@@ -28,11 +28,8 @@ addr = "127.0.0.27:31152"
 [log.console]
 level = "debug"
 
-[drkey.lvl1_db]
-connection = "gen-cache/cs1-ff00_0_112-1.lvl1.db"
+[drkey.level1_db]
+connection = "gen-cache/cs1-ff00_0_112-1.drkey_level1.db"
 
-[drkey.sv_db]
-connection = "gen-cache/cs1-ff00_0_112-1.sv.db"
-
-[drkey.delegation]
-colibri = [ "10.248.8.1", "10.248.8.2",]
+[drkey.secret_value_db]
+connection = "gen-cache/cs1-ff00_0_112-1.secret_value.db"

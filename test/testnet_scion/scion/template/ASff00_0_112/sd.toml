@@ -9,12 +9,11 @@ connection = "gen-cache/sd1-ff00_0_112.trust.db"
 [path_db]
 connection = "gen-cache/sd1-ff00_0_112.path.db"
 
-[drkey_lvl2_db]
-connection = "gen-cache/sd1-ff00_0_112.drkey.db"
+[drkey_level2_db]
+connection = "gen-cache/sd1-ff00_0_112.drkey_level2.db"
 
 [sd]
 address = "127.0.0.28:30255"
-bind_dialer_to_address = true
 
 [tracing]
 enabled = true

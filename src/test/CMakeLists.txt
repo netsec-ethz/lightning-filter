@@ -51,7 +51,7 @@ add_executable(keymanager_test EXCLUDE_FROM_ALL keymanager_test.c)
 add_test(NAME keymanager_test COMMAND keymanager_test --no-huge)
 # Dependencies
 target_sources(keymanager_test PRIVATE log_mock.c)
-target_sources(keymanager_test PRIVATE ../keymanager.c ../mock/drkey_fetcher_mock.c ../lib/crypto/crypto.c ../config.c ../lib/ipc/ipc.c)
+target_sources(keymanager_test PRIVATE ../mock/drkey_fetcher_mock.c ../keyfetcher.c ../keymanager.c ../lib/crypto/crypto.c ../config.c ../lib/ipc/ipc.c)
 # DPDK
 add_definitions(${DPDK_STATIC_CFLAGS}) # TODO: target
 target_include_directories(keymanager_test PRIVATE ${DPDK_SATIC_INCLUDE_DIRS})
@@ -70,6 +70,7 @@ add_custom_target(keymanager_test_file
     copy_if_different
     ${CMAKE_CURRENT_LIST_DIR}/keymanager_test1.json
     ${CMAKE_CURRENT_LIST_DIR}/keymanager_test2.json
+    ${CMAKE_CURRENT_LIST_DIR}/keymanager_test3.json
     ${CMAKE_CURRENT_BINARY_DIR}/
 )
 add_dependencies(keymanager_test keymanager_test_file)

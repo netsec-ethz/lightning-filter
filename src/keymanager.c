@@ -15,6 +15,7 @@
 
 #include "config.h"
 #include "drkey_fetcher.h"
+#include "keyfetcher.h"
 #include "keymanager.h"
 #include "lib/crypto/crypto.h"
 #include "lib/ipc/ipc.h"
@@ -73,78 +74,11 @@ synchronize_worker(struct lf_keymanager *km)
 	(void)rte_rcu_qsbr_synchronize(km->qsv, RTE_QSBR_THRID_INVALID);
 }
 
-/**
- * Fetch AS-AS key (Level 1).
- * Increments statistics counter accordingly; increment fetch_success on success
- * and fetch_fail otherwise.
- *
- * @param drkey_service_addr: address of drkey service, such as the SCION
- * control service, e.g., 10.248.7.1:31008
- * @param src_ia: slow side of the DRKey (network byte order)
- * @param dst_ia: fast side of the DRKey (network byte order)
- * @param drkey_protocol: (network byte order)
- * @param ns_valid: Unix timestamp in nanoseconds, at which the requested key
- * must be valid.
- * @param key: pointer to key container struct to store result in.
- * @return 0 on success, otherwise, < 0.
- */
-static int
-fetch_as_as_key(struct lf_keymanager *km, const char drkey_service_addr[48],
-		uint64_t src_ia, uint64_t dst_ia, uint16_t drkey_protocol,
-		uint64_t ns_valid, struct lf_keymanager_key_container *key)
-{
-	int res;
-	uint64_t ms_valid;
-	int64_t validity_not_before_ms, validity_not_after_ms;
-	uint8_t drkey_buf[LF_CRYPTO_DRKEY_SIZE];
-
-	ms_valid = ns_valid / LF_TIME_NS_IN_MS;
-
-	assert(ms_valid <= INT64_MAX);
-	res = lf_drkey_fetcher_as_as_key(drkey_service_addr,
-			rte_be_to_cpu_64(src_ia), rte_be_to_cpu_64(dst_ia),
-			rte_be_to_cpu_16(drkey_protocol), (int64_t)ms_valid,
-			&validity_not_before_ms, &validity_not_after_ms, drkey_buf);
-
-	if (res != 0) {
-		km->statistics.fetch_fail++;
-
-		LF_KEYMANAGER_LOG(ERR,
-				"Fetching AS AS Key failed with %d: drkey_service_addr "
-				"%s, src_as" PRIISDAS ", dst_as " PRIISDAS
-				", drkey_protocol %u, ms_valid %" PRIu64 "\n",
-				res, drkey_service_addr, PRIISDAS_VAL(rte_be_to_cpu_64(src_ia)),
-				PRIISDAS_VAL(rte_be_to_cpu_64(dst_ia)),
-				rte_be_to_cpu_16(drkey_protocol), ms_valid);
-		return -1;
-	}
-
-	km->statistics.fetch_successful++;
-	LF_KEYMANAGER_LOG(INFO,
-			"Fetched AS AS Key: drkey_service_addr "
-			"%s, src_as " PRIISDAS ", dst_as " PRIISDAS
-			", drkey_protocol %u, ms_valid %" PRIu64
-			", validity_not_before_ms %" PRIu64
-			", validity_not_after_ms %" PRIu64 "\n",
-			drkey_service_addr, PRIISDAS_VAL(rte_be_to_cpu_64(src_ia)),
-			PRIISDAS_VAL(rte_be_to_cpu_64(dst_ia)),
-			rte_be_to_cpu_16(drkey_protocol), ms_valid, validity_not_before_ms,
-			validity_not_after_ms);
-
-	/* set values in returned key structure */
-	key->validity_not_after =
-			(uint64_t)validity_not_after_ms * LF_TIME_NS_IN_MS;
-	key->validity_not_before =
-			(uint64_t)validity_not_before_ms * LF_TIME_NS_IN_MS;
-	lf_crypto_drkey_from_buf(&km->drkey_ctx, drkey_buf, &key->key);
-
-	return 0;
-}
 
 void
 lf_keymanager_service_update(struct lf_keymanager *km)
 {
-	int res, key_id;
+	int res;
 	int err = 0;
 	struct lf_keymanager_dictionary_key *key_ptr;
 	uint32_t iterator;
@@ -179,12 +113,12 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 			(void)rte_memcpy(new_data, data,
 					sizeof(struct lf_keymanager_dictionary_data));
 
-			key_id = fetch_as_as_key(km, km->drkey_service_addr, key_ptr->as,
+			res = lf_keyfetcher_fetch_as_as_key(km->fetcher, key_ptr->as,
 					km->src_as, key_ptr->drkey_protocol,
 					ns_now + LF_DRKEY_PREFETCHING_PERIOD,
 					&new_data->inbound_key);
-			if (key_id < 0) {
-				(void)rte_free(new_data);
+			if (res < 0) {
+				rte_free(new_data);
 				err = -1;
 				goto exit;
 			}
@@ -227,12 +161,12 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 			(void)rte_memcpy(new_data, data,
 					sizeof(struct lf_keymanager_dictionary_data));
 
-			key_id = fetch_as_as_key(km, km->drkey_service_addr, km->src_as,
+			res = lf_keyfetcher_fetch_as_as_key(km->fetcher, km->src_as,
 					key_ptr->as, key_ptr->drkey_protocol,
 					ns_now + LF_DRKEY_PREFETCHING_PERIOD,
 					&new_data->outbound_key);
-			if (key_id < 0) {
-				(void)rte_free(new_data);
+			if (res < 0) {
+				rte_free(new_data);
 				err = -1;
 				goto exit;
 			}
@@ -255,12 +189,11 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 			(void)linked_list_push(&free_list, data);
 		}
 	}
-
 exit:
 	if (free_list != NULL) {
 		/* free old data after no worker accesses it anymore */
-		(void)synchronize_worker(km);
-		(void)linked_list_free(free_list);
+		synchronize_worker(km);
+		linked_list_free(free_list);
 	}
 	if (err != 0) {
 		LF_KEYMANAGER_LOG(ERR, "Error occurred during update (err = %d)\n",
@@ -340,7 +273,7 @@ key_dictionary_init(uint32_t size)
 
 	if (dic == NULL) {
 		LF_KEYMANAGER_LOG(ERR, "Hash creation failed with: %d\n", errno);
-		(void)rte_hash_free(dic);
+		rte_hash_free(dic);
 		return NULL;
 	}
 
@@ -361,9 +294,9 @@ key_dictionary_free(struct rte_hash *dict)
 
 	for (iterator = 0; rte_hash_iterate(dict, (void *)&key_ptr, (void **)&data,
 							   &iterator) >= 0;) {
-		(void)rte_free(data);
+		rte_free(data);
 	}
-	(void)rte_hash_free(dict);
+	rte_hash_free(dict);
 }
 
 int
@@ -383,6 +316,8 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 
 	rte_spinlock_lock(&km->management_lock);
 	LF_KEYMANAGER_LOG(NOTICE, "Apply config...\n");
+
+	lf_keyfetcher_apply_config(km->fetcher, config);
 
 	/*
 	 * Update general keymanager configurations
@@ -451,22 +386,15 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 			break;
 		}
 
-		/*
-		 * Fetch keys from the new drkey service.
-		 * If this does not succeed, initialize them as not valid, i.e., set
-		 * validity_not_after to 0.
-		 */
-		res = fetch_as_as_key(km, config->drkey_service_addr, key.as,
-				config->isd_as, key.drkey_protocol, ns_now,
-				&dictionary_data->inbound_key);
+		res = lf_keyfetcher_fetch_as_as_key(km->fetcher, key.as, config->isd_as,
+				key.drkey_protocol, ns_now, &dictionary_data->inbound_key);
 		if (res < 0) {
 			dictionary_data->inbound_key.validity_not_after = 0;
 		}
 		dictionary_data->old_inbound_key.validity_not_after = 0;
 
-		res = fetch_as_as_key(km, config->drkey_service_addr, config->isd_as,
-				key.as, key.drkey_protocol, ns_now,
-				&dictionary_data->outbound_key);
+		res = lf_keyfetcher_fetch_as_as_key(km->fetcher, config->isd_as, key.as,
+				key.drkey_protocol, ns_now, &dictionary_data->outbound_key);
 		if (res < 0) {
 			dictionary_data->outbound_key.validity_not_after = 0;
 		}
@@ -475,7 +403,7 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 		res = rte_hash_add_key_data(km->dict, &key, (void *)dictionary_data);
 		if (res != 0) {
 			LF_KEYMANAGER_LOG(ERR, "Add key failed with %d!\n", key_id);
-			(void)rte_free(dictionary_data);
+			rte_free(dictionary_data);
 			err = 1;
 			break;
 		}
@@ -488,8 +416,8 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 exit_unlock:
 	if (free_list != NULL) {
 		/* free old data after no worker accesses it anymore */
-		(void)synchronize_worker(km);
-		(void)linked_list_free(free_list);
+		synchronize_worker(km);
+		linked_list_free(free_list);
 	}
 
 	(void)rte_spinlock_unlock(&km->management_lock);
@@ -521,6 +449,9 @@ lf_keymanager_close(struct lf_keymanager *km)
 		km->workers[worker_id].dict = NULL;
 		lf_crypto_drkey_ctx_close(&km->workers[worker_id].drkey_ctx);
 	}
+	lf_keyfetcher_close(km->fetcher);
+	free(km->fetcher);
+	km->fetcher = NULL;
 	return 0;
 }
 
@@ -567,6 +498,15 @@ lf_keymanager_init(struct lf_keymanager *km, uint16_t nb_workers,
 	}
 
 	reset_statistics(&km->statistics);
+
+	km->fetcher = malloc(sizeof(struct lf_keyfetcher));
+	if (km->fetcher == NULL) {
+		return -1;
+	}
+	res = lf_keyfetcher_init(km->fetcher, initial_size);
+	if (res != 0) {
+		return -1;
+	}
 
 	return 0;
 }
