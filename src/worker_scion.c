@@ -210,34 +210,34 @@ get_spao_hdr(const struct rte_mbuf *m, unsigned int offset,
 }
 
 /**
- * @param drkey_epoch_start_ns: in nanoseconds (CPU endian)
+ * @param ns_drkey_epoch_start: in nanoseconds (CPU endian)
  * @param timestamp: current (unique) timestamp in nanoseconds (CPU endian)
  */
 static inline int
-set_spao_timestamp(uint64_t drkey_epoch_start_ns, uint64_t timestamp,
+set_spao_timestamp(uint64_t ns_drkey_epoch_start, uint64_t timestamp,
 		struct scion_packet_authenticator_opt *spao_hdr)
 {
 	uint64_t relative_timestamp;
 
-	if (unlikely(drkey_epoch_start_ns > timestamp)) {
+	if (unlikely(ns_drkey_epoch_start > timestamp)) {
 		LF_WORKER_LOG_DP(NOTICE,
-				"Path timestamp (%" PRIu64 "ms) is in the future (now: %" PRIu64
-				").\n",
-				drkey_epoch_start_ns, timestamp);
+				"DRKey Epoch start timestamp (%" PRIu64
+				"ms) is in the future (now: %" PRIu64 ").\n",
+				ns_drkey_epoch_start, timestamp);
 #if !LF_WORKER_IGNORE_PATH_TIMESTAMP_CHECK
 		return -1;
 #endif
 	}
 
-	relative_timestamp = timestamp - drkey_epoch_start_ns;
+	relative_timestamp = timestamp - ns_drkey_epoch_start;
 
 	/* ensure that timestamp fits into 6 bytes */
 	if (unlikely(relative_timestamp >> 48)) {
 		LF_WORKER_LOG_DP(NOTICE,
-				"Path timestamp (%" PRIu64
+				"DRKey Epoch start timestamp (%" PRIu64
 				" ns) is too far in the past (relative_timestamp: %" PRIu64
 				").\n",
-				drkey_epoch_start_ns, relative_timestamp);
+				ns_drkey_epoch_start, relative_timestamp);
 #if !LF_WORKER_IGNORE_PATH_TIMESTAMP_CHECK
 		return -1;
 #endif
@@ -744,11 +744,11 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	drkey_protocol = lf_configmanager_worker_get_outbound_drkey_protocol(
 			worker_context->config);
 
-	uint64_t drkey_epoch_start_ns;
+	uint64_t ns_drkey_epoch_start;
 	drkey_epoch_flag = lf_keymanager_worker_outbound_get_drkey(
 			worker_context->key_manager, parsed_pkt->scion_addr_ia_hdr->dst_ia,
 			&dst_addr, &src_addr, drkey_protocol, timestamp_now,
-			&drkey_epoch_start_ns, &drkey);
+			&ns_drkey_epoch_start, &drkey);
 	if (unlikely(drkey_epoch_flag < 0)) {
 		LF_WORKER_LOG_DP(NOTICE,
 				"Outbound DRKey not found for AS " PRIISDAS
@@ -831,7 +831,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	}
 
 	/* set timestamp */
-	res = set_spao_timestamp(drkey_epoch_start_ns, timestamp_now, spao_hdr);
+	res = set_spao_timestamp(ns_drkey_epoch_start, timestamp_now, spao_hdr);
 	if (unlikely(res != 0)) {
 		/* TODO: error handling */
 		return -1;
@@ -841,7 +841,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	preprocess_mac_input(parsed_pkt, &parsed_spao);
 
 	/* Compute MAC */
-	// TODO calulate MAC over correct fields
+	// TODO make sure MAC is calculated over correct fields
 	lf_crypto_drkey_compute_mac(&worker_context->crypto_drkey_ctx, &drkey,
 			(uint8_t *)SPAO_GET_MAC_INPUT(spao_hdr), spao_hdr->mac);
 
