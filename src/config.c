@@ -265,7 +265,6 @@ parse_shared_secret(json_value *json_val,
 
 	return 0;
 }
-
 static int
 parse_shared_secret_list(json_value *json_val,
 		struct lf_config_shared_secret shared_secret[LF_CONFIG_SV_MAX])

@@ -246,9 +246,10 @@ encapsulate_pkt(struct lf_worker_context *worker_context,
 	lf_hdr->timestamp = rte_cpu_to_be_64(timestamp);
 
 	/* Get drkey */
+	uint64_t drkey_epoch_start_timestamp_ns;
 	res = lf_keymanager_worker_outbound_get_drkey(worker_context->key_manager,
 			peer->isd_as, &dst_addr, &src_addr, drkey_protocol, timestamp,
-			&drkey);
+			&drkey_epoch_start_timestamp_ns, &drkey);
 	if (unlikely(res < 0)) {
 		LF_WORKER_LOG_DP(NOTICE,
 				"Outbound DRKey not found for AS " PRIISDAS

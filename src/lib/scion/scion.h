@@ -121,15 +121,13 @@ struct scion_packet_authenticator_opt {
 			uint8_t spi_drkey_zero0;
 #if RTE_BYTE_ORDER == RTE_BIG_ENDIAN
 			uint8_t spi_drkey_zero1: 3;
-			uint8_t spi_drkey_rr: 2;
+			uint8_t spi_drkey_rrr: 3;
 			uint8_t spi_drkey_t: 1;
 			uint8_t spi_drkey_d: 1;
-			uint8_t spi_drkey_e: 1;
 #elif RTE_BYTE_ORDER == RTE_LITTLE_ENDIAN
-			uint8_t spi_drkey_e: 1;
 			uint8_t spi_drkey_d: 1;
 			uint8_t spi_drkey_t: 1;
-			uint8_t spi_drkey_rr: 2;
+			uint8_t spi_drkey_rrr: 3;
 			uint8_t spi_drkey_zero1: 3;
 #endif
 			uint16_t spi_drkey_protocol_id;

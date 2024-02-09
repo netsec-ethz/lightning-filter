@@ -391,13 +391,14 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 		if (res < 0) {
 			dictionary_data->inbound_key.validity_not_after = 0;
 		}
-		dictionary_data->old_inbound_key.validity_not_after = 0;
 
 		res = lf_keyfetcher_fetch_as_as_key(km->fetcher, config->isd_as, key.as,
 				key.drkey_protocol, ns_now, &dictionary_data->outbound_key);
 		if (res < 0) {
 			dictionary_data->outbound_key.validity_not_after = 0;
 		}
+
+		dictionary_data->old_inbound_key.validity_not_after = 0;
 		dictionary_data->old_outbound_key.validity_not_after = 0;
 
 		res = rte_hash_add_key_data(km->dict, &key, (void *)dictionary_data);
@@ -479,6 +480,7 @@ lf_keymanager_init(struct lf_keymanager *km, uint16_t nb_workers,
 	if (km->dict == NULL) {
 		return -1;
 	}
+
 	km->src_as = 0;
 	memset(km->drkey_service_addr, 0, sizeof km->drkey_service_addr);
 

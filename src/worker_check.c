@@ -123,7 +123,8 @@ static inline int
 get_drkey(struct lf_worker_context *worker_context, uint64_t src_as,
 		const struct lf_host_addr *src_addr,
 		const struct lf_host_addr *dst_addr, uint16_t drkey_protocol,
-		uint64_t timestamp, bool grace_period, struct lf_crypto_drkey *drkey)
+		uint64_t timestamp, bool grace_period, uint64_t *drkey_epoch_start_ns,
+		struct lf_crypto_drkey *drkey)
 {
 #if LF_WORKER_OMIT_KEY_GET
 	for (int i = 0; i < LF_CRYPTO_DRKEY_SIZE; i++) {
@@ -135,7 +136,7 @@ get_drkey(struct lf_worker_context *worker_context, uint64_t src_as,
 	int res;
 	res = lf_keymanager_worker_inbound_get_drkey(worker_context->key_manager,
 			src_as, src_addr, dst_addr, drkey_protocol, timestamp, grace_period,
-			drkey);
+			drkey_epoch_start_ns, drkey);
 	if (unlikely(res < 0)) {
 		LF_WORKER_LOG_DP(INFO,
 				"Inbound DRKey not found for AS " PRIISDAS
@@ -311,9 +312,10 @@ lf_worker_check_pkt(struct lf_worker_context *worker_context,
 	/*
 	 * MAC Check
 	 */
+	u_int64_t drkey_epoch_start_ns;
 	res = get_drkey(worker_context, pkt_data->src_as, &pkt_data->src_addr,
-			&pkt_data->dst_addr, pkt_data->drkey_protocol, pkt_data->timestamp,
-			pkt_data->grace_period, &drkey);
+			&pkt_data->dst_addr, pkt_data->drkey_protocol, ns_now,
+			pkt_data->grace_period, &drkey_epoch_start_ns, &drkey);
 	if (unlikely(res != 0)) {
 		return LF_CHECK_NO_KEY;
 	}
@@ -325,7 +327,10 @@ lf_worker_check_pkt(struct lf_worker_context *worker_context,
 	/*
 	 * Timestamp Check
 	 */
-	res = check_timestamp(worker_context, pkt_data->timestamp, ns_now);
+	uint64_t calculated_packet_timestamp_ns =
+			drkey_epoch_start_ns + pkt_data->timestamp;
+	res = check_timestamp(worker_context, calculated_packet_timestamp_ns,
+			ns_now);
 	if (likely(res != 0)) {
 		return LF_CHECK_OUTDATED_TIMESTAMP;
 	}

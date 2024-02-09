@@ -210,29 +210,26 @@ get_spao_hdr(const struct rte_mbuf *m, unsigned int offset,
 }
 
 /**
- * @param path_timestamp: in seconds (CPU endian)
+ * @param drkey_epoch_start_ns: in nanoseconds (CPU endian)
  * @param timestamp: current (unique) timestamp in nanoseconds (CPU endian)
  */
 static inline int
-set_spao_timestamp(uint32_t path_timestamp, uint64_t timestamp,
+set_spao_timestamp(uint64_t drkey_epoch_start_ns, uint64_t timestamp,
 		struct scion_packet_authenticator_opt *spao_hdr)
 {
 	uint64_t relative_timestamp;
-	uint64_t path_timestamp_ns;
 
-	path_timestamp_ns = LF_TIME_NS_IN_S * (uint64_t)path_timestamp;
-
-	if (unlikely(path_timestamp_ns > timestamp)) {
+	if (unlikely(drkey_epoch_start_ns > timestamp)) {
 		LF_WORKER_LOG_DP(NOTICE,
 				"Path timestamp (%" PRIu64 "ms) is in the future (now: %" PRIu64
 				").\n",
-				path_timestamp_ns, timestamp);
+				drkey_epoch_start_ns, timestamp);
 #if !LF_WORKER_IGNORE_PATH_TIMESTAMP_CHECK
 		return -1;
 #endif
 	}
 
-	relative_timestamp = timestamp - path_timestamp_ns;
+	relative_timestamp = timestamp - drkey_epoch_start_ns;
 
 	/* ensure that timestamp fits into 6 bytes */
 	if (unlikely(relative_timestamp >> 48)) {
@@ -240,7 +237,7 @@ set_spao_timestamp(uint32_t path_timestamp, uint64_t timestamp,
 				"Path timestamp (%" PRIu64
 				" ns) is too far in the past (relative_timestamp: %" PRIu64
 				").\n",
-				path_timestamp_ns, relative_timestamp);
+				drkey_epoch_start_ns, relative_timestamp);
 #if !LF_WORKER_IGNORE_PATH_TIMESTAMP_CHECK
 		return -1;
 #endif
@@ -554,7 +551,7 @@ get_lf_spao_hdr(struct rte_mbuf *m, struct parsed_pkt *parsed_pkt,
 						rte_cpu_to_be_32(
 								SCION_PACKET_AUTHENTICATOR_OPT_SPI_DRKEY_MASK)) !=
 						parsed_spao->spao_hdr->spi ||
-				parsed_spao->spao_hdr->spi_drkey_rr != 0 ||
+				parsed_spao->spao_hdr->spi_drkey_rrr != 0 ||
 				parsed_spao->spao_hdr->spi_drkey_t !=
 						SCION_SPAO_SPI_DRKEY_TYPE_HH ||
 				parsed_spao->spao_hdr->spi_drkey_d !=
@@ -597,10 +594,11 @@ get_lf_spao_hdr(struct rte_mbuf *m, struct parsed_pkt *parsed_pkt,
 
 	/* Obtain required SPAO fields before they are temporarily overwritten.
 	 */
-	pkt_data->timestamp = scion_spao_get_timestamp(parsed_spao->spao_hdr) +
-	                      parsed_pkt->path_timestamp * LF_TIME_NS_IN_S;
+	pkt_data->timestamp = scion_spao_get_timestamp(parsed_spao->spao_hdr);
 	pkt_data->drkey_protocol = parsed_spao->spao_hdr->spi_drkey_protocol_id;
-	pkt_data->grace_period = parsed_spao->spao_hdr->spi_drkey_e;
+
+	// TODO update since no longer explicitly defined in packet
+	pkt_data->grace_period = 0;
 
 	pkt_data->mac = parsed_spao->spao_hdr->mac;
 	/* The MAC input starts at the after the type and length field of the
@@ -746,9 +744,11 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	drkey_protocol = lf_configmanager_worker_get_outbound_drkey_protocol(
 			worker_context->config);
 
+	uint64_t drkey_epoch_start_ns;
 	drkey_epoch_flag = lf_keymanager_worker_outbound_get_drkey(
 			worker_context->key_manager, parsed_pkt->scion_addr_ia_hdr->dst_ia,
-			&dst_addr, &src_addr, drkey_protocol, timestamp_now, &drkey);
+			&dst_addr, &src_addr, drkey_protocol, timestamp_now,
+			&drkey_epoch_start_ns, &drkey);
 	if (unlikely(drkey_epoch_flag < 0)) {
 		LF_WORKER_LOG_DP(NOTICE,
 				"Outbound DRKey not found for AS " PRIISDAS
@@ -803,12 +803,12 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	/*
 	 * Set SPAO header fields
 	 */
+	// TODO set correct fields once spao struct is updated
 	spao_hdr->spi_drkey_zero0 = 0;
 	spao_hdr->spi_drkey_zero1 = 0;
-	spao_hdr->spi_drkey_rr = 0;
+	spao_hdr->spi_drkey_rrr = 0;
 	spao_hdr->spi_drkey_t = SCION_SPAO_SPI_DRKEY_TYPE_HH;
 	spao_hdr->spi_drkey_d = SCION_SPAO_SPI_DRKEY_DIRECTION_RECEIVER;
-	spao_hdr->spi_drkey_e = drkey_epoch_flag;
 	spao_hdr->spi_drkey_protocol_id = drkey_protocol;
 	spao_hdr->algorithm = SCION_SPAO_ALGORITHM_TYPE_SHA_AES_CBC;
 	spao_hdr->reserved = 0;
@@ -820,6 +820,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	parsed_spao.payload_length = payload_len;
 
 	/* packet hash */
+	// TODO make sure hash is calculated over correct fields
 	LF_WORKER_LOG_DP(DEBUG, "Compute packet hash.\n");
 	res = compute_pkt_hash(worker_context, m, parsed_pkt, &parsed_spao,
 			spao_hdr->hash);
@@ -830,8 +831,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	}
 
 	/* set timestamp */
-	res = set_spao_timestamp(parsed_pkt->path_timestamp, timestamp_now,
-			spao_hdr);
+	res = set_spao_timestamp(drkey_epoch_start_ns, timestamp_now, spao_hdr);
 	if (unlikely(res != 0)) {
 		/* TODO: error handling */
 		return -1;
@@ -841,6 +841,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	preprocess_mac_input(parsed_pkt, &parsed_spao);
 
 	/* Compute MAC */
+	// TODO calulate MAC over correct fields
 	lf_crypto_drkey_compute_mac(&worker_context->crypto_drkey_ctx, &drkey,
 			(uint8_t *)SPAO_GET_MAC_INPUT(spao_hdr), spao_hdr->mac);
 
