@@ -237,13 +237,12 @@ encapsulate_pkt(struct lf_worker_context *worker_context,
 			(uint8_t *)(lf_hdr + 1), m->pkt_len - offset);
 	lf_crypto_hash_final(&worker_context->crypto_hash_ctx, lf_hdr->hash);
 
-	/* Set timestamp */
+	/* Get timestamp */
 	res = lf_time_worker_get_unique(&worker_context->time, &timestamp);
 	if (unlikely(res != 0)) {
 		LF_WORKER_LOG_DP(ERR, "Failed to get timestamp.\n");
 		return -1;
 	}
-	lf_hdr->timestamp = rte_cpu_to_be_64(timestamp);
 
 	/* Get drkey */
 	uint64_t drkey_epoch_start_timestamp_ns;
@@ -269,6 +268,10 @@ encapsulate_pkt(struct lf_worker_context *worker_context,
 
 	/* Set DRKey epoch flag */
 	lf_hdr->drkey_e = res;
+
+	/* Set timestamp */
+	lf_hdr->timestamp =
+			rte_cpu_to_be_64(timestamp - drkey_epoch_start_timestamp_ns);
 
 	/* MAC */
 	lf_crypto_drkey_compute_mac(&worker_context->crypto_drkey_ctx, &drkey,
