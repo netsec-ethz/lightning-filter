@@ -161,6 +161,7 @@ lf_keymanager_worker_inbound_get_drkey(struct lf_keymanager_worker *kmw,
 		lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx,
 				&dict_node->inbound_key.key, backend_addr, peer_addr,
 				drkey_protocol, drkey);
+		*drkey_epoch_start_ns = dict_node->inbound_key.validity_not_before;
 		return 0;
 	}
 
@@ -172,6 +173,7 @@ lf_keymanager_worker_inbound_get_drkey(struct lf_keymanager_worker *kmw,
 		lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx,
 				&dict_node->old_inbound_key.key, backend_addr, peer_addr,
 				drkey_protocol, drkey);
+		*drkey_epoch_start_ns = dict_node->old_inbound_key.validity_not_before;
 		return 0;
 	}
 
@@ -225,6 +227,7 @@ lf_keymanager_worker_outbound_get_drkey(struct lf_keymanager_worker *kmw,
 		lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx,
 				&dict_node->outbound_key.key, peer_addr, backend_addr,
 				drkey_protocol, drkey);
+		*drkey_epoch_start_ns = dict_node->outbound_key.validity_not_before;
 		return res;
 	}
 
@@ -235,6 +238,7 @@ lf_keymanager_worker_outbound_get_drkey(struct lf_keymanager_worker *kmw,
 		lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx,
 				&dict_node->old_outbound_key.key, peer_addr, backend_addr,
 				drkey_protocol, drkey);
+		*drkey_epoch_start_ns = dict_node->old_outbound_key.validity_not_before;
 		return res;
 	}
 
