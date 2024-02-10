@@ -62,8 +62,8 @@
 		"ratelimit_data": {
 			"byte_rate": 5000000000,
 			"byte_burst": 100000000,
-			"packet_rate": 4,
-			"packet_burst": 4
+			"packet_rate": 40000000,
+			"packet_burst": 40000000
 		}
 	},
 
