@@ -49,7 +49,7 @@
 #define SCION_ADDR_TL_IPV6 0x3 // 0b0011
 #define SCION_ADDR_TL_SVC  0x4 // 0b0100
 
-#define SCION_ADDR_HOST_LENGTH(t_l) ((((t_l) & 0x3) + 1) * 4)
+#define SCION_ADDR_HOST_LENGTH(t_l) ((((t_l)&0x3) + 1) * 4)
 
 struct scion_cmn_hdr {
 	uint8_t version_qos_flowid[4];

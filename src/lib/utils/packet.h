@@ -28,8 +28,8 @@
 			(ipv6)[11], (ipv6)[12], (ipv6)[13], (ipv6)[14], (ipv6)[15]
 
 #define PRIIP "%d.%d.%d.%d"
-#define PRIIP_VAL(ip)                                           \
-	((ip) & 0xFF), (((ip) >> 8) & 0xFF), (((ip) >> 16) & 0xFF), \
+#define PRIIP_VAL(ip)                                         \
+	((ip)&0xFF), (((ip) >> 8) & 0xFF), (((ip) >> 16) & 0xFF), \
 			(((ip) >> 24) & 0xFF)
 
 static inline unsigned int
