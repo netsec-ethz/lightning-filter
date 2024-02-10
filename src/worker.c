@@ -75,18 +75,48 @@ lf_worker_pkt_mod(struct rte_mbuf *m, struct rte_ether_hdr *ether_hdr,
 
 #if LF_IPV6
 	struct rte_ipv6_hdr *ipv6_hdr = (struct rte_ipv6_hdr *)l3_hdr;
-	if (ipv6_hdr != NULL && pkt_mod->ip_option) {
-		memcpy(ipv6_hdr->dst_addr, pkt_mod->ipv6, sizeof(pkt_mod->ipv6));
-	}
 	if (ipv6_hdr != NULL) {
+		if (pkt_mod->ip_option) {
+			memcpy(ipv6_hdr->dst_addr, pkt_mod->ipv6, sizeof(pkt_mod->ipv6));
+		}
 		(void)lf_pktv6_set_cksum(m, ether_hdr, ipv6_hdr, LF_OFFLOAD_CKSUM);
 	}
 #else
 	struct rte_ipv4_hdr *ipv4_hdr = (struct rte_ipv4_hdr *)l3_hdr;
-	if (ipv4_hdr != NULL && pkt_mod->ip_option) {
-		ipv4_hdr->dst_addr = pkt_mod->ip;
-	}
 	if (ipv4_hdr != NULL) {
+		if (pkt_mod->ip_option) {
+			ipv4_hdr->dst_addr = pkt_mod->ip;
+		} else {
+			size_t i, n;
+			i = 0,
+			n = sizeof pkt_mod->ip_src_map / sizeof pkt_mod->ip_src_map[0];
+			while (i != n &&
+				pkt_mod->ip_src_map[i].from != ipv4_hdr->src_addr && (
+				pkt_mod->ip_src_map[i].from != 0 || pkt_mod->ip_src_map[i].to == 0))
+			{
+				i++;
+			}
+			if (i != n) {
+				LF_WORKER_LOG_DP(DEBUG, "Src IP: " PRIIP " -> " PRIIP "\n",
+					PRIIP_VAL(ipv4_hdr->src_addr),
+					PRIIP_VAL(pkt_mod->ip_src_map[i].to));
+				ipv4_hdr->src_addr = pkt_mod->ip_src_map[i].to;
+			}
+			i = 0,
+			n = sizeof pkt_mod->ip_dst_map / sizeof pkt_mod->ip_dst_map[0];
+			while (i != n &&
+				pkt_mod->ip_dst_map[i].from != ipv4_hdr->dst_addr && (
+				pkt_mod->ip_dst_map[i].from != 0 || pkt_mod->ip_dst_map[i].to == 0))
+			{
+				i++;
+			}
+			if (i != n) {
+				LF_WORKER_LOG_DP(DEBUG, "Dst IP: " PRIIP " -> " PRIIP "\n",
+					PRIIP_VAL(ipv4_hdr->dst_addr),
+					PRIIP_VAL(pkt_mod->ip_dst_map[i].to));
+				ipv4_hdr->dst_addr = pkt_mod->ip_dst_map[i].to;
+			}
+		}
 		(void)lf_pkt_set_cksum(m, ether_hdr, ipv4_hdr, LF_OFFLOAD_CKSUM);
 	}
 #endif /* LF_IPV6 */

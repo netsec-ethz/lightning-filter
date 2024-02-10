@@ -672,6 +672,10 @@ handle_inbound_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	enum lf_check_state check_state;
 	struct parsed_spao parsed_spao;
 	struct lf_pkt_data pkt_data;
+	const struct lf_config_pkt_mod *pkt_mod;
+	struct scion_cmn_hdr *scion_cmn_hdr;
+	uint8_t scion_dst_host_addr_len;
+	uint32_t *scion_dst_host_addr;
 
 	res = get_lf_spao_hdr(m, parsed_pkt, &parsed_spao, &pkt_data);
 	if (res == 0) {
@@ -687,6 +691,22 @@ handle_inbound_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	lf_worker_pkt_mod(m, parsed_pkt->ether_hdr, parsed_pkt->l3_hdr,
 			lf_configmanager_worker_get_inbound_pkt_mod(
 					worker_context->config));
+
+	pkt_mod = lf_configmanager_worker_get_inbound_pkt_mod(
+		worker_context->config);
+	if (pkt_mod->scion_dst != 0) {
+		/*
+		 * Apply inbound packet modifications on SCION layer.
+		 */
+		scion_cmn_hdr = parsed_pkt->scion_cmn_hdr;
+		scion_dst_host_addr_len = SCION_ADDR_HOST_LENGTH(scion_cmn_hdr->dt_dl);
+		if (scion_dst_host_addr_len == sizeof *scion_dst_host_addr) {
+			scion_dst_host_addr = scion_get_addr_host_dst(scion_cmn_hdr);
+			*scion_dst_host_addr = pkt_mod->scion_dst;
+			LF_WORKER_LOG_DP(DEBUG, "SCION Dst Host: " PRIIP "\n",
+				PRIIP_VAL(*scion_dst_host_addr));
+		}
+	}
 
 	if (check_state == LF_CHECK_VALID || check_state == LF_CHECK_BE) {
 		return LF_PKT_INBOUND_FORWARD;
@@ -723,6 +743,10 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	uint8_t payload_protocol;
 	unsigned int payload_offset;
 	unsigned int payload_len;
+
+	struct rte_udp_hdr *l4_udp_hdr;
+	unsigned int l4_udp_offset;
+	uint8_t *p;
 
 	/* get current time */
 	res = lf_time_worker_get_unique(&worker_context->time, &timestamp_now);
@@ -800,6 +824,17 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	payload_len = rte_be_to_cpu_16(parsed_pkt->scion_cmn_hdr->payload_len) -
 	              (payload_offset - parsed_pkt->offset);
 
+	if (payload_protocol == IP_PROTO_ID_UDP) {
+		l4_udp_offset = lf_get_udp_hdr(m, payload_offset, &l4_udp_hdr);
+		if (unlikely(l4_udp_offset == 0)) {
+			return -1;
+		}
+		p = rte_pktmbuf_mtod(m, uint8_t *);
+		*(p + payload_offset + 6) = 0;
+		*(p + payload_offset + 7) = 0;
+		LF_WORKER_LOG_DP(DEBUG, "Set L4 checksum to zero.\n");
+	}
+
 	/*
 	 * Set SPAO header fields
 	 */
@@ -873,7 +908,27 @@ static enum lf_pkt_action
 handle_outbound_pkt(struct lf_worker_context *worker_context,
 		struct rte_mbuf *m, struct parsed_pkt *parsed_pkt)
 {
+	const struct lf_config_pkt_mod *pkt_mod;
+	struct scion_cmn_hdr *scion_cmn_hdr;
+	uint8_t scion_src_host_addr_len;
+	uint32_t *scion_src_host_addr;
 	int add_len;
+
+	pkt_mod = lf_configmanager_worker_get_outbound_pkt_mod(
+		worker_context->config);
+	if (pkt_mod->scion_src != 0) {
+		/*
+		 * Apply outbound packet modifications on SCION layer.
+		 */
+		scion_cmn_hdr = parsed_pkt->scion_cmn_hdr;
+		scion_src_host_addr_len = SCION_ADDR_HOST_LENGTH(scion_cmn_hdr->st_sl);
+		if (scion_src_host_addr_len == sizeof *scion_src_host_addr) {
+			scion_src_host_addr = scion_get_addr_host_src(scion_cmn_hdr);
+			*scion_src_host_addr = pkt_mod->scion_src;
+			LF_WORKER_LOG_DP(DEBUG, "SCION Src Host: " PRIIP "\n",
+				PRIIP_VAL(*scion_src_host_addr));
+		}
+	}
 
 	add_len = add_spao(worker_context, m, parsed_pkt);
 	if (unlikely(add_len < 0)) {
@@ -1081,8 +1136,70 @@ preprocess_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	res = parse_pkt(m, 0, parsed_pkt);
 	if (unlikely(res < 0)) {
 		return PKT_ERROR;
-	} else if (unlikely(res > 0) ||
-			   parsed_pkt->scion_cmn_hdr->path_type == SCION_PATH_TYPE_EMPTY) {
+	} else if (unlikely(res > 0)) {
+#if LF_IPV6
+#else
+		struct rte_ether_hdr *ether_hdr = parsed_pkt->ether_hdr;
+		struct rte_ipv4_hdr *ipv4_hdr = (struct rte_ipv4_hdr *)parsed_pkt->l3_hdr;
+		struct lf_config_pkt_mod *pkt_mod;
+		size_t i, n;
+		pkt_mod = lf_configmanager_worker_get_outbound_pkt_mod(
+			worker_context->config);
+		i = 0,
+		n = sizeof pkt_mod->ip_src_map / sizeof pkt_mod->ip_src_map[0];
+		while (i != n &&
+			pkt_mod->ip_src_map[i].from != ipv4_hdr->src_addr && (
+			pkt_mod->ip_src_map[i].from != 0 || pkt_mod->ip_src_map[i].to == 0))
+		{
+			i++;
+		}
+		if (i != n) {
+			if (pkt_mod->ether_option) {
+				LF_WORKER_LOG_DP(DEBUG, "Dst ETHER: " RTE_ETHER_ADDR_PRT_FMT
+					" -> " RTE_ETHER_ADDR_PRT_FMT "\n",
+					RTE_ETHER_ADDR_BYTES(&(ether_hdr->dst_addr)),
+					pkt_mod->ether[0], pkt_mod->ether[1], pkt_mod->ether[2],
+					pkt_mod->ether[3], pkt_mod->ether[4], pkt_mod->ether[5]);
+				(void)rte_memcpy(&(ether_hdr->dst_addr), pkt_mod->ether,
+						RTE_ETHER_ADDR_LEN);
+			}
+			LF_WORKER_LOG_DP(DEBUG, "Src IP: " PRIIP " -> " PRIIP "\n",
+				PRIIP_VAL(ipv4_hdr->src_addr),
+				PRIIP_VAL(pkt_mod->ip_src_map[i].to));
+			ipv4_hdr->src_addr = pkt_mod->ip_src_map[i].to;
+			(void)lf_pkt_set_cksum(m, ether_hdr, ipv4_hdr, LF_OFFLOAD_CKSUM);
+			return PKT_INTRA_AS;
+		}
+		pkt_mod = lf_configmanager_worker_get_inbound_pkt_mod(
+			worker_context->config);
+		i = 0,
+		n = sizeof pkt_mod->ip_dst_map / sizeof pkt_mod->ip_dst_map[0];
+		while (i != n &&
+			pkt_mod->ip_dst_map[i].from != ipv4_hdr->dst_addr && (
+			pkt_mod->ip_dst_map[i].from != 0 || pkt_mod->ip_dst_map[i].to == 0))
+		{
+			i++;
+		}
+		if (i != n) {
+			if (pkt_mod->ether_option) {
+				LF_WORKER_LOG_DP(DEBUG, "Dst ETHER: " RTE_ETHER_ADDR_PRT_FMT
+					" -> " RTE_ETHER_ADDR_PRT_FMT "\n",
+					RTE_ETHER_ADDR_BYTES(&(ether_hdr->dst_addr)),
+					pkt_mod->ether[0], pkt_mod->ether[1], pkt_mod->ether[2],
+					pkt_mod->ether[3], pkt_mod->ether[4], pkt_mod->ether[5]);
+				(void)rte_memcpy(&(ether_hdr->dst_addr), pkt_mod->ether,
+						RTE_ETHER_ADDR_LEN);
+			}
+			LF_WORKER_LOG_DP(DEBUG, "Dst IP: " PRIIP " -> " PRIIP "\n",
+				PRIIP_VAL(ipv4_hdr->dst_addr),
+				PRIIP_VAL(pkt_mod->ip_dst_map[i].to));
+			ipv4_hdr->dst_addr = pkt_mod->ip_dst_map[i].to;
+			(void)lf_pkt_set_cksum(m, ether_hdr, ipv4_hdr, LF_OFFLOAD_CKSUM);
+			return PKT_INTRA_AS;
+		}
+#endif
+		return PKT_INTRA_AS;
+	} else if (parsed_pkt->scion_cmn_hdr->path_type == SCION_PATH_TYPE_EMPTY) {
 		return PKT_INTRA_AS;
 	}
 
