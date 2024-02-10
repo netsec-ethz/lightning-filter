@@ -488,7 +488,8 @@ err:
 }
 
 static int
-parse_pkt_mod_ip_map(char *name, json_value *json_val, struct lf_config_pkt_mod *pkt_mod)
+parse_pkt_mod_ip_map(char *name, json_value *json_val,
+		struct lf_config_pkt_mod *pkt_mod)
 {
 	int res, error_count;
 	unsigned int length, i;
@@ -520,22 +521,24 @@ parse_pkt_mod_ip_map(char *name, json_value *json_val, struct lf_config_pkt_mod 
 		res = inet_pton(AF_INET, field_name, &from);
 		if (res != 1) {
 			LF_LOG(ERR, "Invalid IPv4 address mapping (%d:%d)\n",
-				field_value->line, field_value->col);
+					field_value->line, field_value->col);
 			error_count++;
 		}
 		res = lf_json_parse_ipv4(field_value, &to);
 		if (res != 0) {
 			LF_LOG(ERR, "Invalid IPv4 address mapping (%d:%d)\n",
-				field_value->line, field_value->col);
+					field_value->line, field_value->col);
 			error_count++;
 		}
 		if (strcmp(name, FIELD_IP_DST_MAP) == 0) {
-			assert(i < sizeof pkt_mod->ip_dst_map / sizeof pkt_mod->ip_dst_map[0]);
+			assert(i <
+					sizeof pkt_mod->ip_dst_map / sizeof pkt_mod->ip_dst_map[0]);
 			pkt_mod->ip_dst_map[i].from = from;
 			pkt_mod->ip_dst_map[i].to = to;
 		} else {
 			assert(strcmp(name, FIELD_IP_SRC_MAP) == 0);
-			assert(i < sizeof pkt_mod->ip_src_map / sizeof pkt_mod->ip_src_map[0]);
+			assert(i <
+					sizeof pkt_mod->ip_src_map / sizeof pkt_mod->ip_src_map[0]);
 			pkt_mod->ip_src_map[i].from = from;
 			pkt_mod->ip_src_map[i].to = to;
 		}

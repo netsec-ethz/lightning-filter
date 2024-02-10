@@ -23,7 +23,7 @@ typedef struct keystruct {
 // ExpandKey128(unsigned char* enckey, void* roundkey)
 // enckey: 16-byte key string input
 // roundkey: 10*16-byte round key ouput buffer
-//#define ExpandKey128 ExpandKey128
+// #define ExpandKey128 ExpandKey128
 extern void
 ExpandKey128(unsigned const char *enckey, void *roundkey);
 
@@ -32,7 +32,7 @@ ExpandKey128(unsigned const char *enckey, void *roundkey);
 // numblk: number of block (each block is 16 bytes)
 // plain: unsigned char*, 16-byte buffer input plaintext
 // mac: unsigned char*, 16-byte buffer for computed MAC
-//#define CBCMAC CBCMAC
+// #define CBCMAC CBCMAC
 extern void
 CBCMAC(const void *rk, int numblk, unsigned const char *plain,
 		unsigned char *mac);
@@ -50,7 +50,7 @@ CMAC(const void *rk, int numblk, unsigned const char *plain,
 
 // PMAC(void* rk, int numblk, unsigned char* plain, unsigned char* mac)
 // rk: keystruct to store roundkey
-//#define PMAC PMAC
+// #define PMAC PMAC
 extern void
 PMAC(const void *rk, int numblk, unsigned char *plain, unsigned char *mac);
 

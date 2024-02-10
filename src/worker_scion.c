@@ -692,8 +692,8 @@ handle_inbound_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 			lf_configmanager_worker_get_inbound_pkt_mod(
 					worker_context->config));
 
-	pkt_mod = lf_configmanager_worker_get_inbound_pkt_mod(
-		worker_context->config);
+	pkt_mod =
+			lf_configmanager_worker_get_inbound_pkt_mod(worker_context->config);
 	if (pkt_mod->scion_dst != 0) {
 		/*
 		 * Apply inbound packet modifications on SCION layer.
@@ -704,7 +704,7 @@ handle_inbound_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 			scion_dst_host_addr = scion_get_addr_host_dst(scion_cmn_hdr);
 			*scion_dst_host_addr = pkt_mod->scion_dst;
 			LF_WORKER_LOG_DP(DEBUG, "SCION Dst Host: " PRIIP "\n",
-				PRIIP_VAL(*scion_dst_host_addr));
+					PRIIP_VAL(*scion_dst_host_addr));
 		}
 	}
 
@@ -915,7 +915,7 @@ handle_outbound_pkt(struct lf_worker_context *worker_context,
 	int add_len;
 
 	pkt_mod = lf_configmanager_worker_get_outbound_pkt_mod(
-		worker_context->config);
+			worker_context->config);
 	if (pkt_mod->scion_src != 0) {
 		/*
 		 * Apply outbound packet modifications on SCION layer.
@@ -926,7 +926,7 @@ handle_outbound_pkt(struct lf_worker_context *worker_context,
 			scion_src_host_addr = scion_get_addr_host_src(scion_cmn_hdr);
 			*scion_src_host_addr = pkt_mod->scion_src;
 			LF_WORKER_LOG_DP(DEBUG, "SCION Src Host: " PRIIP "\n",
-				PRIIP_VAL(*scion_src_host_addr));
+					PRIIP_VAL(*scion_src_host_addr));
 		}
 	}
 
@@ -1140,59 +1140,60 @@ preprocess_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 #if LF_IPV6
 #else
 		struct rte_ether_hdr *ether_hdr = parsed_pkt->ether_hdr;
-		struct rte_ipv4_hdr *ipv4_hdr = (struct rte_ipv4_hdr *)parsed_pkt->l3_hdr;
+		struct rte_ipv4_hdr *ipv4_hdr =
+				(struct rte_ipv4_hdr *)parsed_pkt->l3_hdr;
 		struct lf_config_pkt_mod *pkt_mod;
 		size_t i, n;
 		pkt_mod = lf_configmanager_worker_get_outbound_pkt_mod(
-			worker_context->config);
-		i = 0,
-		n = sizeof pkt_mod->ip_src_map / sizeof pkt_mod->ip_src_map[0];
-		while (i != n &&
-			pkt_mod->ip_src_map[i].from != ipv4_hdr->src_addr && (
-			pkt_mod->ip_src_map[i].from != 0 || pkt_mod->ip_src_map[i].to == 0))
-		{
+				worker_context->config);
+		i = 0, n = sizeof pkt_mod->ip_src_map / sizeof pkt_mod->ip_src_map[0];
+		while (i != n && pkt_mod->ip_src_map[i].from != ipv4_hdr->src_addr &&
+				(pkt_mod->ip_src_map[i].from != 0 ||
+						pkt_mod->ip_src_map[i].to == 0)) {
 			i++;
 		}
 		if (i != n) {
 			if (pkt_mod->ether_option) {
-				LF_WORKER_LOG_DP(DEBUG, "Dst ETHER: " RTE_ETHER_ADDR_PRT_FMT
-					" -> " RTE_ETHER_ADDR_PRT_FMT "\n",
-					RTE_ETHER_ADDR_BYTES(&(ether_hdr->dst_addr)),
-					pkt_mod->ether[0], pkt_mod->ether[1], pkt_mod->ether[2],
-					pkt_mod->ether[3], pkt_mod->ether[4], pkt_mod->ether[5]);
+				LF_WORKER_LOG_DP(DEBUG,
+						"Dst ETHER: " RTE_ETHER_ADDR_PRT_FMT
+						" -> " RTE_ETHER_ADDR_PRT_FMT "\n",
+						RTE_ETHER_ADDR_BYTES(&(ether_hdr->dst_addr)),
+						pkt_mod->ether[0], pkt_mod->ether[1], pkt_mod->ether[2],
+						pkt_mod->ether[3], pkt_mod->ether[4],
+						pkt_mod->ether[5]);
 				(void)rte_memcpy(&(ether_hdr->dst_addr), pkt_mod->ether,
 						RTE_ETHER_ADDR_LEN);
 			}
 			LF_WORKER_LOG_DP(DEBUG, "Src IP: " PRIIP " -> " PRIIP "\n",
-				PRIIP_VAL(ipv4_hdr->src_addr),
-				PRIIP_VAL(pkt_mod->ip_src_map[i].to));
+					PRIIP_VAL(ipv4_hdr->src_addr),
+					PRIIP_VAL(pkt_mod->ip_src_map[i].to));
 			ipv4_hdr->src_addr = pkt_mod->ip_src_map[i].to;
 			(void)lf_pkt_set_cksum(m, ether_hdr, ipv4_hdr, LF_OFFLOAD_CKSUM);
 			return PKT_INTRA_AS;
 		}
 		pkt_mod = lf_configmanager_worker_get_inbound_pkt_mod(
-			worker_context->config);
-		i = 0,
-		n = sizeof pkt_mod->ip_dst_map / sizeof pkt_mod->ip_dst_map[0];
-		while (i != n &&
-			pkt_mod->ip_dst_map[i].from != ipv4_hdr->dst_addr && (
-			pkt_mod->ip_dst_map[i].from != 0 || pkt_mod->ip_dst_map[i].to == 0))
-		{
+				worker_context->config);
+		i = 0, n = sizeof pkt_mod->ip_dst_map / sizeof pkt_mod->ip_dst_map[0];
+		while (i != n && pkt_mod->ip_dst_map[i].from != ipv4_hdr->dst_addr &&
+				(pkt_mod->ip_dst_map[i].from != 0 ||
+						pkt_mod->ip_dst_map[i].to == 0)) {
 			i++;
 		}
 		if (i != n) {
 			if (pkt_mod->ether_option) {
-				LF_WORKER_LOG_DP(DEBUG, "Dst ETHER: " RTE_ETHER_ADDR_PRT_FMT
-					" -> " RTE_ETHER_ADDR_PRT_FMT "\n",
-					RTE_ETHER_ADDR_BYTES(&(ether_hdr->dst_addr)),
-					pkt_mod->ether[0], pkt_mod->ether[1], pkt_mod->ether[2],
-					pkt_mod->ether[3], pkt_mod->ether[4], pkt_mod->ether[5]);
+				LF_WORKER_LOG_DP(DEBUG,
+						"Dst ETHER: " RTE_ETHER_ADDR_PRT_FMT
+						" -> " RTE_ETHER_ADDR_PRT_FMT "\n",
+						RTE_ETHER_ADDR_BYTES(&(ether_hdr->dst_addr)),
+						pkt_mod->ether[0], pkt_mod->ether[1], pkt_mod->ether[2],
+						pkt_mod->ether[3], pkt_mod->ether[4],
+						pkt_mod->ether[5]);
 				(void)rte_memcpy(&(ether_hdr->dst_addr), pkt_mod->ether,
 						RTE_ETHER_ADDR_LEN);
 			}
 			LF_WORKER_LOG_DP(DEBUG, "Dst IP: " PRIIP " -> " PRIIP "\n",
-				PRIIP_VAL(ipv4_hdr->dst_addr),
-				PRIIP_VAL(pkt_mod->ip_dst_map[i].to));
+					PRIIP_VAL(ipv4_hdr->dst_addr),
+					PRIIP_VAL(pkt_mod->ip_dst_map[i].to));
 			ipv4_hdr->dst_addr = pkt_mod->ip_dst_map[i].to;
 			(void)lf_pkt_set_cksum(m, ether_hdr, ipv4_hdr, LF_OFFLOAD_CKSUM);
 			return PKT_INTRA_AS;
