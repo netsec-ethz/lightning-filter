@@ -157,10 +157,16 @@ test1()
 		return error_count;
 	}
 
+	uint64_t validity_not_before_ns =
+			config->peers->shared_secrets->not_before +
+			(int)((ns_now - config->peers->shared_secrets->not_before) /
+					LF_DRKEY_VALIDITY_PERIOD_NS) *
+					LF_DRKEY_VALIDITY_PERIOD_NS;
+	uint64_t time_offset = ns_now - validity_not_before_ns;
 	uint64_t ns_drkey_epoch_start;
 	res = lf_keymanager_worker_inbound_get_drkey(kmw, config->peers->isd_as,
 			&src_host_addr, &dst_host_addr, config->peers->drkey_protocol,
-			ns_now, 0, &ns_drkey_epoch_start, &drkey);
+			ns_now, time_offset, &ns_drkey_epoch_start, &drkey);
 	if (res != 0) {
 		printf("Error: lf_keymanager_worker_inbound_get_drkey ns_now = %ld "
 			   "(expected = 0, res = %d)\n",
@@ -183,7 +189,7 @@ test1()
 			3 * 24 * 3600 * LF_TIME_NS_IN_S; // 3 days (the max validity period)
 	res = lf_keymanager_worker_inbound_get_drkey(kmw, config->peers->isd_as,
 			&src_host_addr, &dst_host_addr, config->peers->drkey_protocol,
-			ns_now, 0, &ns_drkey_epoch_start, &drkey);
+			ns_now, time_offset, &ns_drkey_epoch_start, &drkey);
 	if (res != -2) {
 		printf("Error: ns_now = ns_now + 3*24*3600*1e9; "
 			   "lf_keymanager_worker_inbound_get_drkey (expected = -2, res = "
@@ -283,9 +289,15 @@ test2()
 		return 1;
 	}
 
+	uint64_t validity_not_before_ns =
+			config2->peers->shared_secrets->not_before +
+			(int)((ns_now - config2->peers->shared_secrets->not_before) /
+					LF_DRKEY_VALIDITY_PERIOD_NS) *
+					LF_DRKEY_VALIDITY_PERIOD_NS;
+	uint64_t time_offset = ns_now - validity_not_before_ns;
 	res = lf_keymanager_worker_inbound_get_drkey(kmw2, config2->peers->isd_as,
 			&src_host_addr, &dst_host_addr, config2->peers->drkey_protocol,
-			ns_now, 0, &ns_drkey_epoch_start, &drkey2);
+			ns_now, time_offset, &ns_drkey_epoch_start, &drkey2);
 	if (res != 0) {
 		printf("Error: lf_keymanager_worker_inbound_get_drkey\n");
 		error_count += 1;

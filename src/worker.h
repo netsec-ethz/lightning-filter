@@ -103,10 +103,6 @@ struct lf_pkt_data {
 	/* DRKey Protocol number (network byte order). */
 	uint16_t drkey_protocol;
 
-	/* Indicator that the DRKey is only valid due to the grace
-	 * period. */
-	bool grace_period;
-
 	/* LF_CRYPTO_MAC_SIZE bytes of MAC */
 	uint8_t *mac;
 	/* LF_CRYPTO_MAC_DATA_SIZE bytes of authenticated data, i.e., input for MAC

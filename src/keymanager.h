@@ -125,7 +125,8 @@ lf_keymanager_check_drkey_validity(struct lf_keymanager_key_container *drkey,
  * @param drkey_protocol: (network byte order).
  * @param ns_valid: Unix timestamp in nanoseconds, at which the requested key
  * must be valid.
- * @param grace_period: Indicator that the DRKey is in the grace period.
+ * @param time_offset: Relative timestamp to uniquely identify the epoch for the
+ * key that should be used.
  * @param drkey: Memory to write DRKey to.
  * @return 0 if success. Otherwise, < 0.
  */
@@ -133,7 +134,7 @@ static inline int
 lf_keymanager_worker_inbound_get_drkey(struct lf_keymanager_worker *kmw,
 		uint64_t peer_as, const struct lf_host_addr *peer_addr,
 		const struct lf_host_addr *backend_addr, uint16_t drkey_protocol,
-		uint64_t ns_valid, bool grace_period, uint64_t *ns_drkey_epoch_start,
+		uint64_t ns_valid, uint64_t time_offset, uint64_t *ns_drkey_epoch_start,
 		struct lf_crypto_drkey *drkey)
 {
 	int res;
@@ -155,9 +156,12 @@ lf_keymanager_worker_inbound_get_drkey(struct lf_keymanager_worker *kmw,
 	res = lf_keymanager_check_drkey_validity(&dict_node->inbound_key, ns_valid);
 #if LF_WORKER_IGNORE_KEY_VALIDITY_CHECK
 	res = 0;
-	grace_period = 0;
 #endif
-	if (res >= 0 && (res == grace_period)) {
+	if (res >= 0 &&
+			(dict_node->inbound_key.validity_not_before + time_offset <
+					ns_valid + LF_DRKEY_MINIMUM_VALIDITY_PERIOD_NS / 2) &&
+			(dict_node->inbound_key.validity_not_before + time_offset >
+					ns_valid - LF_DRKEY_MINIMUM_VALIDITY_PERIOD_NS / 2)) {
 		lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx,
 				&dict_node->inbound_key.key, backend_addr, peer_addr,
 				drkey_protocol, drkey);
@@ -169,7 +173,11 @@ lf_keymanager_worker_inbound_get_drkey(struct lf_keymanager_worker *kmw,
 	 * requested. */
 	res = lf_keymanager_check_drkey_validity(&dict_node->old_inbound_key,
 			ns_valid);
-	if (res >= 0 && (res == grace_period)) {
+	if (res >= 0 &&
+			(dict_node->old_inbound_key.validity_not_before + time_offset <
+					ns_valid + LF_DRKEY_MINIMUM_VALIDITY_PERIOD_NS / 2) &&
+			(dict_node->old_inbound_key.validity_not_before + time_offset >
+					ns_valid - LF_DRKEY_MINIMUM_VALIDITY_PERIOD_NS / 2)) {
 		lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx,
 				&dict_node->old_inbound_key.key, backend_addr, peer_addr,
 				drkey_protocol, drkey);

@@ -87,7 +87,6 @@ handle_inbound_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 
 	pkt_data.timestamp = rte_be_to_cpu_64(lf_hdr->timestamp);
 	pkt_data.drkey_protocol = lf_hdr->drkey_protocol;
-	pkt_data.grace_period = lf_hdr->drkey_e;
 	pkt_data.mac = lf_hdr->mac;
 	pkt_data.auth_data = (uint8_t *)lf_hdr + 4;
 	pkt_data.pkt_len = m->pkt_len - offset;
@@ -265,9 +264,6 @@ encapsulate_pkt(struct lf_worker_context *worker_context,
 			PRIIP_VAL(*(uint32_t *)dst_addr.addr),
 			PRIIP_VAL(*(uint32_t *)src_addr.addr),
 			rte_be_to_cpu_16(drkey_protocol), timestamp, drkey.key[0]);
-
-	/* Set DRKey epoch flag */
-	lf_hdr->drkey_e = res;
 
 	/* Set timestamp */
 	lf_hdr->timestamp = rte_cpu_to_be_64(timestamp - ns_drkey_epoch_start);
