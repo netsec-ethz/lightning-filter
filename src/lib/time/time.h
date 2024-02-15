@@ -5,8 +5,12 @@
 #ifndef LF_TIME_H
 #define LF_TIME_H
 
+#include <assert.h>
 #include <inttypes.h>
 #include <math.h>
+#include <rte_branch_prediction.h>
+#include <rte_cycles.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -55,6 +59,13 @@ lf_timestamp_init_ns(struct lf_timestamp *a, uint64_t nanoseconds)
 	a->s = nanoseconds / LF_TIME_NS_IN_S;
 }
 
+static inline void
+lf_timestamp_copy(struct lf_timestamp *dst, struct lf_timestamp *src)
+{
+	dst->ns = src->ns;
+	dst->s = src->s;
+}
+
 static inline bool
 lf_timestamp_equal(const struct lf_timestamp *a, const struct lf_timestamp *b)
 {
@@ -93,6 +104,13 @@ lf_timestamp_sub(const struct lf_timestamp *a, const struct lf_timestamp *b)
 	uint8_t ns_overflow = a->ns < b->ns ? 1 : 0;
 	res.s = a->s - b->s - ns_overflow;
 	return res;
+}
+
+static inline void
+lf_timestamp_inc_ns(struct lf_timestamp *a, uint64_t nanoseconds)
+{
+	a->ns = (a->ns + nanoseconds) % LF_TIME_NS_IN_S;
+	a->s = a->s + nanoseconds / LF_TIME_NS_IN_S;
 }
 
 static inline int

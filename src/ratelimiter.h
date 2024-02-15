@@ -114,26 +114,26 @@ lf_ratelimiter_worker_get_pkt_ctx(struct lf_ratelimiter_worker *rl, uint64_t as,
  */
 static inline int
 lf_ratelimiter_worker_check(struct lf_ratelimiter_pkt_ctx *pkt_ctx,
-		uint32_t pkt_len, uint64_t ns_now)
+		uint32_t pkt_len, struct lf_timestamp *t_now)
 {
 	int res = 0;
 
 	/* overall rate limit */
 	if (lf_token_bucket_check(&pkt_ctx->overall_ratelimit->byte, pkt_len,
-				ns_now) != 0) {
+				t_now) != 0) {
 		res |= LF_RATELIMITER_RES_OVERALL_BYTES;
 	}
-	if (lf_token_bucket_check(&pkt_ctx->overall_ratelimit->packet, 1, ns_now) !=
+	if (lf_token_bucket_check(&pkt_ctx->overall_ratelimit->packet, 1, t_now) !=
 			0) {
 		res |= LF_RATELIMITER_RES_OVERALL_PKTS;
 	}
 
 	/* peer or best-effort rate limit */
-	if (lf_token_bucket_check(&pkt_ctx->peer_ratelimit->byte, pkt_len,
-				ns_now) != 0) {
+	if (lf_token_bucket_check(&pkt_ctx->peer_ratelimit->byte, pkt_len, t_now) !=
+			0) {
 		res |= LF_RATELIMITER_RES_BYTES;
 	}
-	if (lf_token_bucket_check(&pkt_ctx->peer_ratelimit->packet, 1, ns_now) !=
+	if (lf_token_bucket_check(&pkt_ctx->peer_ratelimit->packet, 1, t_now) !=
 			0) {
 		res |= LF_RATELIMITER_RES_PKTS;
 	}
@@ -158,22 +158,22 @@ lf_ratelimiter_worker_consume(struct lf_ratelimiter_pkt_ctx *pkt_ctx,
  */
 static inline int
 lf_ratelimiter_worker_apply_best_effort(struct lf_ratelimiter_worker *rl,
-		uint32_t pkt_len, uint64_t ns_now)
+		uint32_t pkt_len, struct lf_timestamp *t_now)
 {
 	int res = 0;
 	/* overall rate limit */
-	if (lf_token_bucket_check(&rl->overall.byte, pkt_len, ns_now) != 0) {
+	if (lf_token_bucket_check(&rl->overall.byte, pkt_len, t_now) != 0) {
 		res |= LF_RATELIMITER_RES_OVERALL_BYTES;
 	}
-	if (lf_token_bucket_check(&rl->overall.packet, 1, ns_now) != 0) {
+	if (lf_token_bucket_check(&rl->overall.packet, 1, t_now) != 0) {
 		res |= LF_RATELIMITER_RES_OVERALL_PKTS;
 	}
 
 	/* best-effort rate limit */
-	if (lf_token_bucket_check(&rl->best_effort.byte, pkt_len, ns_now) != 0) {
+	if (lf_token_bucket_check(&rl->best_effort.byte, pkt_len, t_now) != 0) {
 		res |= LF_RATELIMITER_RES_BYTES;
 	}
-	if (lf_token_bucket_check(&rl->best_effort.packet, 1, ns_now) != 0) {
+	if (lf_token_bucket_check(&rl->best_effort.packet, 1, t_now) != 0) {
 		res |= LF_RATELIMITER_RES_PKTS;
 	}
 
@@ -201,7 +201,7 @@ lf_ratelimiter_worker_apply_best_effort(struct lf_ratelimiter_worker *rl,
  */
 static inline int
 lf_ratelimiter_worker_apply(struct lf_ratelimiter_worker *rl, uint64_t as,
-		uint16_t drkey_protocol, uint32_t pkt_len, uint64_t ns_now)
+		uint16_t drkey_protocol, uint32_t pkt_len, struct lf_timestamp *t_now)
 {
 	int res;
 	struct lf_ratelimiter_pkt_ctx pkt_ctx;
@@ -211,7 +211,7 @@ lf_ratelimiter_worker_apply(struct lf_ratelimiter_worker *rl, uint64_t as,
 		return -1;
 	}
 
-	res = lf_ratelimiter_worker_check(&pkt_ctx, pkt_len, ns_now);
+	res = lf_ratelimiter_worker_check(&pkt_ctx, pkt_len, t_now);
 	if (res != 0) {
 		return res;
 	}

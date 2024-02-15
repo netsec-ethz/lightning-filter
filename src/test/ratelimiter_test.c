@@ -107,8 +107,6 @@ test1()
 	struct lf_ratelimiter_worker *rlw;
 	struct lf_ratelimiter_pkt_ctx rl_pkt_ctx;
 	struct lf_timestamp t_now;
-	uint64_t ns_now;
-
 	struct lf_config_peer *peers[4];
 
 	rl = new_ratelimiter();
@@ -138,7 +136,6 @@ test1()
 	// TODO (abojarski) use correct timestamp here
 	res = lf_time_get(&t_now);
 	assert(res == 0);
-	ns_now = t_now.s * LF_TIME_NS_IN_S + t_now.ns;
 
 	/* unknown key (AS and protocol) */
 	res = lf_ratelimiter_worker_get_pkt_ctx(rlw, 1, 1, &rl_pkt_ctx);
@@ -155,7 +152,7 @@ test1()
 
 	/* AS packet rate limited */
 	res = lf_ratelimiter_worker_apply(rlw, peers[1]->isd_as,
-			peers[1]->drkey_protocol, 1, ns_now);
+			peers[1]->drkey_protocol, 1, &t_now);
 	if ((res & LF_RATELIMITER_RES_PKTS) == 0) {
 		printf("Error: lf_ratelimiter_worker_apply expected "
 			   "LF_RATELIMITER_RES_PKTS, got %d\n",
@@ -165,7 +162,7 @@ test1()
 
 	/* AS byte rate limited */
 	res = lf_ratelimiter_worker_apply(rlw, peers[2]->isd_as,
-			peers[2]->drkey_protocol, 1, ns_now);
+			peers[2]->drkey_protocol, 1, &t_now);
 	if ((res & LF_RATELIMITER_RES_BYTES) == 0) {
 		printf("Error: lf_ratelimiter_worker_apply expected "
 			   "LF_RATELIMITER_RES_BYTES, got %d\n",
@@ -175,7 +172,7 @@ test1()
 
 	/* AS rate limited */
 	res = lf_ratelimiter_worker_apply(rlw, peers[3]->isd_as,
-			peers[3]->drkey_protocol, 1, ns_now);
+			peers[3]->drkey_protocol, 1, &t_now);
 	if ((res & (LF_RATELIMITER_RES_BYTES | LF_RATELIMITER_RES_PKTS)) == 0) {
 		printf("Error: lf_ratelimiter_worker_apply expected "
 			   "LF_RATELIMITER_RES_BYTES | LF_RATELIMITER_RES_PKTS, got %d\n",
@@ -185,7 +182,7 @@ test1()
 
 	/* overall rate limited */
 	res = lf_ratelimiter_worker_apply(rlw, peers[0]->isd_as,
-			peers[0]->drkey_protocol, 10000, ns_now);
+			peers[0]->drkey_protocol, 10000, &t_now);
 	if ((res & (LF_RATELIMITER_RES_OVERALL_BYTES |
 					   LF_RATELIMITER_RES_OVERALL_PKTS)) == 0) {
 		printf("Error: lf_ratelimiter_worker_apply expected "
@@ -197,7 +194,7 @@ test1()
 
 	/* Not rate limited (AS and System) */
 	res = lf_ratelimiter_worker_apply(rlw, peers[0]->isd_as,
-			peers[0]->drkey_protocol, 10, ns_now);
+			peers[0]->drkey_protocol, 10, &t_now);
 	if (res != 0) {
 		printf("Error: lf_ratelimiter_worker_apply expected 0, got %d\n", res);
 		error_count += 1;
@@ -205,7 +202,7 @@ test1()
 
 
 	/* best-effort rate limited */
-	res = lf_ratelimiter_worker_apply_best_effort(rlw, 100, ns_now);
+	res = lf_ratelimiter_worker_apply_best_effort(rlw, 100, &t_now);
 	if (res == 0) {
 		printf("Error: lf_ratelimiter_worker_apply_best_effort expected != 0, "
 			   "got %d\n",
@@ -214,7 +211,7 @@ test1()
 	}
 
 	/* best-effort not rate limited */
-	res = lf_ratelimiter_worker_apply_best_effort(rlw, 1, ns_now);
+	res = lf_ratelimiter_worker_apply_best_effort(rlw, 1, &t_now);
 	if (res != 0) {
 		printf("Error: lf_ratelimiter_worker_apply_best_effort expected 0, got "
 			   "%d\n",
@@ -239,7 +236,7 @@ test1()
 
 	/* Change to rate limited */
 	res = lf_ratelimiter_worker_apply(rlw, peers[0]->isd_as,
-			peers[0]->drkey_protocol, 1, ns_now);
+			peers[0]->drkey_protocol, 1, &t_now);
 	if (res == 0) {
 		printf("Error: lf_ratelimiter_worker_apply expected != 0, got %d\n",
 				res);

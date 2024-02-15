@@ -8,6 +8,7 @@
 #include <inttypes.h>
 
 #include "lf.h"
+#include "lib/time/time.h"
 
 /**
  * This module provides the (MAC) duplicate filtering functionalities.
@@ -18,8 +19,8 @@
  * filters.
  */
 struct lf_duplicate_filter_worker {
-	uint64_t last_rotation; /* nanoseconds */
-	uint64_t bf_period;     /* nanoseconds */
+	struct lf_timestamp last_rotation; /* nanoseconds */
+	struct lf_timestamp bf_period;     /* nanoseconds */
 
 	/* Bloom Filter Variables */
 	unsigned int bf_hashes;
@@ -51,7 +52,7 @@ struct lf_duplicate_filter {
  */
 int
 lf_duplicate_filter_apply(struct lf_duplicate_filter_worker *df,
-		const uint8_t key[16], uint64_t ns_now);
+		const uint8_t key[16], struct lf_timestamp *t_now);
 
 /**
  * Create new duplicate filter worker context and initialize it.

@@ -60,7 +60,7 @@ struct lf_worker_context {
 	uint16_t port_pair[RTE_MAX_ETHPORTS];
 
 	/* Timestamp threshold in nanoseconds */
-	uint64_t timestamp_threshold;
+	struct lf_timestamp timestamp_threshold;
 
 	/*
 	 * Worker contexts of the different modules

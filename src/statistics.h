@@ -13,6 +13,7 @@
 
 #include "lf.h"
 #include "lib/telemetry/counters.h"
+#include "lib/time/time.h"
 
 /**
  * This statistics module provides an interface for workers to collect metrics.
@@ -95,7 +96,8 @@ struct lf_statistics {
 	struct lf_statistics_worker_counter aggregate_worker[LF_MAX_WORKER];
 
 	/* timestamp of last statistics aggregation (nanoseconds) */
-	uint64_t last_aggregate;
+	struct lf_timestamp last_aggregate;
+	struct lf_timestamp aggregation_interval;
 
 	/* management lock */
 	rte_spinlock_t lock;

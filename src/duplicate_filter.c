@@ -113,14 +113,16 @@ check_key_add_key(uint8_t *bf_arrays[], unsigned int nb_bf,
 
 int
 lf_duplicate_filter_apply(struct lf_duplicate_filter_worker *df,
-		const uint8_t key[16], uint64_t ns_now)
+		const uint8_t key[16], struct lf_timestamp *t_now)
 {
 	/* periodically rotate bloom filter */
-	if (unlikely(sat_sub_u64(ns_now, df->bf_period) > df->last_rotation)) {
+	struct lf_timestamp next_rotation =
+			lf_timestamp_add(&df->last_rotation, &df->bf_period);
+	if (unlikely(lf_timestamp_greater(t_now, &next_rotation))) {
 		df->current_bf = (df->current_bf + 1U) % df->nb_bf;
 		(void)memset(df->bf_arrays[df->current_bf], 0, df->bf_size);
 
-		df->last_rotation = ns_now;
+		lf_timestamp_copy(&df->last_rotation, t_now);
 	}
 
 	return check_key_add_key(df->bf_arrays, df->nb_bf, df->current_bf,
@@ -191,8 +193,8 @@ lf_duplicate_filter_worker_new(uint16_t socket, unsigned int nb_bf,
 
 	/* x % (bf_size*8) == x & modulo_mask */
 	df_worker->modulo_mask = nb_bits - 1;
-	df_worker->last_rotation = 0;
-	df_worker->bf_period = bf_period;
+	lf_timestamp_init_zero(&df_worker->last_rotation);
+	lf_timestamp_init_ns(&df_worker->bf_period, bf_period);
 	df_worker->current_bf = 0;
 	df_worker->bf_size = bf_size;
 	df_worker->bf_hashes = bf_hashes;

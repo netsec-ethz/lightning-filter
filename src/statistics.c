@@ -118,24 +118,19 @@ aggregate_worker_statistics(struct lf_statistics *stats)
 	int read_state;
 	uint16_t worker_id;
 	struct lf_timestamp t_now;
-	uint64_t ns_now;
 
-	// TODO (abojarski) use correct timestamp here
 	res = lf_time_get(&t_now);
-	ns_now = t_now.s * LF_TIME_NS_IN_S + t_now.ns;
 
 	/* check if aggregation should be performed, i.e., if the minimal time
 	interval between aggregation has passed. */
-	if (res != 0 ||
-			ns_now <=
-					stats->last_aggregate +
-							(uint64_t)(LF_STATISTICS_MIN_AGGREGATION_INTERVAL *
-									   (double)LF_TIME_NS_IN_S)) {
+	struct lf_timestamp next_aggregate = lf_timestamp_add(
+			&stats->last_aggregate, &stats->aggregation_interval);
+	if (res != 0 || !lf_timestamp_greater(&t_now, &next_aggregate)) {
 		return;
 	}
 
 	LF_STATISTICS_LOG(INFO, "Aggregate statistics\n");
-	stats->last_aggregate = ns_now;
+	lf_timestamp_copy(&stats->last_aggregate, &t_now);
 
 	/* switch state and the worker's statistics structures */
 	read_state = stats->current_state;
@@ -270,7 +265,9 @@ lf_statistics_init(struct lf_statistics *stats,
 	stats->current_state = 0;
 	stats->nb_workers = nb_workers;
 	stats->qsv = qsv;
-	stats->last_aggregate = 0;
+	lf_timestamp_init_zero(&stats->last_aggregate);
+	lf_timestamp_init_ns(&stats->aggregation_interval,
+			LF_STATISTICS_MIN_AGGREGATION_INTERVAL * LF_TIME_NS_IN_S);
 
 	for (worker_id = 0; worker_id < nb_workers; ++worker_id) {
 		stats->worker[worker_id] = rte_zmalloc_socket("lf_statistics_worker",

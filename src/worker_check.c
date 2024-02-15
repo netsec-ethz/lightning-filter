@@ -51,7 +51,7 @@
  */
 static inline int
 check_ratelimit(struct lf_worker_context *worker_context, uint64_t src_as,
-		uint16_t drkey_protocol, uint32_t pkt_len, uint64_t ns_now,
+		uint16_t drkey_protocol, uint32_t pkt_len, struct lf_timestamp *t_now,
 		struct lf_ratelimiter_pkt_ctx *rl_pkt_ctx)
 {
 #if LF_WORKER_OMIT_RATELIMIT_CHECK
@@ -72,7 +72,7 @@ check_ratelimit(struct lf_worker_context *worker_context, uint64_t src_as,
 		return 1;
 	}
 
-	res = lf_ratelimiter_worker_check(rl_pkt_ctx, pkt_len, ns_now);
+	res = lf_ratelimiter_worker_check(rl_pkt_ctx, pkt_len, t_now);
 	if (likely(res != 0)) {
 		LF_WORKER_LOG_DP(DEBUG,
 				"Rate limit filter check failed for " PRIISDAS
@@ -123,8 +123,8 @@ static inline int
 get_drkey(struct lf_worker_context *worker_context, uint64_t src_as,
 		const struct lf_host_addr *src_addr,
 		const struct lf_host_addr *dst_addr, uint16_t drkey_protocol,
-		uint64_t timestamp, uint64_t time_offset,
-		uint64_t *ns_drkey_epoch_start, struct lf_crypto_drkey *drkey)
+		uint64_t timestamp, uint64_t time_offset, uint64_t *s_drkey_epoch_start,
+		struct lf_crypto_drkey *drkey)
 {
 #if LF_WORKER_OMIT_KEY_GET
 	for (int i = 0; i < LF_CRYPTO_DRKEY_SIZE; i++) {
@@ -136,7 +136,7 @@ get_drkey(struct lf_worker_context *worker_context, uint64_t src_as,
 	int res;
 	res = lf_keymanager_worker_inbound_get_drkey(worker_context->key_manager,
 			src_as, src_addr, dst_addr, drkey_protocol, timestamp, time_offset,
-			ns_drkey_epoch_start, drkey);
+			s_drkey_epoch_start, drkey);
 	if (unlikely(res < 0)) {
 		LF_WORKER_LOG_DP(INFO,
 				"Inbound DRKey not found for AS " PRIISDAS
@@ -202,27 +202,30 @@ check_mac(struct lf_worker_context *worker_context,
 
 /**
  * Perform timestamp check, i.e., check if the given timestamp is within
- * (ns_now - timestamp_threshold, ns_now + timestamp_threshold). If this check
+ * (t_now - timestamp_threshold, t_now + timestamp_threshold). If this check
  * is disable, the check is not performed and the function just returns 0. If
  * this check is ignored, the check is performed but the function always return
  * 0.
  *
  * @param timestamp Packet timestamp (nanoseconds).
- * @param ns_now Current timestamp (nanoseconds).
+ * @param t_now Current timestamp (nanoseconds).
  * @return Returns 0 if the packet timestamp is within the timestamp threshold.
  */
 static inline int
-check_timestamp(struct lf_worker_context *worker_context, uint64_t timestamp,
-		uint64_t ns_now)
+check_timestamp(struct lf_worker_context *worker_context,
+		struct lf_timestamp *timestamp, struct lf_timestamp *t_now)
 {
 #if LF_WORKER_OMIT_TIMESTAMP_CHECK
 	return 0;
 #endif
 
 	int res;
-
-	res = timestamp < (ns_now - worker_context->timestamp_threshold) ||
-	      timestamp > (ns_now + worker_context->timestamp_threshold);
+	struct lf_timestamp lower_bound =
+			lf_timestamp_sub(t_now, &worker_context->timestamp_threshold);
+	struct lf_timestamp upper_bound =
+			lf_timestamp_add(t_now, &worker_context->timestamp_threshold);
+	res = lf_timestamp_less(timestamp, &lower_bound) ||
+	      lf_timestamp_greater(timestamp, &upper_bound);
 
 	if (unlikely(res)) {
 		LF_WORKER_LOG_DP(DEBUG, "Timestamp check failed.\n");
@@ -247,12 +250,12 @@ check_timestamp(struct lf_worker_context *worker_context, uint64_t timestamp,
  * always return 0.
  *
  * @param mac Packet MAC used to identify packet.
- * @param ns_now Current timestamp.
+ * @param t_now Current timestamp.
  * @return Returns 0 if the packet is not a duplicate.
  */
 static inline int
 check_duplicate(struct lf_worker_context *worker_context, const uint8_t *mac,
-		uint64_t ns_now)
+		struct lf_timestamp *t_now)
 {
 #if LF_WORKER_OMIT_DUPLICATE_CHECK
 	return 0;
@@ -261,7 +264,7 @@ check_duplicate(struct lf_worker_context *worker_context, const uint8_t *mac,
 	int res;
 
 	res = lf_duplicate_filter_apply(worker_context->duplicate_filter, mac,
-			ns_now);
+			t_now);
 	if (likely(res != 0)) {
 		LF_WORKER_LOG_DP(DEBUG, "Duplicate check failed.\n");
 		lf_statistics_worker_counter_inc(worker_context->statistics, duplicate);
@@ -281,7 +284,6 @@ lf_worker_check_pkt(struct lf_worker_context *worker_context,
 		const struct lf_pkt_data *pkt_data)
 {
 	int res = 0;
-	uint64_t ns_now;
 	struct lf_timestamp t_now;
 	struct lf_crypto_drkey drkey;
 	struct lf_ratelimiter_pkt_ctx rl_pkt_ctx;
@@ -296,8 +298,6 @@ lf_worker_check_pkt(struct lf_worker_context *worker_context,
 		lf_statistics_worker_counter_inc(worker_context->statistics, error);
 		return LF_CHECK_ERROR;
 	}
-	// TODO (abojarski) use correct timestamp here
-	ns_now = t_now.s * LF_TIME_NS_IN_S + t_now.ns;
 
 	/*
 	 * Rate Limit Check
@@ -305,7 +305,7 @@ lf_worker_check_pkt(struct lf_worker_context *worker_context,
 	 * unecessary MAC and duplicate checks can be avoided.
 	 */
 	res = check_ratelimit(worker_context, pkt_data->src_as,
-			pkt_data->drkey_protocol, pkt_data->pkt_len, ns_now, &rl_pkt_ctx);
+			pkt_data->drkey_protocol, pkt_data->pkt_len, &t_now, &rl_pkt_ctx);
 	if (unlikely(res > 0)) {
 		return LF_CHECK_AS_RATELIMITED;
 	} else if (unlikely(res < 0)) {
@@ -330,10 +330,13 @@ lf_worker_check_pkt(struct lf_worker_context *worker_context,
 	/*
 	 * Timestamp Check
 	 */
-	uint64_t ns_calculated_packet_timestamp =
-			LF_TIME_NS_IN_S * s_drkey_epoch_start + pkt_data->timestamp;
-	res = check_timestamp(worker_context, ns_calculated_packet_timestamp,
-			ns_now);
+	struct lf_timestamp drkey_epoch_start;
+	struct lf_timestamp pkt_timestamp;
+	lf_timestamp_init_s(&drkey_epoch_start, s_drkey_epoch_start);
+	lf_timestamp_init_ns(&pkt_timestamp, pkt_data->timestamp);
+	struct lf_timestamp calculated_packet_timestamp =
+			lf_timestamp_add(&drkey_epoch_start, &pkt_timestamp);
+	res = check_timestamp(worker_context, &calculated_packet_timestamp, &t_now);
 	if (likely(res != 0)) {
 		return LF_CHECK_OUTDATED_TIMESTAMP;
 	}
@@ -343,7 +346,7 @@ lf_worker_check_pkt(struct lf_worker_context *worker_context,
 	 * Check that the packet is not a duplicate and update the bloom filter
 	 * structure.
 	 */
-	res = check_duplicate(worker_context, pkt_data->mac, ns_now);
+	res = check_duplicate(worker_context, pkt_data->mac, &t_now);
 	if (likely(res != 0)) {
 		return LF_CHECK_DUPLICATE;
 	}
@@ -366,7 +369,6 @@ lf_worker_check_best_effort_pkt(struct lf_worker_context *worker_context,
 		const uint32_t pkt_len)
 {
 	int res;
-	uint64_t ns_now;
 	struct lf_timestamp t_now;
 
 	/* get current time (in ms) */
@@ -375,16 +377,13 @@ lf_worker_check_best_effort_pkt(struct lf_worker_context *worker_context,
 		lf_statistics_worker_counter_inc(worker_context->statistics, error);
 		return LF_CHECK_ERROR;
 	}
-	// TODO (abojarski) use correct timestamp here
-	ns_now = t_now.s * LF_TIME_NS_IN_S + t_now.ns;
-
 
 #if LF_WORKER_OMIT_RATELIMIT_CHECK
 	return LF_CHECK_BE;
 #endif /* !LF_WORKER_OMIT_RATELIMIT_CHECK */
 
 	return res = lf_ratelimiter_worker_apply_best_effort(
-				   &worker_context->ratelimiter, pkt_len, ns_now);
+				   &worker_context->ratelimiter, pkt_len, &t_now);
 	if (likely(res > 0)) {
 		LF_WORKER_LOG_DP(DEBUG,
 				"Best-effort rate limit filter check failed (res=%d).\n", res);

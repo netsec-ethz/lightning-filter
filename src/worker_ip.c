@@ -179,7 +179,6 @@ encapsulate_pkt(struct lf_worker_context *worker_context,
 	struct lf_host_addr src_addr;
 	struct lf_host_addr dst_addr;
 	uint32_t src_ip;
-	uint64_t timestamp;
 	struct lf_timestamp t_now;
 	struct lf_crypto_drkey drkey;
 	int encaps_hdr_len;
@@ -243,34 +242,32 @@ encapsulate_pkt(struct lf_worker_context *worker_context,
 		LF_WORKER_LOG_DP(ERR, "Failed to get timestamp.\n");
 		return -1;
 	}
-	// TODO (abojarski) use correct timestamp here
-	timestamp = t_now.s * LF_TIME_NS_IN_S + t_now.ns;
 
 	/* Get drkey */
 	uint64_t s_drkey_epoch_start;
 	res = lf_keymanager_worker_outbound_get_drkey(worker_context->key_manager,
-			peer->isd_as, &dst_addr, &src_addr, drkey_protocol, timestamp,
+			peer->isd_as, &dst_addr, &src_addr, drkey_protocol, t_now.s,
 			&s_drkey_epoch_start, &drkey);
 	if (unlikely(res < 0)) {
 		LF_WORKER_LOG_DP(NOTICE,
 				"Outbound DRKey not found for AS " PRIISDAS
-				" and drkey_protocol %d (ns_now = %" PRIu64 ", res = %d)!\n",
+				" and drkey_protocol %d (s_now = %" PRIu64 ", res = %d)!\n",
 				PRIISDAS_VAL(rte_be_to_cpu_64(peer->isd_as)),
-				rte_be_to_cpu_16(drkey_protocol), timestamp, res);
+				rte_be_to_cpu_16(drkey_protocol), t_now.s, res);
 		return -1;
 	}
 
 	LF_WORKER_LOG_DP(DEBUG,
 			"DRKey [" PRIISDAS "]:" PRIIP " - [XX]:" PRIIP
-			" and drkey_protocol %d (ns_now = %" PRIu64 ") is %x\n",
+			" and drkey_protocol %d (s_now = %" PRIu64 ") is %x\n",
 			PRIISDAS_VAL(rte_be_to_cpu_64(peer->isd_as)),
 			PRIIP_VAL(*(uint32_t *)dst_addr.addr),
 			PRIIP_VAL(*(uint32_t *)src_addr.addr),
-			rte_be_to_cpu_16(drkey_protocol), timestamp, drkey.key[0]);
+			rte_be_to_cpu_16(drkey_protocol), t_now.s, drkey.key[0]);
 
 	/* Set timestamp */
-	lf_hdr->timestamp =
-			rte_cpu_to_be_64(timestamp - s_drkey_epoch_start * LF_TIME_NS_IN_S);
+	lf_hdr->timestamp = rte_cpu_to_be_64(
+			t_now.ns + (t_now.s - s_drkey_epoch_start) * LF_TIME_NS_IN_S);
 
 	/* MAC */
 	lf_crypto_drkey_compute_mac(&worker_context->crypto_drkey_ctx, &drkey,

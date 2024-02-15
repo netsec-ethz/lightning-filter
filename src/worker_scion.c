@@ -214,12 +214,12 @@ get_spao_hdr(const struct rte_mbuf *m, unsigned int offset,
  * @param timestamp: current (unique) timestamp in nanoseconds (CPU endian)
  */
 static inline int
-set_spao_timestamp(uint64_t s_drkey_epoch_start, struct lf_timestamp timestamp,
+set_spao_timestamp(uint64_t s_drkey_epoch_start, struct lf_timestamp *timestamp,
 		struct scion_packet_authenticator_opt *spao_hdr)
 {
 	uint64_t relative_timestamp;
 
-	if (unlikely(s_drkey_epoch_start > timestamp.s)) {
+	if (unlikely(s_drkey_epoch_start > timestamp->s)) {
 		LF_WORKER_LOG_DP(NOTICE,
 				"DRKey Epoch start timestamp (%" PRIu64
 				"ms) is in the future (now: %" PRIu64 ").\n",
@@ -229,8 +229,8 @@ set_spao_timestamp(uint64_t s_drkey_epoch_start, struct lf_timestamp timestamp,
 #endif
 	}
 
-	relative_timestamp = timestamp.ns +
-	                     (timestamp.s - s_drkey_epoch_start) * LF_TIME_NS_IN_S;
+	relative_timestamp = timestamp->ns +
+	                     (timestamp->s - s_drkey_epoch_start) * LF_TIME_NS_IN_S;
 
 	/* ensure that timestamp fits into 6 bytes */
 	if (unlikely(relative_timestamp >> 48)) {
@@ -822,7 +822,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	}
 
 	/* set timestamp */
-	res = set_spao_timestamp(s_drkey_epoch_start, t_now, spao_hdr);
+	res = set_spao_timestamp(s_drkey_epoch_start, &t_now, spao_hdr);
 	if (unlikely(res != 0)) {
 		/* TODO: error handling */
 		return -1;

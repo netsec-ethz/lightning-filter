@@ -25,11 +25,12 @@ duplicate_filter_worker()
 	int error_count;
 	struct lf_duplicate_filter_worker *df;
 
-	uint64_t ns_now = 0;
+	struct lf_timestamp t_now;
 	unsigned int bf_period = 1000;
 	unsigned int bf_hashes = 4;
 	unsigned int bf_bytes = 4;
 	unsigned int secret = 0;
+	lf_timestamp_init_zero(&t_now);
 
 	df = lf_duplicate_filter_worker_new(0, 4, bf_period, bf_hashes, bf_bytes,
 			secret);
@@ -44,20 +45,20 @@ duplicate_filter_worker()
 		'a', 'b', 'c', 'd', 'e', 'f' };
 
 	error_count = 0;
-	res = lf_duplicate_filter_apply(df, in1, 0);
+	res = lf_duplicate_filter_apply(df, in1, &t_now);
 	if (res != 0) {
 		printf("Failed: in1\n");
 		error_count++;
 	}
 
 
-	res = lf_duplicate_filter_apply(df, in2, 0);
+	res = lf_duplicate_filter_apply(df, in2, &t_now);
 	if (res != 0) {
 		printf("Failed: in2\n");
 		error_count++;
 	}
 
-	res = lf_duplicate_filter_apply(df, in2, 0);
+	res = lf_duplicate_filter_apply(df, in2, &t_now);
 	if (res == 0) {
 		printf("Failed: second in2\n");
 		error_count++;
@@ -65,17 +66,17 @@ duplicate_filter_worker()
 
 	/* check that during rotations in2 is still being detected as duplicate. */
 	for (unsigned int i = 0; i < df->nb_bf + 1; ++i) {
-		ns_now = ns_now + bf_period + 1;
-		res = lf_duplicate_filter_apply(df, in2, ns_now);
+		lf_timestamp_inc_ns(&t_now, bf_period + 1);
+		res = lf_duplicate_filter_apply(df, in2, &t_now);
 		if (res == 0) {
-			printf("Failed: in2 at %" PRId64 "\n", ns_now);
+			printf("Failed: in2 at %" PRId32 "\n", t_now.ns);
 			error_count++;
 		}
 	}
 
 	/* after performing more than LF_DUPLICATE_FILTER_BLOOMFILTERS rotations,
 	 * in1 should not be detected as duplicate. */
-	res = lf_duplicate_filter_apply(df, in1, ns_now);
+	res = lf_duplicate_filter_apply(df, in1, &t_now);
 	if (res != 0) {
 		printf("Failed: second in1\n");
 		error_count++;

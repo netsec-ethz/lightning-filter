@@ -83,20 +83,16 @@ handle_wg_pkt(struct lf_worker_context *worker_context,
 {
 	int res;
 
-	int64_t ns_now;
 	struct lf_timestamp t_now;
 	res = lf_time_worker_get(&worker_context->time, &t_now);
 	if (res != 0) {
 		return LF_WGR_ERROR;
 	}
-	// TODO (abojarski) use correct timestamp here
-	ns_now = t_now.s * LF_TIME_NS_IN_S + t_now.ns;
-
 
 	if (wg_hdr->type == 0x1 || wg_hdr->type == 0x2 || wg_hdr->type == 0x3) {
 		/* The packet is a WG handshake packet */
 		res = lf_token_bucket_ratelimit_apply(&ctx->handshake_bucket, 1,
-				m->pkt_len, ns_now);
+				m->pkt_len, &t_now);
 		LF_WGR_LOG_DP(DEBUG, "Handshake rate limit result %d\n", res);
 		if (res != 0) {
 			return LF_WGR_RATELIMITED;
@@ -104,7 +100,7 @@ handle_wg_pkt(struct lf_worker_context *worker_context,
 	} else if (wg_hdr->type == 0x4) {
 		/* The packet is a WG data packet */
 		res = lf_token_bucket_ratelimit_apply(&ctx->data_bucket, 1, m->pkt_len,
-				ns_now);
+				&t_now);
 		LF_WGR_LOG_DP(DEBUG, "Data rate limit result %d\n", res);
 		if (res != 0) {
 			return LF_WGR_RATELIMITED;

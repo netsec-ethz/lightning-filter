@@ -12,18 +12,19 @@ test_lf_token_bucket_ratelimit()
 	int res;
 	int error_counter = 0;
 	struct lf_token_bucket_ratelimit ratelimit;
-	uint64_t ns_now = 0;
+	struct lf_timestamp t_now;
+	lf_timestamp_init_zero(&t_now);
 
 	lf_token_bucket_ratelimit_init(&ratelimit, 0, 0, 0, 0);
 
-	res = lf_token_bucket_ratelimit_apply(&ratelimit, 1, 1, ns_now);
+	res = lf_token_bucket_ratelimit_apply(&ratelimit, 1, 1, &t_now);
 	if (res == 0) {
 		printf("Error: 1 tb check failed\n");
 		error_counter++;
 	}
 
-	ns_now += 1000;
-	res = lf_token_bucket_ratelimit_apply(&ratelimit, 1, 1, ns_now);
+	lf_timestamp_inc_ns(&t_now, 1000);
+	res = lf_token_bucket_ratelimit_apply(&ratelimit, 1, 1, &t_now);
 	if (res == 0) {
 		printf("Error: 2 tb check failed\n");
 		error_counter++;
@@ -31,12 +32,11 @@ test_lf_token_bucket_ratelimit()
 
 	lf_token_bucket_ratelimit_set(&ratelimit, 1000, 1000, 1000, 1000);
 
-	ns_now += 0;
-	res = lf_token_bucket_ratelimit_apply(&ratelimit, 1, 1, ns_now);
+	res = lf_token_bucket_ratelimit_apply(&ratelimit, 1, 1, &t_now);
 	/*
 	 * This test fails (and that is ok)!
 	 * The token bucket has not been refilled since ms = 0.
-	 * Because ns_now = 1000, the buckets are refilled with 1000 tokens.
+	 * Because t_now = 1000, the buckets are refilled with 1000 tokens.
 	 *
 	 * Allowing this traffic does not exceed the rate nor the burst size!
 	 */
@@ -47,15 +47,14 @@ test_lf_token_bucket_ratelimit()
 	}
 	*/
 
-	ns_now += 1000;
-	res = lf_token_bucket_ratelimit_apply(&ratelimit, 999, 999, ns_now);
+	lf_timestamp_inc_ns(&t_now, 1000);
+	res = lf_token_bucket_ratelimit_apply(&ratelimit, 999, 999, &t_now);
 	if (res != 0) {
 		printf("Error: 4 tb check failed\n");
 		error_counter++;
 	}
 
-	ns_now += 0;
-	res = lf_token_bucket_ratelimit_apply(&ratelimit, 999, 999, ns_now);
+	res = lf_token_bucket_ratelimit_apply(&ratelimit, 999, 999, &t_now);
 	if (res == 0) {
 		printf("Error: 5 tb check failed\n");
 		error_counter++;

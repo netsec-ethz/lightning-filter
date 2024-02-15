@@ -118,7 +118,7 @@ test1()
 	int res = 0, error_count = 0;
 	struct lf_keymanager *km;
 	struct lf_keymanager_worker *kmw;
-	struct lf_timestamp t_now, delta, timestamp2;
+	struct lf_timestamp t_now;
 	struct lf_crypto_drkey drkey;
 	struct lf_host_addr src_host_addr;
 	struct lf_host_addr dst_host_addr;
@@ -164,10 +164,10 @@ test1()
 					LF_DRKEY_VALIDITY_PERIOD_S;
 	uint64_t ns_time_offset =
 			t_now.ns + (t_now.s - validity_not_before_s) * LF_TIME_NS_IN_S;
-	uint64_t ns_drkey_epoch_start;
+	uint64_t s_drkey_epoch_start;
 	res = lf_keymanager_worker_inbound_get_drkey(kmw, config->peers->isd_as,
 			&src_host_addr, &dst_host_addr, config->peers->drkey_protocol,
-			t_now.s, ns_time_offset, &ns_drkey_epoch_start, &drkey);
+			t_now.s, ns_time_offset, &s_drkey_epoch_start, &drkey);
 	if (res != 0) {
 		printf("Error: lf_keymanager_worker_inbound_get_drkey s_now = %ld "
 			   "(expected = 0, res = %d)\n",
@@ -177,7 +177,7 @@ test1()
 
 	res = lf_keymanager_worker_outbound_get_drkey(kmw, config->peers->isd_as,
 			&dst_host_addr, &src_host_addr, config->peers->drkey_protocol,
-			t_now.s, &ns_drkey_epoch_start, &drkey);
+			t_now.s, &s_drkey_epoch_start, &drkey);
 	if (res != 0) {
 		printf("Error: lf_keymanager_worker_outbound_get_drkey (expected = 0, "
 			   "res = %d)\n",
@@ -185,12 +185,10 @@ test1()
 		error_count += 1;
 	}
 
-	lf_timestamp_init_s(&delta,
-			3 * 24 * 3600); // 3 days (the max validity period)
-	timestamp2 = lf_timestamp_add(&t_now, &delta);
+	t_now.s += 3 * 24 * 3600; // 3 days (the max validity period)
 	res = lf_keymanager_worker_inbound_get_drkey(kmw, config->peers->isd_as,
 			&src_host_addr, &dst_host_addr, config->peers->drkey_protocol,
-			timestamp2.s, ns_time_offset, &ns_drkey_epoch_start, &drkey);
+			t_now.s, ns_time_offset, &s_drkey_epoch_start, &drkey);
 	if (res != -2) {
 		printf("Error: s_now = s_now + 3*24*3600; "
 			   "lf_keymanager_worker_inbound_get_drkey (expected = -2, res = "
@@ -201,7 +199,7 @@ test1()
 
 	res = lf_keymanager_worker_outbound_get_drkey(kmw, config->peers->isd_as,
 			&dst_host_addr, &src_host_addr, config->peers->drkey_protocol,
-			timestamp2.s, &ns_drkey_epoch_start, &drkey);
+			t_now.s, &s_drkey_epoch_start, &drkey);
 	if (res != -2) {
 		printf("Error: s_now = s_now + 3*24*3600; "
 			   "lf_keymanager_worker_outbound_get_drkey (expected = -2, res = "
@@ -265,10 +263,10 @@ test2()
 		return error_count;
 	}
 
-	uint64_t ns_drkey_epoch_start;
+	uint64_t s_drkey_epoch_start;
 	res = lf_keymanager_worker_outbound_get_drkey(kmw1, config1->peers->isd_as,
 			&dst_host_addr, &src_host_addr, config1->peers->drkey_protocol,
-			t_now.s, &ns_drkey_epoch_start, &drkey1);
+			t_now.s, &s_drkey_epoch_start, &drkey1);
 	if (res != 0) {
 		printf("Error: lf_keymanager_worker_outbound_get_drkey\n");
 		error_count += 1;
@@ -299,7 +297,7 @@ test2()
 			t_now.ns + (t_now.s - validity_not_before_s) * LF_TIME_NS_IN_S;
 	res = lf_keymanager_worker_inbound_get_drkey(kmw2, config2->peers->isd_as,
 			&src_host_addr, &dst_host_addr, config2->peers->drkey_protocol,
-			t_now.s, ns_time_offset, &ns_drkey_epoch_start, &drkey2);
+			t_now.s, ns_time_offset, &s_drkey_epoch_start, &drkey2);
 	if (res != 0) {
 		printf("Error: lf_keymanager_worker_inbound_get_drkey\n");
 		error_count += 1;

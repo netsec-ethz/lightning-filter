@@ -418,8 +418,8 @@ main(int argc, char **argv)
 		lf_time_worker_init(&worker_contexts[lcore_id].time);
 
 		/* also set timestamp threshold in the worker's context */
-		worker_contexts[lcore_id].timestamp_threshold =
-				params.tf_threshold * LF_TIME_NS_IN_MS;
+		lf_timestamp_init_ns(&worker_contexts[lcore_id].timestamp_threshold,
+				params.tf_threshold * LF_TIME_NS_IN_MS);
 	}
 
 	/*

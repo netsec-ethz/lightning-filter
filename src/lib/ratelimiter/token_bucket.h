@@ -9,13 +9,14 @@
 #include <stdatomic.h>
 
 #include "../math/util.h"
+#include "../time/time.h"
 
 struct lf_token_bucket {
 	_Atomic(uint64_t) rate;
 	_Atomic(uint64_t) burst;
 
 	uint64_t tokens;
-	uint64_t last_fill; /* Unix epoch (nanoseconds) */
+	struct lf_timestamp last_fill; /* Unix epoch (nanoseconds) */
 };
 
 /**
@@ -31,7 +32,7 @@ lf_token_bucket_init(struct lf_token_bucket *token_bucket, uint64_t rate,
 	token_bucket->rate = rate;
 	token_bucket->burst = burst;
 	token_bucket->tokens = 0;
-	token_bucket->last_fill = 0;
+	lf_timestamp_init_zero(&token_bucket->last_fill);
 }
 
 /**
@@ -53,7 +54,7 @@ lf_token_bucket_set(struct lf_token_bucket *token_bucket, uint64_t rate,
 
 static inline int
 lf_token_bucket_check(struct lf_token_bucket *token_bucket, uint64_t tokens,
-		uint64_t ns_now)
+		struct lf_timestamp *t_now)
 {
 	uint64_t rate =
 			atomic_load_explicit(&token_bucket->rate, memory_order_relaxed);
@@ -69,14 +70,16 @@ lf_token_bucket_check(struct lf_token_bucket *token_bucket, uint64_t tokens,
 		token_bucket->tokens = burst;
 	}
 
-	if (ns_now > token_bucket->last_fill) {
-		uint64_t elapsed_ms = ns_now - token_bucket->last_fill;
-		uint64_t tokens_new = token_bucket->tokens + (elapsed_ms * rate) / 1000;
+	if (lf_timestamp_greater(t_now, &token_bucket->last_fill)) {
+		struct lf_timestamp elapsed =
+				lf_timestamp_sub(t_now, &token_bucket->last_fill);
+		uint64_t elapsed_ns = elapsed.s * LF_TIME_NS_IN_S + elapsed.ns;
+		uint64_t tokens_new = token_bucket->tokens + (elapsed_ns * rate) / 1000;
 
 		/* check if new tokens could have been added */
 		if (tokens_new != token_bucket->tokens) {
 			token_bucket->tokens = MIN(tokens_new, burst);
-			token_bucket->last_fill = ns_now;
+			lf_timestamp_copy(&token_bucket->last_fill, t_now);
 		}
 	}
 
@@ -143,14 +146,14 @@ lf_token_bucket_ratelimit_set(struct lf_token_bucket_ratelimit *rl,
 
 static inline int
 lf_token_bucket_ratelimit_apply(struct lf_token_bucket_ratelimit *rl,
-		int64_t packets, int64_t bytes, uint64_t ns_now)
+		int64_t packets, int64_t bytes, struct lf_timestamp *t_now)
 {
 	int res;
-	res = lf_token_bucket_check(&rl->packet, packets, ns_now);
+	res = lf_token_bucket_check(&rl->packet, packets, t_now);
 	if (res < 0) {
 		return -1;
 	}
-	res = lf_token_bucket_check(&rl->byte, bytes, ns_now);
+	res = lf_token_bucket_check(&rl->byte, bytes, t_now);
 	if (res < 0) {
 		return -2;
 	}
