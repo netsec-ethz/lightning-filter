@@ -712,7 +712,6 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	struct lf_host_addr dst_addr;
 	struct lf_crypto_drkey drkey;
 	uint16_t drkey_protocol;
-	int drkey_epoch_flag;
 
 	uint8_t payload_protocol;
 	unsigned int payload_offset;
@@ -741,18 +740,16 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 			worker_context->config);
 
 	uint64_t ns_drkey_epoch_start;
-	drkey_epoch_flag = lf_keymanager_worker_outbound_get_drkey(
-			worker_context->key_manager, parsed_pkt->scion_addr_ia_hdr->dst_ia,
-			&dst_addr, &src_addr, drkey_protocol, timestamp_now,
-			&ns_drkey_epoch_start, &drkey);
-	if (unlikely(drkey_epoch_flag < 0)) {
+	res = lf_keymanager_worker_outbound_get_drkey(worker_context->key_manager,
+			parsed_pkt->scion_addr_ia_hdr->dst_ia, &dst_addr, &src_addr,
+			drkey_protocol, timestamp_now, &ns_drkey_epoch_start, &drkey);
+	if (unlikely(res < 0)) {
 		LF_WORKER_LOG_DP(NOTICE,
 				"Outbound DRKey not found for AS " PRIISDAS
 				" and drkey_protocol %d (ns_now = %" PRIu64 ", res = %d)!\n",
 				PRIISDAS_VAL(rte_be_to_cpu_64(
 						parsed_pkt->scion_addr_ia_hdr->dst_ia)),
-				rte_be_to_cpu_16(drkey_protocol), timestamp_now,
-				drkey_epoch_flag);
+				rte_be_to_cpu_16(drkey_protocol), timestamp_now, res);
 		return -1;
 	}
 
@@ -763,8 +760,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 					rte_be_to_cpu_64(parsed_pkt->scion_addr_ia_hdr->dst_ia)),
 			PRIIP_VAL(*(uint32_t *)dst_addr.addr),
 			PRIIP_VAL(*(uint32_t *)src_addr.addr),
-			rte_be_to_cpu_16(drkey_protocol), drkey.key[0], timestamp_now,
-			drkey_epoch_flag);
+			rte_be_to_cpu_16(drkey_protocol), drkey.key[0], timestamp_now, res);
 
 	/*
 	 * Add SPAO Extension Header
