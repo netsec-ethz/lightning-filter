@@ -112,15 +112,18 @@ lf_dst_ratelimiter_handle_pkt_post(struct lf_worker_context *worker_context,
 	}
 
 
-	int64_t ms_now;
-	res = lf_time_worker_get(&worker_context->time, &ms_now);
+	int64_t ns_now;
+	struct lf_timestamp t_now;
+	res = lf_time_worker_get(&worker_context->time, &t_now);
 	if (res != 0) {
 		return pkt_action;
 	}
+	// TODO (abojarski) use correct timestamp here
+	ns_now = t_now.s * LF_TIME_NS_IN_S + t_now.ns;
 
 	res = lf_token_bucket_ratelimit_apply(
 			&dst_ratelimiter.buckets[worker_context->worker_id], 1, m->pkt_len,
-			ms_now);
+			ns_now);
 	LF_DSTR_LOG_DP(DEBUG, "Ratelimit result %d\n", res);
 	if (res != 0) {
 		return LF_PKT_INBOUND_DROP;

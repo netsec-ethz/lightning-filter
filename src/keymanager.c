@@ -83,12 +83,12 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 	struct lf_keymanager_dictionary_key *key_ptr;
 	uint32_t iterator;
 	struct lf_keymanager_dictionary_data *data, *new_data;
-	uint64_t ns_now;
+	struct lf_timestamp t_now;
 
 	/* memory to be freed later */
 	struct linked_list *free_list = NULL;
 
-	if (lf_time_get(&ns_now) != 0) {
+	if (lf_time_get(&t_now) != 0) {
 		LF_KEYMANAGER_LOG(ERR, "Fail to get current time\n");
 		return;
 	}
@@ -97,7 +97,7 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 	(void)rte_spinlock_lock(&km->management_lock);
 	for (iterator = 0; rte_hash_iterate(km->dict, (void *)&key_ptr,
 							   (void **)&data, &iterator) >= 0;) {
-		if (ns_now + LF_DRKEY_PREFETCHING_PERIOD >=
+		if (t_now.s + LF_DRKEY_PREFETCHING_PERIOD >=
 				data->inbound_key.validity_not_after) {
 			/*
 			 * create new node and copy everything from old node
@@ -115,7 +115,7 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 
 			res = lf_keyfetcher_fetch_as_as_key(km->fetcher, key_ptr->as,
 					km->src_as, key_ptr->drkey_protocol,
-					ns_now + LF_DRKEY_PREFETCHING_PERIOD,
+					t_now.s + LF_DRKEY_PREFETCHING_PERIOD,
 					&new_data->inbound_key);
 			if (res < 0) {
 				rte_free(new_data);
@@ -145,7 +145,7 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 	/* Check if outbound keys are required to be updated */
 	for (iterator = 0; rte_hash_iterate(km->dict, (void *)&key_ptr,
 							   (void **)&data, &iterator) >= 0;) {
-		if (ns_now + LF_DRKEY_PREFETCHING_PERIOD >=
+		if (t_now.s + LF_DRKEY_PREFETCHING_PERIOD >=
 				data->outbound_key.validity_not_after) {
 			/*
 			 * create new node and copy everything from old node
@@ -163,7 +163,7 @@ lf_keymanager_service_update(struct lf_keymanager *km)
 
 			res = lf_keyfetcher_fetch_as_as_key(km->fetcher, km->src_as,
 					key_ptr->as, key_ptr->drkey_protocol,
-					ns_now + LF_DRKEY_PREFETCHING_PERIOD,
+					t_now.s + LF_DRKEY_PREFETCHING_PERIOD,
 					&new_data->outbound_key);
 			if (res < 0) {
 				rte_free(new_data);
@@ -309,7 +309,7 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 	struct lf_keymanager_dictionary_key key, *key_ptr;
 	struct lf_keymanager_dictionary_data *dictionary_data;
 	struct lf_config_peer *peer;
-	uint64_t ns_now;
+	struct lf_timestamp t_now;
 
 	/* memory to be freed later */
 	struct linked_list *free_list = NULL;
@@ -326,7 +326,7 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 	memcpy(km->drkey_service_addr, config->drkey_service_addr,
 			sizeof km->drkey_service_addr);
 
-	res = lf_time_get(&ns_now);
+	res = lf_time_get(&t_now);
 	if (res != 0) {
 		LF_KEYMANAGER_LOG(ERR, "Cannot get current time\n");
 		err = -1;
@@ -387,14 +387,14 @@ lf_keymanager_apply_config(struct lf_keymanager *km,
 		}
 
 		res = lf_keyfetcher_fetch_as_as_key(km->fetcher, key.as, config->isd_as,
-				key.drkey_protocol, ns_now, &dictionary_data->inbound_key);
+				key.drkey_protocol, t_now.s, &dictionary_data->inbound_key);
 		if (res < 0) {
 			dictionary_data->inbound_key.validity_not_after = 0;
 		}
 		dictionary_data->old_inbound_key.validity_not_after = 0;
 
 		res = lf_keyfetcher_fetch_as_as_key(km->fetcher, config->isd_as, key.as,
-				key.drkey_protocol, ns_now, &dictionary_data->outbound_key);
+				key.drkey_protocol, t_now.s, &dictionary_data->outbound_key);
 		if (res < 0) {
 			dictionary_data->outbound_key.validity_not_after = 0;
 		}

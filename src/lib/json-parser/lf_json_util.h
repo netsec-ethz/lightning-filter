@@ -250,7 +250,7 @@ lf_json_parse_byte_buffer(const json_value *json_val, int len, uint8_t val[])
 
 /**
  * Parse timestamp from iso string.
- * @param val result timestamp in unix time
+ * @param val result timestamp in unix time (in seconds)
  */
 static inline int
 lf_json_parse_timestamp(const json_value *json_val, uint64_t *val)
@@ -318,7 +318,7 @@ lf_json_parse_timestamp(const json_value *json_val, uint64_t *val)
 		return -1;
 	}
 
-	*val = (uint64_t)(unix_time) * (uint64_t)1e9;
+	*val = (uint64_t)(unix_time);
 
 	return 0;
 }

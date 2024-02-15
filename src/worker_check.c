@@ -282,6 +282,7 @@ lf_worker_check_pkt(struct lf_worker_context *worker_context,
 {
 	int res = 0;
 	uint64_t ns_now;
+	struct lf_timestamp t_now;
 	struct lf_crypto_drkey drkey;
 	struct lf_ratelimiter_pkt_ctx rl_pkt_ctx;
 
@@ -290,11 +291,13 @@ lf_worker_check_pkt(struct lf_worker_context *worker_context,
 	 * Almost all modules require the current time, hence, it is obtained here
 	 * and reused for all modules.
 	 */
-	res = lf_time_worker_get(&worker_context->time, &ns_now);
+	res = lf_time_worker_get(&worker_context->time, &t_now);
 	if (unlikely(res != 0)) {
 		lf_statistics_worker_counter_inc(worker_context->statistics, error);
 		return LF_CHECK_ERROR;
 	}
+	// TODO (abojarski) use correct timestamp here
+	ns_now = t_now.s * LF_TIME_NS_IN_S + t_now.ns;
 
 	/*
 	 * Rate Limit Check
@@ -312,10 +315,10 @@ lf_worker_check_pkt(struct lf_worker_context *worker_context,
 	/*
 	 * MAC Check
 	 */
-	u_int64_t ns_drkey_epoch_start;
+	u_int64_t s_drkey_epoch_start;
 	res = get_drkey(worker_context, pkt_data->src_as, &pkt_data->src_addr,
-			&pkt_data->dst_addr, pkt_data->drkey_protocol, ns_now,
-			pkt_data->timestamp, &ns_drkey_epoch_start, &drkey);
+			&pkt_data->dst_addr, pkt_data->drkey_protocol, t_now.s,
+			pkt_data->timestamp, &s_drkey_epoch_start, &drkey);
 	if (unlikely(res != 0)) {
 		return LF_CHECK_NO_KEY;
 	}
@@ -328,7 +331,7 @@ lf_worker_check_pkt(struct lf_worker_context *worker_context,
 	 * Timestamp Check
 	 */
 	uint64_t ns_calculated_packet_timestamp =
-			ns_drkey_epoch_start + pkt_data->timestamp;
+			LF_TIME_NS_IN_S * s_drkey_epoch_start + pkt_data->timestamp;
 	res = check_timestamp(worker_context, ns_calculated_packet_timestamp,
 			ns_now);
 	if (likely(res != 0)) {
@@ -364,13 +367,17 @@ lf_worker_check_best_effort_pkt(struct lf_worker_context *worker_context,
 {
 	int res;
 	uint64_t ns_now;
+	struct lf_timestamp t_now;
 
 	/* get current time (in ms) */
-	res = lf_time_worker_get(&worker_context->time, &ns_now);
+	res = lf_time_worker_get(&worker_context->time, &t_now);
 	if (unlikely(res != 0)) {
 		lf_statistics_worker_counter_inc(worker_context->statistics, error);
 		return LF_CHECK_ERROR;
 	}
+	// TODO (abojarski) use correct timestamp here
+	ns_now = t_now.s * LF_TIME_NS_IN_S + t_now.ns;
+
 
 #if LF_WORKER_OMIT_RATELIMIT_CHECK
 	return LF_CHECK_BE;

@@ -19,10 +19,9 @@
  * LF_DRKEY_GRACE_PERIOD, which extends the ending point of the old key by a
  * certain amount of time.
  */
-#define LF_DRKEY_GRACE_PERIOD       (2 * LF_TIME_NS_IN_S) /* in nanoseconds */
-#define LF_DRKEY_PREFETCHING_PERIOD (1 * LF_TIME_NS_IN_S) /* in nanoseconds */
-#define LF_DRKEY_MINIMUM_VALIDITY_PERIOD_NS \
-	(6 * 60 * LF_TIME_NS_IN_S) /* in nanoseconds */
+#define LF_DRKEY_GRACE_PERIOD            2        /* in seconds */
+#define LF_DRKEY_PREFETCHING_PERIOD      1        /* in seconds */
+#define LF_DRKEY_MINIMUM_VALIDITY_PERIOD (6 * 60) /* in seconds */
 
 /*
  * DRKey derivation types.
@@ -35,8 +34,9 @@
 /*
  * DRKey validity period used for shared, configured keys.
  */
+#define LF_DRKEY_VALIDITY_PERIOD_S (3 * 24 * 3600) /* in seconds */
 #define LF_DRKEY_VALIDITY_PERIOD_NS \
-	(3 * 24 * 3600 * LF_TIME_NS_IN_S) /* in nanoseconds */
+	(LF_DRKEY_VALIDITY_PERIOD_S * LF_TIME_NS_IN_S) /* in nanoseconds */
 
 /*
  * IPv6 prefix for embedded IPv4 address
@@ -51,8 +51,8 @@ static const uint8_t IPV4_MAPPED_IPV6_PREFIX[12] = { 0x00, 0x00, 0x00, 0x00,
  * nanoseconds to avoid any conversion.
  */
 struct lf_keymanager_key_container {
-	uint64_t validity_not_before; /* Unix timestamp (nanoseconds) */
-	uint64_t validity_not_after;  /* Unix timestamp (nanoseconds) */
+	uint64_t validity_not_before; /* Unix timestamp (seconds) */
+	uint64_t validity_not_after;  /* Unix timestamp (seconds) */
 	struct lf_crypto_drkey key;
 };
 

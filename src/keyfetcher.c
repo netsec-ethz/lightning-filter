@@ -51,18 +51,16 @@ static const uint8_t zero_secret_value[16] = { 0 };
  * @param src_ia DRKey slow side (CPU endian).
  * @param dst_ia DRKey fast side (CPU endian).
  * @param drkey_protocol (network byte order).
- * @param ns_valid time in nanoseconds for which the key should be valid.
+ * @param s_valid time in seconds for which the key should be valid.
  * @param key Returning AS-AS key.
  */
 static int
 lf_keyfetcher_derive_shared_key(struct lf_crypto_drkey_ctx *drkey_ctx,
 		struct lf_keyfetcher_sv_dictionary_data *secret_node, uint64_t src_ia,
-		uint64_t dst_ia, uint16_t drkey_protocol, uint64_t ns_valid,
+		uint64_t dst_ia, uint16_t drkey_protocol, uint64_t s_valid,
 		struct lf_keymanager_key_container *key)
 {
 	struct lf_keyfetcher_sv_container *secret = NULL;
-	uint64_t ms_valid;
-	ms_valid = ns_valid / LF_TIME_NS_IN_MS;
 
 	// Find the correct shared secret to be used for current timestamp.
 	for (int i = 0; i < LF_CONFIG_SV_MAX; i++) {
@@ -70,7 +68,7 @@ lf_keyfetcher_derive_shared_key(struct lf_crypto_drkey_ctx *drkey_ctx,
 					sizeof secret_node->secret_values[i].key.key) == 0) {
 			continue;
 		}
-		if (secret_node->secret_values[i].validity_not_before <= ns_valid) {
+		if (secret_node->secret_values[i].validity_not_before < s_valid) {
 			if (secret == NULL) {
 				secret = &secret_node->secret_values[i];
 			} else if (secret_node->secret_values[i].validity_not_before >=
@@ -82,47 +80,45 @@ lf_keyfetcher_derive_shared_key(struct lf_crypto_drkey_ctx *drkey_ctx,
 	if (secret == NULL) {
 		LF_KEYFETCHER_LOG(ERR,
 				"Could not find shared secret for: src_as " PRIISDAS
-				", dst_as " PRIISDAS ", drkey_protocol %u, ms_valid %" PRIu64
+				", dst_as " PRIISDAS ", drkey_protocol %u, s_valid %" PRIu64
 				"\n",
 				PRIISDAS_VAL(rte_be_to_cpu_64(src_ia)),
 				PRIISDAS_VAL(rte_be_to_cpu_64(dst_ia)),
-				rte_be_to_cpu_16(drkey_protocol), ms_valid);
+				rte_be_to_cpu_16(drkey_protocol), s_valid);
 		return -1;
 	}
 
-	uint64_t validity_not_before_ns =
+	uint64_t validity_not_before_s =
 			secret->validity_not_before +
-			(int)((ns_valid - secret->validity_not_before) /
-					LF_DRKEY_VALIDITY_PERIOD_NS) *
-					LF_DRKEY_VALIDITY_PERIOD_NS;
-	uint64_t validity_not_before_ns_be =
-			rte_cpu_to_be_64(validity_not_before_ns);
-	uint64_t validity_not_after_ns =
-			validity_not_before_ns + LF_DRKEY_VALIDITY_PERIOD_NS - 1;
+			(int)((s_valid - secret->validity_not_before) /
+					LF_DRKEY_VALIDITY_PERIOD_S) *
+					LF_DRKEY_VALIDITY_PERIOD_S;
+	uint64_t validity_not_before_s_be = rte_cpu_to_be_64(validity_not_before_s);
+	uint64_t validity_not_after_s =
+			validity_not_before_s + LF_DRKEY_VALIDITY_PERIOD_S;
 
 	uint8_t buf[2 * LF_CRYPTO_CBC_BLOCK_SIZE] = { 0 };
 	buf[0] = LF_DRKEY_DERIVATION_TYPE_AS_AS;
 	memcpy(buf + 1, &dst_ia, 8);
 	memcpy(buf + 9, &src_ia, 8);
-	memcpy(buf + 17, &validity_not_before_ns_be, 8);
+	memcpy(buf + 17, &validity_not_before_s_be, 8);
 
 	lf_crypto_drkey_derivation_step(drkey_ctx, &secret->key, buf, sizeof buf,
 			&key->key);
 
 	LF_KEYFETCHER_LOG(INFO,
 			"Derived shared AS AS Key: src_as " PRIISDAS ", dst_as " PRIISDAS
-			", drkey_protocol %u, ms_valid %" PRIu64
-			", validity_not_before_ms %" PRIu64
-			", validity_not_after_ms %" PRIu64 "\n",
+			", drkey_protocol %u, s_valid %" PRIu64
+			", validity_not_before_s %" PRIu64 ", validity_not_after_s %" PRIu64
+			"\n",
 			PRIISDAS_VAL(rte_be_to_cpu_64(src_ia)),
 			PRIISDAS_VAL(rte_be_to_cpu_64(dst_ia)),
-			rte_be_to_cpu_16(drkey_protocol), ms_valid,
-			(validity_not_before_ns / LF_TIME_NS_IN_MS),
-			(validity_not_after_ns / LF_TIME_NS_IN_MS));
+			rte_be_to_cpu_16(drkey_protocol), s_valid, (validity_not_before_s),
+			(validity_not_after_s));
 
 	/* set values in returned key structure */
-	key->validity_not_before = validity_not_before_ns;
-	key->validity_not_after = validity_not_after_ns;
+	key->validity_not_before = validity_not_before_s;
+	key->validity_not_after = validity_not_after_s;
 
 	return 0;
 }
@@ -130,7 +126,7 @@ lf_keyfetcher_derive_shared_key(struct lf_crypto_drkey_ctx *drkey_ctx,
 // should only be called when keymanager management lock is hold
 int
 lf_keyfetcher_fetch_as_as_key(struct lf_keyfetcher *kf, uint64_t src_ia,
-		uint64_t dst_ia, uint16_t drkey_protocol, uint64_t ns_valid,
+		uint64_t dst_ia, uint16_t drkey_protocol, uint64_t s_valid,
 		struct lf_keymanager_key_container *key)
 {
 	int key_id, res;
@@ -144,7 +140,7 @@ lf_keyfetcher_fetch_as_as_key(struct lf_keyfetcher *kf, uint64_t src_ia,
 			(void **)&shared_secret_node);
 	if (key_id >= 0) {
 		res = lf_keyfetcher_derive_shared_key(&kf->drkey_ctx,
-				shared_secret_node, src_ia, dst_ia, drkey_protocol, ns_valid,
+				shared_secret_node, src_ia, dst_ia, drkey_protocol, s_valid,
 				key);
 	} else {
 		LF_KEYFETCHER_LOG(ERR,
@@ -162,7 +158,7 @@ lf_keyfetcher_fetch_as_as_key(struct lf_keyfetcher *kf, uint64_t src_ia,
 int
 lf_keyfetcher_fetch_host_as_key(struct lf_keyfetcher *kf, uint64_t src_ia,
 		uint64_t dst_ia, const struct lf_host_addr *fast_side_host,
-		uint16_t drkey_protocol, uint64_t ns_valid,
+		uint16_t drkey_protocol, uint64_t s_valid,
 		struct lf_keymanager_key_container *key)
 {
 	int key_id, res;
@@ -180,7 +176,7 @@ lf_keyfetcher_fetch_host_as_key(struct lf_keyfetcher *kf, uint64_t src_ia,
 			(void **)&shared_secret_node);
 	if (key_id >= 0) {
 		res = lf_keyfetcher_derive_shared_key(&kf->drkey_ctx,
-				shared_secret_node, src_ia, dst_ia, drkey_protocol, ns_valid,
+				shared_secret_node, src_ia, dst_ia, drkey_protocol, s_valid,
 				&as_as_key);
 		if (res < 0) {
 			return res;
@@ -191,7 +187,7 @@ lf_keyfetcher_fetch_host_as_key(struct lf_keyfetcher *kf, uint64_t src_ia,
 		key->validity_not_after = as_as_key.validity_not_after;
 	} else {
 		// fetch from control service
-		ms_valid = ns_valid / LF_TIME_NS_IN_MS;
+		ms_valid = s_valid * 1000;
 
 		// TODO: implement address parsing correctly. IPv6 addresses do not fit
 		// in uint64_t...
@@ -203,10 +199,8 @@ lf_keyfetcher_fetch_host_as_key(struct lf_keyfetcher *kf, uint64_t src_ia,
 		if (res < 0) {
 			return res;
 		}
-		key->validity_not_after =
-				(uint64_t)validity_not_after_ms * LF_TIME_NS_IN_MS;
-		key->validity_not_before =
-				(uint64_t)validity_not_before_ms * LF_TIME_NS_IN_MS;
+		key->validity_not_after = (uint64_t)validity_not_after_ms / 1000;
+		key->validity_not_before = (uint64_t)validity_not_before_ms / 1000;
 		lf_crypto_drkey_from_buf(&kf->drkey_ctx, drkey_buf, &key->key);
 	}
 
@@ -218,7 +212,7 @@ int
 lf_keyfetcher_fetch_host_host_key(struct lf_keyfetcher *kf, uint64_t src_ia,
 		uint64_t dst_ia, const struct lf_host_addr *fast_side_host,
 		const struct lf_host_addr *slow_side_host, uint16_t drkey_protocol,
-		uint64_t ns_valid, struct lf_keymanager_key_container *key)
+		uint64_t s_valid, struct lf_keymanager_key_container *key)
 {
 	int key_id, res;
 	struct lf_keyfetcher_dictionary_key dict_key;
@@ -235,7 +229,7 @@ lf_keyfetcher_fetch_host_host_key(struct lf_keyfetcher *kf, uint64_t src_ia,
 			(void **)&shared_secret_node);
 	if (key_id >= 0) {
 		res = lf_keyfetcher_derive_shared_key(&kf->drkey_ctx,
-				shared_secret_node, src_ia, dst_ia, drkey_protocol, ns_valid,
+				shared_secret_node, src_ia, dst_ia, drkey_protocol, s_valid,
 				&as_as_key);
 		if (res < 0) {
 			return res;
@@ -246,7 +240,7 @@ lf_keyfetcher_fetch_host_host_key(struct lf_keyfetcher *kf, uint64_t src_ia,
 		key->validity_not_after = as_as_key.validity_not_after;
 	} else {
 		// fetch from control service
-		ms_valid = ns_valid / LF_TIME_NS_IN_MS;
+		ms_valid = s_valid * 1000;
 
 		// TODO: implement address parsing correctly. IPv6 addresses do not fit
 		// in uint64_t...
@@ -259,10 +253,8 @@ lf_keyfetcher_fetch_host_host_key(struct lf_keyfetcher *kf, uint64_t src_ia,
 		if (res < 0) {
 			return res;
 		}
-		key->validity_not_after =
-				(uint64_t)validity_not_after_ms * LF_TIME_NS_IN_MS;
-		key->validity_not_before =
-				(uint64_t)validity_not_before_ms * LF_TIME_NS_IN_MS;
+		key->validity_not_after = (uint64_t)validity_not_after_ms / 1000;
+		key->validity_not_before = (uint64_t)validity_not_before_ms / 1000;
 		lf_crypto_drkey_from_buf(&kf->drkey_ctx, drkey_buf, &key->key);
 	}
 

@@ -58,20 +58,20 @@ struct lf_keyfetcher {
 
 int
 lf_keyfetcher_fetch_as_as_key(struct lf_keyfetcher *kf, uint64_t src_ia,
-		uint64_t dst_ia, uint16_t drkey_protocol, uint64_t ns_valid,
+		uint64_t dst_ia, uint16_t drkey_protocol, uint64_t s_valid,
 		struct lf_keymanager_key_container *key);
 
 int
 lf_keyfetcher_fetch_host_as_key(struct lf_keyfetcher *kf, uint64_t src_ia,
 		uint64_t dst_ia, const struct lf_host_addr *fast_side_host,
-		uint16_t drkey_protocol, uint64_t ns_valid,
+		uint16_t drkey_protocol, uint64_t s_valid,
 		struct lf_keymanager_key_container *key);
 
 int
 lf_keyfetcher_fetch_host_host_key(struct lf_keyfetcher *kf, uint64_t src_ia,
 		uint64_t dst_ia, const struct lf_host_addr *fast_side_host,
 		const struct lf_host_addr *slow_side_host, uint16_t drkey_protocol,
-		uint64_t ns_valid, struct lf_keymanager_key_container *key);
+		uint64_t s_valid, struct lf_keymanager_key_container *key);
 
 // should only be called when keymanager management lock is hold
 int

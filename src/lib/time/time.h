@@ -19,9 +19,14 @@ static const uint64_t LF_TIME_NS_IN_S =
 static const uint64_t LF_TIME_NS_IN_MS =
 		(uint64_t)1e6; /* nanoseconds in milliseconds */
 
+struct lf_timestamp {
+	uint64_t s;
+	uint64_t ns;
+};
+
 struct lf_time_worker {
 	/* current cached time value */
-	uint64_t ns_now_cache;
+	struct lf_timestamp t_now_cache;
 	/* counter for unique time value */
 	uint32_t counter;
 
@@ -29,12 +34,71 @@ struct lf_time_worker {
 	uint64_t update_interval_tsc;
 };
 
+static inline void
+lf_timestamp_init_zero(struct lf_timestamp *a)
+{
+	a->ns = 0;
+	a->s = 0;
+}
+
+static inline void
+lf_timestamp_init_s(struct lf_timestamp *a, uint64_t seconds)
+{
+	a->ns = 0;
+	a->s = seconds;
+}
+
+static inline void
+lf_timestamp_init_ns(struct lf_timestamp *a, uint64_t nanoseconds)
+{
+	a->ns = nanoseconds % LF_TIME_NS_IN_S;
+	a->s = nanoseconds / LF_TIME_NS_IN_S;
+}
+
+static inline bool
+lf_timestamp_equal(const struct lf_timestamp *a, const struct lf_timestamp *b)
+{
+	return (a->s == b->s) && (a->ns == b->ns);
+}
+
+static inline bool
+lf_timestamp_less(const struct lf_timestamp *a, const struct lf_timestamp *b)
+{
+	return (a->s < b->s) || ((a->s == b->s) && (a->ns < b->ns));
+}
+
+static inline bool
+lf_timestamp_greater(const struct lf_timestamp *a, const struct lf_timestamp *b)
+{
+	return (a->s > b->s) || ((a->s == b->s) && (a->ns > b->ns));
+}
+
+static inline struct lf_timestamp
+lf_timestamp_add(const struct lf_timestamp *a, const struct lf_timestamp *b)
+{
+	struct lf_timestamp res;
+	res.ns = (a->ns + b->ns) % LF_TIME_NS_IN_S;
+	uint8_t ns_overflow = res.ns < (a->ns + b->ns) ? 1 : 0;
+	res.s = a->s + b->s + ns_overflow;
+	return res;
+}
+
+static inline struct lf_timestamp
+lf_timestamp_sub(const struct lf_timestamp *a, const struct lf_timestamp *b)
+{
+	assert(!lf_timestamp_less(a, b));
+
+	struct lf_timestamp res;
+	res.ns = (LF_TIME_NS_IN_S + a->ns - b->ns) % LF_TIME_NS_IN_S;
+	uint8_t ns_overflow = a->ns < b->ns ? 1 : 0;
+	res.s = a->s - b->s - ns_overflow;
+	return res;
+}
+
 static inline int
-lf_time_get(uint64_t *ns_now)
+lf_time_get(struct lf_timestamp *t_now)
 {
 	int res;
-	uint64_t ns;
-	uint64_t s;
 	struct timespec spec;
 
 	/* TODO: should use a monotonic time, such as TAI64NA */
@@ -43,19 +107,18 @@ lf_time_get(uint64_t *ns_now)
 		return -1;
 	}
 
-	s = spec.tv_sec;
-	ns = spec.tv_nsec;
-
-	*ns_now = s * LF_TIME_NS_IN_S + ns;
+	t_now->s = spec.tv_sec;
+	t_now->ns = spec.tv_nsec;
 
 	return 0;
 }
 
 
 static inline int
-lf_time_worker_get(struct lf_time_worker *ctx, uint64_t *ns_now)
+lf_time_worker_get(struct lf_time_worker *ctx, struct lf_timestamp *t_now)
 {
-	*ns_now = ctx->ns_now_cache;
+	t_now->s = ctx->t_now_cache.s;
+	t_now->ns = ctx->t_now_cache.ns;
 	return 0;
 }
 
@@ -64,9 +127,13 @@ lf_time_worker_get(struct lf_time_worker *ctx, uint64_t *ns_now)
  * nanosecond timestamp.
  */
 static inline int
-lf_time_worker_get_unique(struct lf_time_worker *ctx, uint64_t *ns_now)
+lf_time_worker_get_unique(struct lf_time_worker *ctx,
+		struct lf_timestamp *t_now)
 {
-	*ns_now = ctx->ns_now_cache + ctx->counter;
+	t_now->s = ctx->t_now_cache.s +
+	           ((ctx->t_now_cache.ns + ctx->counter) / LF_TIME_NS_IN_S);
+	t_now->ns = (ctx->t_now_cache.ns + ctx->counter) % LF_TIME_NS_IN_S;
+
 	ctx->counter += 1;
 	return 0;
 }
@@ -96,7 +163,7 @@ lf_time_worker_update(struct lf_time_worker *ctx)
 {
 	int res = 0;
 	uint64_t current_tsc;
-	uint64_t current_ns;
+	struct lf_timestamp t_now;
 
 #if LF_WORKER_OMIT_TIME_UPDATE
 	return 0;
@@ -106,17 +173,20 @@ lf_time_worker_update(struct lf_time_worker *ctx)
 	if (unlikely(current_tsc - ctx->last_update_tsc >=
 				 ctx->update_interval_tsc)) {
 
-		res = lf_time_get(&current_ns);
+		res = lf_time_get(&t_now);
 		if (unlikely(res != 0)) {
 			return -1;
 		}
 		/* check if uniqueness is guaranteed and set res accordingly */
-		if (unlikely(sat_sub_u64(current_ns, ctx->ns_now_cache) <=
-					 ctx->counter)) {
+		if (unlikely(sat_sub_u64(
+							 ((t_now.s - ctx->t_now_cache.s) * LF_TIME_NS_IN_S +
+									 t_now.ns),
+							 ctx->t_now_cache.ns) <= ctx->counter)) {
 			res = 1;
 		}
 
-		ctx->ns_now_cache = current_ns;
+		ctx->t_now_cache.s = t_now.s;
+		ctx->t_now_cache.ns = t_now.ns;
 		ctx->counter = 0;
 		ctx->last_update_tsc = current_tsc;
 
@@ -131,7 +201,7 @@ lf_time_worker_update(struct lf_time_worker *ctx)
 static inline void
 lf_time_worker_init(struct lf_time_worker *ctx)
 {
-	(void)lf_time_get(&ctx->ns_now_cache);
+	(void)lf_time_get(&ctx->t_now_cache);
 	ctx->last_update_tsc = rte_rdtsc();
 	ctx->update_interval_tsc = (uint64_t)((double)rte_get_timer_hz() *
 										  LF_TIME_WORKER_UPDATE_INTERVAL);

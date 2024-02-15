@@ -106,6 +106,7 @@ test1()
 	struct lf_ratelimiter *rl;
 	struct lf_ratelimiter_worker *rlw;
 	struct lf_ratelimiter_pkt_ctx rl_pkt_ctx;
+	struct lf_timestamp t_now;
 	uint64_t ns_now;
 
 	struct lf_config_peer *peers[4];
@@ -134,8 +135,10 @@ test1()
 		return 1;
 	}
 
-	res = lf_time_get(&ns_now);
+	// TODO (abojarski) use correct timestamp here
+	res = lf_time_get(&t_now);
 	assert(res == 0);
+	ns_now = t_now.s * LF_TIME_NS_IN_S + t_now.ns;
 
 	/* unknown key (AS and protocol) */
 	res = lf_ratelimiter_worker_get_pkt_ctx(rlw, 1, 1, &rl_pkt_ctx);

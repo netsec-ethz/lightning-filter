@@ -118,7 +118,7 @@ test1()
 	int res = 0, error_count = 0;
 	struct lf_keymanager *km;
 	struct lf_keymanager_worker *kmw;
-	uint64_t ns_now;
+	struct lf_timestamp t_now, delta, timestamp2;
 	struct lf_crypto_drkey drkey;
 	struct lf_host_addr src_host_addr;
 	struct lf_host_addr dst_host_addr;
@@ -150,33 +150,34 @@ test1()
 		return 1;
 	}
 
-	res = lf_time_get(&ns_now);
+	res = lf_time_get(&t_now);
 	if (res != 0) {
 		printf("Error: Failed to get time (res = %d)\n", res);
 		error_count += 1;
 		return error_count;
 	}
 
-	uint64_t validity_not_before_ns =
+	uint64_t validity_not_before_s =
 			config->peers->shared_secrets->not_before +
-			(int)((ns_now - config->peers->shared_secrets->not_before) /
-					LF_DRKEY_VALIDITY_PERIOD_NS) *
-					LF_DRKEY_VALIDITY_PERIOD_NS;
-	uint64_t time_offset = ns_now - validity_not_before_ns;
+			(int)((t_now.s - config->peers->shared_secrets->not_before) /
+					LF_DRKEY_VALIDITY_PERIOD_S) *
+					LF_DRKEY_VALIDITY_PERIOD_S;
+	uint64_t ns_time_offset =
+			t_now.ns + (t_now.s - validity_not_before_s) * LF_TIME_NS_IN_S;
 	uint64_t ns_drkey_epoch_start;
 	res = lf_keymanager_worker_inbound_get_drkey(kmw, config->peers->isd_as,
 			&src_host_addr, &dst_host_addr, config->peers->drkey_protocol,
-			ns_now, time_offset, &ns_drkey_epoch_start, &drkey);
+			t_now.s, ns_time_offset, &ns_drkey_epoch_start, &drkey);
 	if (res != 0) {
-		printf("Error: lf_keymanager_worker_inbound_get_drkey ns_now = %ld "
+		printf("Error: lf_keymanager_worker_inbound_get_drkey s_now = %ld "
 			   "(expected = 0, res = %d)\n",
-				ns_now, res);
+				t_now.s, res);
 		error_count += 1;
 	}
 
 	res = lf_keymanager_worker_outbound_get_drkey(kmw, config->peers->isd_as,
 			&dst_host_addr, &src_host_addr, config->peers->drkey_protocol,
-			ns_now, &ns_drkey_epoch_start, &drkey);
+			t_now.s, &ns_drkey_epoch_start, &drkey);
 	if (res != 0) {
 		printf("Error: lf_keymanager_worker_outbound_get_drkey (expected = 0, "
 			   "res = %d)\n",
@@ -184,14 +185,14 @@ test1()
 		error_count += 1;
 	}
 
-	ns_now =
-			ns_now +
-			3 * 24 * 3600 * LF_TIME_NS_IN_S; // 3 days (the max validity period)
+	lf_timestamp_init_s(&delta,
+			3 * 24 * 3600); // 3 days (the max validity period)
+	timestamp2 = lf_timestamp_add(&t_now, &delta);
 	res = lf_keymanager_worker_inbound_get_drkey(kmw, config->peers->isd_as,
 			&src_host_addr, &dst_host_addr, config->peers->drkey_protocol,
-			ns_now, time_offset, &ns_drkey_epoch_start, &drkey);
+			timestamp2.s, ns_time_offset, &ns_drkey_epoch_start, &drkey);
 	if (res != -2) {
-		printf("Error: ns_now = ns_now + 3*24*3600*1e9; "
+		printf("Error: s_now = s_now + 3*24*3600; "
 			   "lf_keymanager_worker_inbound_get_drkey (expected = -2, res = "
 			   "%d)\n",
 				res);
@@ -200,9 +201,9 @@ test1()
 
 	res = lf_keymanager_worker_outbound_get_drkey(kmw, config->peers->isd_as,
 			&dst_host_addr, &src_host_addr, config->peers->drkey_protocol,
-			ns_now, &ns_drkey_epoch_start, &drkey);
+			timestamp2.s, &ns_drkey_epoch_start, &drkey);
 	if (res != -2) {
-		printf("Error: ns_now = ns_now + 3*24*3600*1e9; "
+		printf("Error: s_now = s_now + 3*24*3600; "
 			   "lf_keymanager_worker_outbound_get_drkey (expected = -2, res = "
 			   "%d)\n",
 				res);
@@ -226,7 +227,7 @@ test2()
 	int res = 0, error_count = 0;
 	struct lf_keymanager *km1, *km2;
 	struct lf_keymanager_worker *kmw1, *kmw2;
-	uint64_t ns_now;
+	struct lf_timestamp t_now;
 	struct lf_crypto_drkey drkey1, drkey2;
 	struct lf_host_addr src_host_addr;
 	struct lf_host_addr dst_host_addr;
@@ -257,7 +258,7 @@ test2()
 		return 1;
 	}
 
-	res = lf_time_get(&ns_now);
+	res = lf_time_get(&t_now);
 	if (res != 0) {
 		printf("Error: Failed to get time (res = %d)\n", res);
 		error_count += 1;
@@ -267,7 +268,7 @@ test2()
 	uint64_t ns_drkey_epoch_start;
 	res = lf_keymanager_worker_outbound_get_drkey(kmw1, config1->peers->isd_as,
 			&dst_host_addr, &src_host_addr, config1->peers->drkey_protocol,
-			ns_now, &ns_drkey_epoch_start, &drkey1);
+			t_now.s, &ns_drkey_epoch_start, &drkey1);
 	if (res != 0) {
 		printf("Error: lf_keymanager_worker_outbound_get_drkey\n");
 		error_count += 1;
@@ -289,15 +290,16 @@ test2()
 		return 1;
 	}
 
-	uint64_t validity_not_before_ns =
+	uint64_t validity_not_before_s =
 			config2->peers->shared_secrets->not_before +
-			(int)((ns_now - config2->peers->shared_secrets->not_before) /
-					LF_DRKEY_VALIDITY_PERIOD_NS) *
-					LF_DRKEY_VALIDITY_PERIOD_NS;
-	uint64_t time_offset = ns_now - validity_not_before_ns;
+			(int)((t_now.s - config2->peers->shared_secrets->not_before) /
+					LF_DRKEY_VALIDITY_PERIOD_S) *
+					LF_DRKEY_VALIDITY_PERIOD_S;
+	uint64_t ns_time_offset =
+			t_now.ns + (t_now.s - validity_not_before_s) * LF_TIME_NS_IN_S;
 	res = lf_keymanager_worker_inbound_get_drkey(kmw2, config2->peers->isd_as,
 			&src_host_addr, &dst_host_addr, config2->peers->drkey_protocol,
-			ns_now, time_offset, &ns_drkey_epoch_start, &drkey2);
+			t_now.s, ns_time_offset, &ns_drkey_epoch_start, &drkey2);
 	if (res != 0) {
 		printf("Error: lf_keymanager_worker_inbound_get_drkey\n");
 		error_count += 1;
@@ -435,7 +437,7 @@ test4()
 	struct lf_keymanager *km = NULL;
 	struct lf_config *config1 = NULL;
 	struct lf_config *config3 = NULL;
-	uint64_t ns_timestamp = 1702422000 * LF_TIME_NS_IN_S;
+	uint64_t s_timestamp = 1702422000;
 
 	struct lf_keymanager_dictionary_key key;
 	struct lf_keyfetcher_sv_dictionary_data *shared_secret_node;
@@ -463,7 +465,7 @@ test4()
 	key.as = config1->peers->isd_as;
 	key.drkey_protocol = config1->peers->drkey_protocol;
 	res = lf_keyfetcher_fetch_as_as_key(km->fetcher, km->src_as, key.as,
-			key.drkey_protocol, ns_timestamp, &asas_key1);
+			key.drkey_protocol, s_timestamp, &asas_key1);
 	if (res != 0) {
 		printf("Error: lf_keymanager_derive_shared_key\n");
 		error_count += 1;
@@ -493,9 +495,9 @@ test4()
 	}
 
 	res = lf_keyfetcher_fetch_as_as_key(km->fetcher, km->src_as, key.as,
-			key.drkey_protocol, ns_timestamp, &asas_key3);
+			key.drkey_protocol, s_timestamp, &asas_key3);
 	if (res != 0) {
-		printf("Error: lf_keymanager_derive_shared_key\n");
+		printf("Error: lf_keyfetcher_fetch_as_as_key\n");
 		error_count += 1;
 	}
 

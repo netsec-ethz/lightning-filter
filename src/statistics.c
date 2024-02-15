@@ -117,9 +117,12 @@ aggregate_worker_statistics(struct lf_statistics *stats)
 	int res;
 	int read_state;
 	uint16_t worker_id;
+	struct lf_timestamp t_now;
 	uint64_t ns_now;
 
-	res = lf_time_get(&ns_now);
+	// TODO (abojarski) use correct timestamp here
+	res = lf_time_get(&t_now);
+	ns_now = t_now.s * LF_TIME_NS_IN_S + t_now.ns;
 
 	/* check if aggregation should be performed, i.e., if the minimal time
 	interval between aggregation has passed. */

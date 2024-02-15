@@ -210,26 +210,27 @@ get_spao_hdr(const struct rte_mbuf *m, unsigned int offset,
 }
 
 /**
- * @param ns_drkey_epoch_start: in nanoseconds (CPU endian)
+ * @param s_drkey_epoch_start: in seconds (CPU endian)
  * @param timestamp: current (unique) timestamp in nanoseconds (CPU endian)
  */
 static inline int
-set_spao_timestamp(uint64_t ns_drkey_epoch_start, uint64_t timestamp,
+set_spao_timestamp(uint64_t s_drkey_epoch_start, struct lf_timestamp timestamp,
 		struct scion_packet_authenticator_opt *spao_hdr)
 {
 	uint64_t relative_timestamp;
 
-	if (unlikely(ns_drkey_epoch_start > timestamp)) {
+	if (unlikely(s_drkey_epoch_start > timestamp.s)) {
 		LF_WORKER_LOG_DP(NOTICE,
 				"DRKey Epoch start timestamp (%" PRIu64
 				"ms) is in the future (now: %" PRIu64 ").\n",
-				ns_drkey_epoch_start, timestamp);
+				s_drkey_epoch_start, timestamp);
 #if !LF_WORKER_IGNORE_PATH_TIMESTAMP_CHECK
 		return -1;
 #endif
 	}
 
-	relative_timestamp = timestamp - ns_drkey_epoch_start;
+	relative_timestamp = timestamp.ns +
+	                     (timestamp.s - s_drkey_epoch_start) * LF_TIME_NS_IN_S;
 
 	/* ensure that timestamp fits into 6 bytes */
 	if (unlikely(relative_timestamp >> 48)) {
@@ -237,7 +238,7 @@ set_spao_timestamp(uint64_t ns_drkey_epoch_start, uint64_t timestamp,
 				"DRKey Epoch start timestamp (%" PRIu64
 				" ns) is too far in the past (relative_timestamp: %" PRIu64
 				").\n",
-				ns_drkey_epoch_start, relative_timestamp);
+				s_drkey_epoch_start, relative_timestamp);
 #if !LF_WORKER_IGNORE_PATH_TIMESTAMP_CHECK
 		return -1;
 #endif
@@ -706,7 +707,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	struct scion_packet_authenticator_opt *spao_hdr;
 	struct parsed_spao parsed_spao;
 
-	uint64_t timestamp_now;
+	struct lf_timestamp t_now;
 
 	struct lf_host_addr src_addr;
 	struct lf_host_addr dst_addr;
@@ -719,7 +720,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	unsigned int payload_len;
 
 	/* get current time */
-	res = lf_time_worker_get_unique(&worker_context->time, &timestamp_now);
+	res = lf_time_worker_get_unique(&worker_context->time, &t_now);
 	if (unlikely(res != 0)) {
 		LF_WORKER_LOG_DP(ERR, "Failed to get timestamp.\n");
 		return -1;
@@ -740,30 +741,29 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	drkey_protocol = lf_configmanager_worker_get_outbound_drkey_protocol(
 			worker_context->config);
 
-	uint64_t ns_drkey_epoch_start;
-	drkey_epoch_flag = lf_keymanager_worker_outbound_get_drkey(
-			worker_context->key_manager, parsed_pkt->scion_addr_ia_hdr->dst_ia,
-			&dst_addr, &src_addr, drkey_protocol, timestamp_now,
-			&ns_drkey_epoch_start, &drkey);
+	uint64_t s_drkey_epoch_start;
+	drkey_epoch_flag =
+			lf_keymanager_worker_outbound_get_drkey(worker_context->key_manager,
+					parsed_pkt->scion_addr_ia_hdr->dst_ia, &dst_addr, &src_addr,
+					drkey_protocol, t_now.s, &s_drkey_epoch_start, &drkey);
 	if (unlikely(drkey_epoch_flag < 0)) {
 		LF_WORKER_LOG_DP(NOTICE,
 				"Outbound DRKey not found for AS " PRIISDAS
-				" and drkey_protocol %d (ns_now = %" PRIu64 ", res = %d)!\n",
+				" and drkey_protocol %d (s_now = %" PRIu64 ", res = %d)!\n",
 				PRIISDAS_VAL(rte_be_to_cpu_64(
 						parsed_pkt->scion_addr_ia_hdr->dst_ia)),
-				rte_be_to_cpu_16(drkey_protocol), timestamp_now,
-				drkey_epoch_flag);
+				rte_be_to_cpu_16(drkey_protocol), t_now.s, drkey_epoch_flag);
 		return -1;
 	}
 
 	LF_WORKER_LOG_DP(DEBUG,
 			"Outbound DRKey [" PRIISDAS "]:" PRIIP " - [XX]:" PRIIP
-			" and drkey_protocol %d is %x (ns_now = %" PRIu64 ", res = %d)\n",
+			" and drkey_protocol %d is %x (s_now = %" PRIu64 ", res = %d)\n",
 			PRIISDAS_VAL(
 					rte_be_to_cpu_64(parsed_pkt->scion_addr_ia_hdr->dst_ia)),
 			PRIIP_VAL(*(uint32_t *)dst_addr.addr),
 			PRIIP_VAL(*(uint32_t *)src_addr.addr),
-			rte_be_to_cpu_16(drkey_protocol), drkey.key[0], timestamp_now,
+			rte_be_to_cpu_16(drkey_protocol), drkey.key[0], t_now.s,
 			drkey_epoch_flag);
 
 	/*
@@ -825,7 +825,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	}
 
 	/* set timestamp */
-	res = set_spao_timestamp(ns_drkey_epoch_start, timestamp_now, spao_hdr);
+	res = set_spao_timestamp(s_drkey_epoch_start, t_now, spao_hdr);
 	if (unlikely(res != 0)) {
 		/* TODO: error handling */
 		return -1;
