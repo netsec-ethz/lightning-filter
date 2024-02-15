@@ -21,7 +21,7 @@ static const uint64_t LF_TIME_NS_IN_MS =
 
 struct lf_timestamp {
 	uint64_t s;
-	uint64_t ns;
+	uint32_t ns;
 };
 
 struct lf_time_worker {
