@@ -95,7 +95,7 @@ struct lf_statistics {
 	struct lf_statistics_worker_counter aggregate_global;
 	struct lf_statistics_worker_counter aggregate_worker[LF_MAX_WORKER];
 
-	/* timestamp of last statistics aggregation (nanoseconds) */
+	/* timestamp of last statistics aggregation */
 	struct lf_timestamp last_aggregate;
 	struct lf_timestamp aggregation_interval;
 

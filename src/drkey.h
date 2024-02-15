@@ -46,9 +46,7 @@ static const uint8_t IPV4_MAPPED_IPV6_PREFIX[12] = { 0x00, 0x00, 0x00, 0x00,
 
 /**
  * The key container wraps all information required to use a key.
- * A DRKeys validity is usually defined in seconds. Because the workers operate
- * with nanosecond timestamps, the validity timestamps are also stored in
- * nanoseconds to avoid any conversion.
+ * A DRKeys validity is usually defined in seconds.
  */
 struct lf_keymanager_key_container {
 	uint64_t validity_not_before; /* Unix timestamp (seconds) */

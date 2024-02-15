@@ -19,8 +19,8 @@
  * filters.
  */
 struct lf_duplicate_filter_worker {
-	struct lf_timestamp last_rotation; /* nanoseconds */
-	struct lf_timestamp bf_period;     /* nanoseconds */
+	struct lf_timestamp last_rotation;
+	struct lf_timestamp bf_period;
 
 	/* Bloom Filter Variables */
 	unsigned int bf_hashes;

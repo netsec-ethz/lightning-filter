@@ -207,8 +207,8 @@ check_mac(struct lf_worker_context *worker_context,
  * this check is ignored, the check is performed but the function always return
  * 0.
  *
- * @param timestamp Packet timestamp (nanoseconds).
- * @param t_now Current timestamp (nanoseconds).
+ * @param timestamp Packet timestamp.
+ * @param t_now Current timestamp.
  * @return Returns 0 if the packet timestamp is within the timestamp threshold.
  */
 static inline int

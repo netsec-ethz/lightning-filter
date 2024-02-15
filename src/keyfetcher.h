@@ -28,7 +28,7 @@
  */
 
 struct lf_keyfetcher_sv_container {
-	uint64_t validity_not_before; /* Unix timestamp (nanoseconds) */
+	uint64_t validity_not_before; /* Unix timestamp (seconds) */
 	struct lf_crypto_drkey key;
 };
 

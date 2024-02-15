@@ -93,7 +93,7 @@ struct lf_keymanager {
  * Check if DRKey is valid at the requested time.
  *
  * @param drkey: DRKey to be checked.
- * @param s_valid: Unix timestamp in nanoseconds, at which the requested key
+ * @param s_valid: Unix timestamp in seconds, at which the requested key
  * must be valid.
  * @return Returns 0 if the requested time is within the DRKey's epoch. Returns
  * 1 if the DRKey is valid only due to the grace period.
@@ -123,7 +123,7 @@ lf_keymanager_check_drkey_validity(struct lf_keymanager_key_container *drkey,
  * @param backend_addr: Packet's destination address (network byte
  * order).
  * @param drkey_protocol: (network byte order).
- * @param s_valid: Unix timestamp in nanoseconds, at which the requested key
+ * @param s_valid: Unix timestamp in seconds, at which the requested key
  * must be valid.
  * @param time_offset: Relative timestamp to uniquely identify the epoch for the
  * key that should be used.
@@ -201,7 +201,7 @@ lf_keymanager_worker_inbound_get_drkey(struct lf_keymanager_worker *kmw,
  * @param peer_addr: Packet's destination address (network byte order).
  * @param backend_addr: Packet's source address (network byte order).
  * @param drkey_protocol: (network byte order).
- * @param s_valid: Unix timestamp in nanoseconds, at which the requested key
+ * @param s_valid: Unix timestamp in seconds, at which the requested key
  * must be valid.
  * @param drkey: Memory to write DRKey to.
  * @return Returns 0 if a DRKey has been found which is valid for the requested

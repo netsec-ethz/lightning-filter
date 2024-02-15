@@ -133,7 +133,6 @@ test1()
 		return 1;
 	}
 
-	// TODO (abojarski) use correct timestamp here
 	res = lf_time_get(&t_now);
 	assert(res == 0);
 
