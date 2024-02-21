@@ -221,8 +221,8 @@ set_spao_timestamp(uint64_t ns_drkey_epoch_start, uint64_t timestamp,
 
 	if (unlikely(ns_drkey_epoch_start > timestamp)) {
 		LF_WORKER_LOG_DP(NOTICE,
-				"DRKey Epoch start timestamp (%" PRIu64
-				"ms) is in the future (now: %" PRIu64 ").\n",
+				"DRKey epoch start timestamp (%" PRIu64
+				"ns) is in the future (now: %" PRIu64 ").\n",
 				ns_drkey_epoch_start, timestamp);
 #if !LF_WORKER_IGNORE_PATH_TIMESTAMP_CHECK
 		return -1;
@@ -234,7 +234,7 @@ set_spao_timestamp(uint64_t ns_drkey_epoch_start, uint64_t timestamp,
 	/* ensure that timestamp fits into 6 bytes */
 	if (unlikely(relative_timestamp >> 48)) {
 		LF_WORKER_LOG_DP(NOTICE,
-				"DRKey Epoch start timestamp (%" PRIu64
+				"DRKey epoch start timestamp (%" PRIu64
 				" ns) is too far in the past (relative_timestamp: %" PRIu64
 				").\n",
 				ns_drkey_epoch_start, relative_timestamp);
