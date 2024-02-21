@@ -327,10 +327,8 @@ lf_worker_check_pkt(struct lf_worker_context *worker_context,
 	/*
 	 * Timestamp Check
 	 */
-	uint64_t ns_calculated_packet_timestamp =
-			ns_drkey_epoch_start + pkt_data->timestamp;
-	res = check_timestamp(worker_context, ns_calculated_packet_timestamp,
-			ns_now);
+	uint64_t ns_abs_time_packet = ns_drkey_epoch_start + pkt_data->timestamp;
+	res = check_timestamp(worker_context, ns_abs_time_packet, ns_now);
 	if (likely(res != 0)) {
 		return LF_CHECK_OUTDATED_TIMESTAMP;
 	}
