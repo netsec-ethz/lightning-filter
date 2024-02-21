@@ -42,7 +42,4 @@ The SPAO header documentation can be found [here](https://scion.docs.anapaya.net
 ```
 
 LightningFilter utilizes the SPAO header as documented with the SHA1-AES-CBS algorithm and DRKey format of the security parameter index.
-
-> The timestamp in the SPAO header provides a relative offset to the timestamp in the SCION path in nanoseconds. Therefore, the SPAO header is not defined for packets which use the "Empty" path type. This is the case for AS-local traffic. Hence, LightningFilter can currently not be used for AS-local traffic.
-Nevertheless, the issue is discussed online ([issue](https://github.com/scionproto/scion/issues/4062), [pull request](https://github.com/scionproto/scion/pull/4300)).
-Important: The PR is likely to change the format of the SPAO.
+The timestamp in the SPAO header provides a relative offset to the start of the DRKey epoch in nanoseconds. The corresponding DRKey epoch selection is described [here](https://scion.docs.anapaya.net/en/latest/protocols/authenticator-option.html#absolute-time-and-drkey-selection).

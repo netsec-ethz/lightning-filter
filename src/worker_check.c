@@ -116,6 +116,15 @@ consume_ratelimit(uint32_t pkt_len, struct lf_ratelimiter_pkt_ctx *rl_pkt_ctx)
  * If this check is disable, the check is not performed and the function just
  * returns 0.
  *
+ * @param src_as: Packet's source AS (network byte order).
+ * @param src_addr: Packet's source address (network byte order).
+ * @param dst_addr: Packet's destination address (network byte
+ * order).
+ * @param drkey_protocol: (network byte order).
+ * @param ns_abs_time: Unix timestamp in nanoseconds, at which the requested key
+ * must be valid.
+ * @param ns_rel_time: Relative timestamp in nanoseconds to uniquely identify
+ * the epoch for the key that should be used.
  * @param drkey: Returns a DRKey if it is valid.
  * @return Returns 0 if a valid DRKey is available.
  */
@@ -123,7 +132,7 @@ static inline int
 get_drkey(struct lf_worker_context *worker_context, uint64_t src_as,
 		const struct lf_host_addr *src_addr,
 		const struct lf_host_addr *dst_addr, uint16_t drkey_protocol,
-		uint64_t timestamp, uint64_t time_offset,
+		uint64_t ns_abs_time, uint64_t ns_rel_time,
 		uint64_t *ns_drkey_epoch_start, struct lf_crypto_drkey *drkey)
 {
 #if LF_WORKER_OMIT_KEY_GET
@@ -135,15 +144,16 @@ get_drkey(struct lf_worker_context *worker_context, uint64_t src_as,
 
 	int res;
 	res = lf_keymanager_worker_inbound_get_drkey(worker_context->key_manager,
-			src_as, src_addr, dst_addr, drkey_protocol, timestamp, time_offset,
-			ns_drkey_epoch_start, drkey);
+			src_as, src_addr, dst_addr, drkey_protocol, ns_abs_time,
+			ns_rel_time, ns_drkey_epoch_start, drkey);
 	if (unlikely(res < 0)) {
 		LF_WORKER_LOG_DP(INFO,
 				"Inbound DRKey not found for AS " PRIISDAS
 				" and drkey_protocol %d (timestamp = %" PRIu64
 				", offset = %" PRIu64 ", res = %d)\n",
 				PRIISDAS_VAL(rte_be_to_cpu_64(src_as)),
-				rte_be_to_cpu_16(drkey_protocol), timestamp, time_offset, res);
+				rte_be_to_cpu_16(drkey_protocol), ns_abs_time, ns_rel_time,
+				res);
 		lf_statistics_worker_counter_inc(worker_context->statistics, no_key);
 	} else {
 		LF_WORKER_LOG_DP(DEBUG,
@@ -153,7 +163,7 @@ get_drkey(struct lf_worker_context *worker_context, uint64_t src_as,
 				PRIIP_VAL(*(uint32_t *)dst_addr->addr),
 				PRIISDAS_VAL(rte_be_to_cpu_64(src_as)),
 				PRIIP_VAL(*(uint32_t *)src_addr->addr),
-				rte_be_to_cpu_16(drkey_protocol), timestamp, time_offset,
+				rte_be_to_cpu_16(drkey_protocol), ns_abs_time, ns_rel_time,
 				drkey->key[0]);
 	}
 

@@ -388,52 +388,6 @@ scion_path_hdr_length(const struct rte_mbuf *m, unsigned int offset,
 	}
 }
 
-/**
- * Obtain the timestamp in the path. This function assumes that the complete
- * SCION header is in the same buffer.
- * @return Returns 0 on success. Returns 1 if the header does not contain any
- * timestamp. Returns -1 if the header parsing failed.
- */
-static inline int
-scion_get_path_timestamp(uint8_t path_type, void *path_hdr,
-		uint32_t *path_timestamp)
-{
-	uint32_t seg0_len;
-	struct scion_path_meta_hdr *scion_path_meta_hdr;
-	struct scion_path_info_hdr *scion_path_info_hdr;
-
-	switch (path_type) {
-	case SCION_PATH_TYPE_EMPTY:
-		// nothing to do here
-		return 1;
-		break;
-	case SCION_PATH_TYPE_SCION:
-		scion_path_meta_hdr = (struct scion_path_meta_hdr *)path_hdr;
-		seg0_len = ((scion_path_meta_hdr->seg_len[0] & 0x03) << 4) |
-		           ((scion_path_meta_hdr->seg_len[1] & 0xF0) >> 4);
-		if (seg0_len == 0) {
-			/*
-			 * Empty Path:
-			 * Because the following segments are not allowed to have to contain
-			 * any hop fields, the SCION path must be empty.
-			 */
-			return 1;
-		}
-
-		scion_path_info_hdr =
-				(struct scion_path_info_hdr *)(scion_path_meta_hdr + 1);
-		*path_timestamp = rte_be_to_cpu_32(scion_path_info_hdr->timestamp);
-		return 0;
-	case SCION_PATH_TYPE_ONEHOP:
-		scion_path_info_hdr = (struct scion_path_info_hdr *)path_hdr;
-		*path_timestamp = rte_be_to_cpu_32(scion_path_info_hdr->timestamp);
-		return 0;
-	default:
-		return -1;
-	}
-}
-
-
 /*
  * SCION Extension Header Operations
  */

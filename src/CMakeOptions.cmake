@@ -85,7 +85,7 @@ if(LF_WORKER_IGNORE_CHECKS)
     set(LF_WORKER_IGNORE_TIMESTAMP_CHECK ON)
     set(LF_WORKER_IGNORE_DUPLICATE_CHECK ON)
     set(LF_WORKER_IGNORE_HASH_CHECK ON)
-    set(LF_WORKER_IGNORE_PATH_TIMESTAMP_CHECK ON)
+    set(LF_WORKER_IGNORE_DRKEY_TIMESTAMP_CHECK ON)
     set(LF_WORKER_IGNORE_KEY_VALIDITY_CHECK ON)
 endif()
 
@@ -93,7 +93,7 @@ option_compile_definition(LF_WORKER_IGNORE_MAC_CHECK "Ignore MAC check result" O
 option_compile_definition(LF_WORKER_IGNORE_TIMESTAMP_CHECK "Ignore timestamp check result" OFF)
 option_compile_definition(LF_WORKER_IGNORE_DUPLICATE_CHECK "Ignore duplicate check result" OFF)
 option_compile_definition(LF_WORKER_IGNORE_HASH_CHECK "Ignore hash check result" OFF)
-option_compile_definition(LF_WORKER_IGNORE_PATH_TIMESTAMP_CHECK "Ignore path timestamp check result" OFF)
+option_compile_definition(LF_WORKER_IGNORE_DRKEY_TIMESTAMP_CHECK "Ignore drkey timestamp check result" OFF)
 option_compile_definition(LF_WORKER_IGNORE_KEY_VALIDITY_CHECK "Ignore the validity of the key and just use it" OFF)
 
 # Compiler Options

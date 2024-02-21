@@ -61,8 +61,6 @@ lf_keyfetcher_derive_shared_key(struct lf_crypto_drkey_ctx *drkey_ctx,
 		struct lf_keymanager_key_container *key)
 {
 	struct lf_keyfetcher_sv_container *secret = NULL;
-	uint64_t ms_valid;
-	ms_valid = ns_valid / LF_TIME_NS_IN_MS;
 
 	// Find the correct shared secret to be used for current timestamp.
 	for (int i = 0; i < LF_CONFIG_SV_MAX; i++) {
@@ -82,11 +80,11 @@ lf_keyfetcher_derive_shared_key(struct lf_crypto_drkey_ctx *drkey_ctx,
 	if (secret == NULL) {
 		LF_KEYFETCHER_LOG(ERR,
 				"Could not find shared secret for: src_as " PRIISDAS
-				", dst_as " PRIISDAS ", drkey_protocol %u, ms_valid %" PRIu64
+				", dst_as " PRIISDAS ", drkey_protocol %u, ns_valid %" PRIu64
 				"\n",
 				PRIISDAS_VAL(rte_be_to_cpu_64(src_ia)),
 				PRIISDAS_VAL(rte_be_to_cpu_64(dst_ia)),
-				rte_be_to_cpu_16(drkey_protocol), ms_valid);
+				rte_be_to_cpu_16(drkey_protocol), ns_valid);
 		return -1;
 	}
 
@@ -111,12 +109,12 @@ lf_keyfetcher_derive_shared_key(struct lf_crypto_drkey_ctx *drkey_ctx,
 
 	LF_KEYFETCHER_LOG(INFO,
 			"Derived shared AS AS Key: src_as " PRIISDAS ", dst_as " PRIISDAS
-			", drkey_protocol %u, ms_valid %" PRIu64
+			", drkey_protocol %u, ns_valid %" PRIu64
 			", validity_not_before_ms %" PRIu64
 			", validity_not_after_ms %" PRIu64 "\n",
 			PRIISDAS_VAL(rte_be_to_cpu_64(src_ia)),
 			PRIISDAS_VAL(rte_be_to_cpu_64(dst_ia)),
-			rte_be_to_cpu_16(drkey_protocol), ms_valid,
+			rte_be_to_cpu_16(drkey_protocol), ns_valid,
 			(validity_not_before_ns / LF_TIME_NS_IN_MS),
 			(validity_not_after_ns / LF_TIME_NS_IN_MS));
 

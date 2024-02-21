@@ -179,7 +179,7 @@ encapsulate_pkt(struct lf_worker_context *worker_context,
 	struct lf_host_addr src_addr;
 	struct lf_host_addr dst_addr;
 	uint32_t src_ip;
-	uint64_t timestamp;
+	uint64_t ns_now;
 	struct lf_crypto_drkey drkey;
 	int encaps_hdr_len;
 	uint16_t udp_port;
@@ -237,7 +237,7 @@ encapsulate_pkt(struct lf_worker_context *worker_context,
 	lf_crypto_hash_final(&worker_context->crypto_hash_ctx, lf_hdr->hash);
 
 	/* Get timestamp */
-	res = lf_time_worker_get_unique(&worker_context->time, &timestamp);
+	res = lf_time_worker_get_unique(&worker_context->time, &ns_now);
 	if (unlikely(res != 0)) {
 		LF_WORKER_LOG_DP(ERR, "Failed to get timestamp.\n");
 		return -1;
@@ -246,14 +246,14 @@ encapsulate_pkt(struct lf_worker_context *worker_context,
 	/* Get drkey */
 	uint64_t ns_drkey_epoch_start;
 	res = lf_keymanager_worker_outbound_get_drkey(worker_context->key_manager,
-			peer->isd_as, &dst_addr, &src_addr, drkey_protocol, timestamp,
+			peer->isd_as, &dst_addr, &src_addr, drkey_protocol, ns_now,
 			&ns_drkey_epoch_start, &drkey);
 	if (unlikely(res < 0)) {
 		LF_WORKER_LOG_DP(NOTICE,
 				"Outbound DRKey not found for AS " PRIISDAS
 				" and drkey_protocol %d (ns_now = %" PRIu64 ", res = %d)!\n",
 				PRIISDAS_VAL(rte_be_to_cpu_64(peer->isd_as)),
-				rte_be_to_cpu_16(drkey_protocol), timestamp, res);
+				rte_be_to_cpu_16(drkey_protocol), ns_now, res);
 		return -1;
 	}
 
@@ -263,10 +263,10 @@ encapsulate_pkt(struct lf_worker_context *worker_context,
 			PRIISDAS_VAL(rte_be_to_cpu_64(peer->isd_as)),
 			PRIIP_VAL(*(uint32_t *)dst_addr.addr),
 			PRIIP_VAL(*(uint32_t *)src_addr.addr),
-			rte_be_to_cpu_16(drkey_protocol), timestamp, drkey.key[0]);
+			rte_be_to_cpu_16(drkey_protocol), ns_now, drkey.key[0]);
 
 	/* Set timestamp */
-	lf_hdr->timestamp = rte_cpu_to_be_64(timestamp - ns_drkey_epoch_start);
+	lf_hdr->timestamp = rte_cpu_to_be_64(ns_now - ns_drkey_epoch_start);
 
 	/* MAC */
 	lf_crypto_drkey_compute_mac(&worker_context->crypto_drkey_ctx, &drkey,

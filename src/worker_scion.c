@@ -211,40 +211,39 @@ get_spao_hdr(const struct rte_mbuf *m, unsigned int offset,
 
 /**
  * @param ns_drkey_epoch_start: in nanoseconds (CPU endian)
- * @param timestamp: current (unique) timestamp in nanoseconds (CPU endian)
+ * @param ns_now: current (unique) timestamp in nanoseconds (CPU endian)
  */
 static inline int
-set_spao_timestamp(uint64_t ns_drkey_epoch_start, uint64_t timestamp,
+set_spao_timestamp(uint64_t ns_drkey_epoch_start, uint64_t ns_now,
 		struct scion_packet_authenticator_opt *spao_hdr)
 {
-	uint64_t relative_timestamp;
+	uint64_t ns_rel_time;
 
-	if (unlikely(ns_drkey_epoch_start > timestamp)) {
+	if (unlikely(ns_drkey_epoch_start > ns_now)) {
 		LF_WORKER_LOG_DP(NOTICE,
 				"DRKey epoch start timestamp (%" PRIu64
 				"ns) is in the future (now: %" PRIu64 ").\n",
-				ns_drkey_epoch_start, timestamp);
-#if !LF_WORKER_IGNORE_PATH_TIMESTAMP_CHECK
+				ns_drkey_epoch_start, ns_now);
+#if !LF_WORKER_IGNORE_DRKEY_TIMESTAMP_CHECK
 		return -1;
 #endif
 	}
 
-	relative_timestamp = timestamp - ns_drkey_epoch_start;
+	ns_rel_time = ns_now - ns_drkey_epoch_start;
 
 	/* ensure that timestamp fits into 6 bytes */
-	if (unlikely(relative_timestamp >> 48)) {
+	if (unlikely(ns_rel_time >> 48)) {
 		LF_WORKER_LOG_DP(NOTICE,
 				"DRKey epoch start timestamp (%" PRIu64
-				" ns) is too far in the past (relative_timestamp: %" PRIu64
-				").\n",
-				ns_drkey_epoch_start, relative_timestamp);
-#if !LF_WORKER_IGNORE_PATH_TIMESTAMP_CHECK
+				" ns) is too far in the past (ns_rel_time: %" PRIu64 ").\n",
+				ns_drkey_epoch_start, ns_rel_time);
+#if !LF_WORKER_IGNORE_DRKEY_TIMESTAMP_CHECK
 		return -1;
 #endif
 	}
 
 	/* Set header fields */
-	scion_spao_set_timestamp(spao_hdr, relative_timestamp);
+	scion_spao_set_timestamp(spao_hdr, ns_rel_time);
 	return 0;
 }
 
@@ -706,7 +705,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	struct scion_packet_authenticator_opt *spao_hdr;
 	struct parsed_spao parsed_spao;
 
-	uint64_t timestamp_now;
+	uint64_t ns_now;
 
 	struct lf_host_addr src_addr;
 	struct lf_host_addr dst_addr;
@@ -718,7 +717,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	unsigned int payload_len;
 
 	/* get current time */
-	res = lf_time_worker_get_unique(&worker_context->time, &timestamp_now);
+	res = lf_time_worker_get_unique(&worker_context->time, &ns_now);
 	if (unlikely(res != 0)) {
 		LF_WORKER_LOG_DP(ERR, "Failed to get timestamp.\n");
 		return -1;
@@ -742,14 +741,14 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	uint64_t ns_drkey_epoch_start;
 	res = lf_keymanager_worker_outbound_get_drkey(worker_context->key_manager,
 			parsed_pkt->scion_addr_ia_hdr->dst_ia, &dst_addr, &src_addr,
-			drkey_protocol, timestamp_now, &ns_drkey_epoch_start, &drkey);
+			drkey_protocol, ns_now, &ns_drkey_epoch_start, &drkey);
 	if (unlikely(res < 0)) {
 		LF_WORKER_LOG_DP(NOTICE,
 				"Outbound DRKey not found for AS " PRIISDAS
 				" and drkey_protocol %d (ns_now = %" PRIu64 ", res = %d)!\n",
 				PRIISDAS_VAL(rte_be_to_cpu_64(
 						parsed_pkt->scion_addr_ia_hdr->dst_ia)),
-				rte_be_to_cpu_16(drkey_protocol), timestamp_now, res);
+				rte_be_to_cpu_16(drkey_protocol), ns_now, res);
 		return -1;
 	}
 
@@ -760,7 +759,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 					rte_be_to_cpu_64(parsed_pkt->scion_addr_ia_hdr->dst_ia)),
 			PRIIP_VAL(*(uint32_t *)dst_addr.addr),
 			PRIIP_VAL(*(uint32_t *)src_addr.addr),
-			rte_be_to_cpu_16(drkey_protocol), drkey.key[0], timestamp_now, res);
+			rte_be_to_cpu_16(drkey_protocol), drkey.key[0], ns_now, res);
 
 	/*
 	 * Add SPAO Extension Header
@@ -821,7 +820,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	}
 
 	/* set timestamp */
-	res = set_spao_timestamp(ns_drkey_epoch_start, timestamp_now, spao_hdr);
+	res = set_spao_timestamp(ns_drkey_epoch_start, ns_now, spao_hdr);
 	if (unlikely(res != 0)) {
 		/* TODO: error handling */
 		return -1;
@@ -1009,17 +1008,6 @@ parse_pkt(struct rte_mbuf *m, unsigned int offset,
 				SCION_HDR_LEN(parsed_pkt->scion_cmn_hdr),
 				sizeof(struct scion_cmn_hdr), parsed_pkt->scion_addr_hdr_len,
 				parsed_pkt->scion_path_hdr_len);
-		return -1;
-	}
-
-	/* obtain path timestamp */
-	res = scion_get_path_timestamp(parsed_pkt->scion_cmn_hdr->path_type,
-			parsed_pkt->scion_path_hdr, &parsed_pkt->path_timestamp);
-	if (res == 1) {
-		LF_WORKER_LOG_DP(DEBUG, "Path without path timestamp\n", res);
-		return 1;
-	} else if (res == -1) {
-		LF_WORKER_LOG_DP(ERR, "Failed to obtain path timestamp\n", res);
 		return -1;
 	}
 

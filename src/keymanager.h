@@ -126,8 +126,8 @@ lf_keymanager_check_drkey_validity(struct lf_keymanager_key_container *drkey,
  * @param drkey_protocol: (network byte order).
  * @param ns_abs_time: Unix timestamp in nanoseconds, at which the requested key
  * must be valid.
- * @param ns_rel_time: Relative timestamp to uniquely identify the epoch for the
- * key that should be used.
+ * @param ns_rel_time: Relative timestamp in nanoseconds to uniquely identify
+ * the epoch for the key that should be used.
  * @param drkey: Memory to write DRKey to.
  * @return 0 if success. Otherwise, < 0.
  */
