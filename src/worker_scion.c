@@ -211,25 +211,25 @@ get_spao_hdr(const struct rte_mbuf *m, unsigned int offset,
 
 /**
  * @param ns_drkey_epoch_start: in nanoseconds (CPU endian)
- * @param ns_now: current (unique) timestamp in nanoseconds (CPU endian)
+ * @param timestamp: current (unique) timestamp in nanoseconds (CPU endian)
  */
 static inline int
-set_spao_timestamp(uint64_t ns_drkey_epoch_start, uint64_t ns_now,
+set_spao_timestamp(uint64_t ns_drkey_epoch_start, uint64_t timestamp,
 		struct scion_packet_authenticator_opt *spao_hdr)
 {
 	uint64_t ns_rel_time;
 
-	if (unlikely(ns_drkey_epoch_start > ns_now)) {
+	if (unlikely(ns_drkey_epoch_start > timestamp)) {
 		LF_WORKER_LOG_DP(NOTICE,
 				"DRKey epoch start timestamp (%" PRIu64
 				"ns) is in the future (now: %" PRIu64 ").\n",
-				ns_drkey_epoch_start, ns_now);
+				ns_drkey_epoch_start, timestamp);
 #if !LF_WORKER_IGNORE_DRKEY_TIMESTAMP_CHECK
 		return -1;
 #endif
 	}
 
-	ns_rel_time = ns_now - ns_drkey_epoch_start;
+	ns_rel_time = timestamp - ns_drkey_epoch_start;
 
 	/* ensure that timestamp fits into 6 bytes */
 	if (unlikely(ns_rel_time >> 48)) {
