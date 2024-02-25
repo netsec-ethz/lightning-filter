@@ -93,23 +93,22 @@ struct lf_keymanager {
  * Check if DRKey is valid at the requested time.
  *
  * @param drkey: DRKey to be checked.
- * @param ns_abs_time: Unix timestamp in nanoseconds, at which the requested key
+ * @param ns_now: Unix timestamp in nanoseconds, at which the requested key
  * must be valid.
  * @return Returns 0 if the requested time is within the DRKey's epoch. Returns
  * 1 if the DRKey is valid only due to the grace period.
  */
 static inline int
 lf_keymanager_check_drkey_validity(struct lf_keymanager_key_container *drkey,
-		uint64_t ns_abs_time)
+		uint64_t ns_now)
 {
-	if (likely(ns_abs_time >= drkey->validity_not_before &&
-				ns_abs_time < drkey->validity_not_after)) {
+	if (likely(ns_now >= drkey->validity_not_before &&
+				ns_now < drkey->validity_not_after)) {
 		return 0;
 	}
 
-	if (likely(ns_abs_time >= drkey->validity_not_before &&
-				ns_abs_time <
-						drkey->validity_not_after + LF_DRKEY_GRACE_PERIOD)) {
+	if (likely(ns_now >= drkey->validity_not_before &&
+				ns_now < drkey->validity_not_after + LF_DRKEY_GRACE_PERIOD)) {
 		return 1;
 	}
 

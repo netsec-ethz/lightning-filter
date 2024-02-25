@@ -705,7 +705,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	struct scion_packet_authenticator_opt *spao_hdr;
 	struct parsed_spao parsed_spao;
 
-	uint64_t ns_now;
+	uint64_t timestamp;
 
 	struct lf_host_addr src_addr;
 	struct lf_host_addr dst_addr;
@@ -717,7 +717,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	unsigned int payload_len;
 
 	/* get current time */
-	res = lf_time_worker_get_unique(&worker_context->time, &ns_now);
+	res = lf_time_worker_get_unique(&worker_context->time, &timestamp);
 	if (unlikely(res != 0)) {
 		LF_WORKER_LOG_DP(ERR, "Failed to get timestamp.\n");
 		return -1;
@@ -741,25 +741,26 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	uint64_t ns_drkey_epoch_start;
 	res = lf_keymanager_worker_outbound_get_drkey(worker_context->key_manager,
 			parsed_pkt->scion_addr_ia_hdr->dst_ia, &dst_addr, &src_addr,
-			drkey_protocol, ns_now, &ns_drkey_epoch_start, &drkey);
+			drkey_protocol, timestamp, &ns_drkey_epoch_start, &drkey);
 	if (unlikely(res < 0)) {
 		LF_WORKER_LOG_DP(NOTICE,
 				"Outbound DRKey not found for AS " PRIISDAS
-				" and drkey_protocol %d (ns_now = %" PRIu64 ", res = %d)!\n",
+				" and drkey_protocol %d (timestamp = %" PRIu64 ", res = %d)!\n",
 				PRIISDAS_VAL(rte_be_to_cpu_64(
 						parsed_pkt->scion_addr_ia_hdr->dst_ia)),
-				rte_be_to_cpu_16(drkey_protocol), ns_now, res);
+				rte_be_to_cpu_16(drkey_protocol), timestamp, res);
 		return -1;
 	}
 
 	LF_WORKER_LOG_DP(DEBUG,
 			"Outbound DRKey [" PRIISDAS "]:" PRIIP " - [XX]:" PRIIP
-			" and drkey_protocol %d is %x (ns_now = %" PRIu64 ", res = %d)\n",
+			" and drkey_protocol %d is %x (timestamp = %" PRIu64
+			", res = %d)\n",
 			PRIISDAS_VAL(
 					rte_be_to_cpu_64(parsed_pkt->scion_addr_ia_hdr->dst_ia)),
 			PRIIP_VAL(*(uint32_t *)dst_addr.addr),
 			PRIIP_VAL(*(uint32_t *)src_addr.addr),
-			rte_be_to_cpu_16(drkey_protocol), drkey.key[0], ns_now, res);
+			rte_be_to_cpu_16(drkey_protocol), drkey.key[0], timestamp, res);
 
 	/*
 	 * Add SPAO Extension Header
@@ -820,7 +821,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	}
 
 	/* set timestamp */
-	res = set_spao_timestamp(ns_drkey_epoch_start, ns_now, spao_hdr);
+	res = set_spao_timestamp(ns_drkey_epoch_start, timestamp, spao_hdr);
 	if (unlikely(res != 0)) {
 		/* TODO: error handling */
 		return -1;
