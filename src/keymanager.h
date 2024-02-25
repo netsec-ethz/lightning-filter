@@ -151,6 +151,11 @@ lf_keymanager_worker_inbound_get_drkey(struct lf_keymanager_worker *kmw,
 		return -1;
 	}
 
+	/* NOTE: Different from the SCION documentation we only check for two
+	 * possible DRKeys here instead of the proposed three. This is mainly done
+	 * to save memory. It is still valid since DRKeys are updated frequently, so
+	 * the two stored keys are the only ones that make sense right now.*/
+
 	/* Check if ns_now is whithin the acceptance window defined by the new key
 	 * with offset ns_rel_time. */
 	if ((dict_node->inbound_key.validity_not_before + ns_rel_time <
