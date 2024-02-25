@@ -371,8 +371,8 @@ lf_worker_check_best_effort_pkt(struct lf_worker_context *worker_context,
 	return LF_CHECK_BE;
 #endif /* !LF_WORKER_OMIT_RATELIMIT_CHECK */
 
-	res = lf_ratelimiter_worker_apply_best_effort(
-					&worker_context->ratelimiter, pkt_len, ns_now);
+	res = lf_ratelimiter_worker_apply_best_effort(&worker_context->ratelimiter,
+			pkt_len, ns_now);
 	if (likely(res > 0)) {
 		LF_WORKER_LOG_DP(DEBUG,
 				"Best-effort rate limit filter check failed (res=%d).\n", res);
