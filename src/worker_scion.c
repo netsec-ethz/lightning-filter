@@ -61,7 +61,6 @@ struct parsed_pkt {
 
 	void *scion_path_hdr;
 	uint32_t scion_path_hdr_len;
-	uint32_t path_timestamp;
 
 	/* Offset to the memory after the SCION path,
 	 * i.e., to the payload or SCION extension headers. */
