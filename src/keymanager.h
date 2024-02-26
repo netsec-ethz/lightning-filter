@@ -164,9 +164,6 @@ lf_keymanager_worker_inbound_get_drkey(struct lf_keymanager_worker *kmw,
 					ns_now - LF_DRKEY_ACCEPTANCE_WINDOW_SIZE_NS)) {
 		res = lf_keymanager_check_drkey_validity(&dict_node->inbound_key,
 				ns_now);
-#if LF_WORKER_IGNORE_KEY_VALIDITY_CHECK
-		res = 0;
-#endif
 		if (res < 0) {
 			return -3;
 		}
@@ -185,9 +182,6 @@ lf_keymanager_worker_inbound_get_drkey(struct lf_keymanager_worker *kmw,
 					ns_now - LF_DRKEY_ACCEPTANCE_WINDOW_SIZE_NS)) {
 		res = lf_keymanager_check_drkey_validity(&dict_node->old_inbound_key,
 				ns_now);
-#if LF_WORKER_IGNORE_KEY_VALIDITY_CHECK
-		res = 0;
-#endif
 		if (res < 0) {
 			return -4;
 		}
@@ -240,9 +234,6 @@ lf_keymanager_worker_outbound_get_drkey(struct lf_keymanager_worker *kmw,
 
 	/* Check if the new key is valid. */
 	res = lf_keymanager_check_drkey_validity(&dict_node->outbound_key, ns_now);
-#if LF_WORKER_IGNORE_KEY_VALIDITY_CHECK
-	res = 0;
-#endif
 	if (likely(res == 0 || res == 1)) {
 		lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx,
 				&dict_node->outbound_key.key, peer_addr, backend_addr,
