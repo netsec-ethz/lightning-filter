@@ -97,7 +97,7 @@ calculate_nb_mbufs(uint16_t nb_lcores, uint16_t nports, uint16_t nb_rx_queue,
 						   nports * nb_lcores * LF_MAX_PKT_BURST +
 						   nports * n_tx_queue * nb_txd +
 						   nb_lcores * LF_SETUP_MEMPOOL_CACHE_SIZE),
-			(unsigned)8192);
+			8192);
 }
 
 static int
