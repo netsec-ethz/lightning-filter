@@ -156,8 +156,8 @@ lf_keymanager_worker_inbound_get_drkey(struct lf_keymanager_worker *kmw,
 	 * to save memory. It is still valid since DRKeys are updated frequently, so
 	 * the two stored keys are the only ones that make sense right now.*/
 
-	/* Check if ns_now is whithin the acceptance window defined by the new key
-	 * with offset ns_rel_time. */
+	/* Check if the start time of the new key with offset ns_rel_time is whithin
+	 * the acceptance window around ns_now. */
 	if ((dict_node->inbound_key.validity_not_before + ns_rel_time <
 				ns_now + LF_DRKEY_ACCEPTANCE_WINDOW_SIZE_NS) &&
 			(dict_node->inbound_key.validity_not_before + ns_rel_time >=
@@ -174,8 +174,8 @@ lf_keymanager_worker_inbound_get_drkey(struct lf_keymanager_worker *kmw,
 		return 0;
 	}
 
-	/* Check if ns_now is whithin the acceptance window defined by the old key
-	 * with offset ns_rel_time. */
+	/* Check if the start time of the old key with offset ns_rel_time is whithin
+	 * the acceptance window around ns_now. */
 	if ((dict_node->old_inbound_key.validity_not_before + ns_rel_time <
 				ns_now + LF_DRKEY_ACCEPTANCE_WINDOW_SIZE_NS) &&
 			(dict_node->old_inbound_key.validity_not_before + ns_rel_time >=
