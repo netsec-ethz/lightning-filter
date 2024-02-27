@@ -162,6 +162,9 @@ lf_keymanager_worker_inbound_get_drkey(struct lf_keymanager_worker *kmw,
 				ns_now + LF_DRKEY_ACCEPTANCE_WINDOW_SIZE_NS) &&
 			(dict_node->inbound_key.validity_not_before + ns_rel_time >=
 					ns_now - LF_DRKEY_ACCEPTANCE_WINDOW_SIZE_NS)) {
+		/* A key with offet ns_rel_time could still be within the acceptance
+		 * window but not be valid anymore. Therefore the validity has to be
+		 * checked explicitly. */
 		res = lf_keymanager_check_drkey_validity(&dict_node->inbound_key,
 				ns_now);
 		if (res < 0) {
@@ -180,6 +183,9 @@ lf_keymanager_worker_inbound_get_drkey(struct lf_keymanager_worker *kmw,
 				ns_now + LF_DRKEY_ACCEPTANCE_WINDOW_SIZE_NS) &&
 			(dict_node->old_inbound_key.validity_not_before + ns_rel_time >=
 					ns_now - LF_DRKEY_ACCEPTANCE_WINDOW_SIZE_NS)) {
+		/* A key with offet ns_rel_time could still be within the acceptance
+		 * window but not be valid anymore. Therefore the validity has to be
+		 * checked explicitly. */
 		res = lf_keymanager_check_drkey_validity(&dict_node->old_inbound_key,
 				ns_now);
 		if (res < 0) {
