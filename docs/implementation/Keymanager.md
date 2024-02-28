@@ -51,3 +51,8 @@ After each worker has passed through the quiescent state, the removed entries ar
 Updates to the DRKey manager are synchronized with a management lock.
 The hash table provides a lock-free RW implementation (RTE_HASH_EXTRA_FLAGS_RW_CONCURRENCY_LF), such that concurrent writes and reads are possible.
 The freeing of old data is synchronized through the worker's RCU mechanism.
+
+
+### Key epoch selection
+With the new SPAO design the DRKey epoch has to be identified through the relative timestamp in the header.
+![Image](./drkey_selection.drawio.svg "icon")

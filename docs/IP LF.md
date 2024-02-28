@@ -59,9 +59,8 @@ The LF header has the following format:
 8-bit protocol number of the payload following the LF header. The protocol number corresponds to the protocol number in the IP header before the packet has been encapsulated.
 
 **Timestamp**  
-64-bit unsigned Unix timestamp in nanoseconds.
+64-bit unsigned timestamp in nanoseconds. The timestamp provides a relative offset to the start of the DRKey epoch in nanoseconds.
 The timestamp must be unique for packets from the same source AS.
-> The timestamp format might change in the future.
 
 **Payload Hash**
 20-byte SHA-1 hash of the payload.

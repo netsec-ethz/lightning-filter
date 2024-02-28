@@ -87,7 +87,6 @@ handle_inbound_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 
 	pkt_data.timestamp = rte_be_to_cpu_64(lf_hdr->timestamp);
 	pkt_data.drkey_protocol = lf_hdr->drkey_protocol;
-	pkt_data.grace_period = lf_hdr->drkey_e;
 	pkt_data.mac = lf_hdr->mac;
 	pkt_data.auth_data = (uint8_t *)lf_hdr + 4;
 	pkt_data.pkt_len = m->pkt_len - offset;
@@ -237,22 +236,22 @@ encapsulate_pkt(struct lf_worker_context *worker_context,
 			(uint8_t *)(lf_hdr + 1), m->pkt_len - offset);
 	lf_crypto_hash_final(&worker_context->crypto_hash_ctx, lf_hdr->hash);
 
-	/* Set timestamp */
+	/* Get timestamp */
 	res = lf_time_worker_get_unique(&worker_context->time, &timestamp);
 	if (unlikely(res != 0)) {
 		LF_WORKER_LOG_DP(ERR, "Failed to get timestamp.\n");
 		return -1;
 	}
-	lf_hdr->timestamp = rte_cpu_to_be_64(timestamp);
 
 	/* Get drkey */
+	uint64_t ns_drkey_epoch_start;
 	res = lf_keymanager_worker_outbound_get_drkey(worker_context->key_manager,
 			peer->isd_as, &dst_addr, &src_addr, drkey_protocol, timestamp,
-			&drkey);
+			&ns_drkey_epoch_start, &drkey);
 	if (unlikely(res < 0)) {
 		LF_WORKER_LOG_DP(NOTICE,
 				"Outbound DRKey not found for AS " PRIISDAS
-				" and drkey_protocol %d (ns_now = %" PRIu64 ", res = %d)!\n",
+				" and drkey_protocol %d (timestamp = %" PRIu64 ", res = %d)!\n",
 				PRIISDAS_VAL(rte_be_to_cpu_64(peer->isd_as)),
 				rte_be_to_cpu_16(drkey_protocol), timestamp, res);
 		return -1;
@@ -260,14 +259,14 @@ encapsulate_pkt(struct lf_worker_context *worker_context,
 
 	LF_WORKER_LOG_DP(DEBUG,
 			"DRKey [" PRIISDAS "]:" PRIIP " - [XX]:" PRIIP
-			" and drkey_protocol %d (ns_now = %" PRIu64 ") is %x\n",
+			" and drkey_protocol %d (timestamp = %" PRIu64 ") is %x\n",
 			PRIISDAS_VAL(rte_be_to_cpu_64(peer->isd_as)),
 			PRIIP_VAL(*(uint32_t *)dst_addr.addr),
 			PRIIP_VAL(*(uint32_t *)src_addr.addr),
 			rte_be_to_cpu_16(drkey_protocol), timestamp, drkey.key[0]);
 
-	/* Set DRKey epoch flag */
-	lf_hdr->drkey_e = res;
+	/* Set timestamp */
+	lf_hdr->timestamp = rte_cpu_to_be_64(timestamp - ns_drkey_epoch_start);
 
 	/* MAC */
 	lf_crypto_drkey_compute_mac(&worker_context->crypto_drkey_ctx, &drkey,
