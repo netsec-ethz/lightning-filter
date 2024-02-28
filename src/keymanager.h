@@ -152,9 +152,12 @@ lf_keymanager_worker_inbound_get_drkey(struct lf_keymanager_worker *kmw,
 	}
 
 	/* NOTE: Different from the SCION documentation we only check for two
-	 * possible DRKeys here instead of the proposed three. This is mainly done
-	 * to save memory. It is still valid since DRKeys are updated frequently, so
-	 * the two stored keys are the only ones that make sense right now.*/
+	 * possible DRKeys here instead of the proposed three (i-1, i, i+1). This is
+	 * mainly done to save memory. It works since new DRKeys (i+1) are fetched
+	 * before they are valid and after the old keys (i-1) grace period is over.
+	 * Therefore the two stored keys are the only ones that make sense at any
+	 * given moment. Further information can be found in the LF documentation.
+	 */
 
 	/* Check if the start time of the new key with offset ns_rel_time is whithin
 	 * the acceptance window around ns_now. */
