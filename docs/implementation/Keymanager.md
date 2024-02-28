@@ -53,7 +53,6 @@ The hash table provides a lock-free RW implementation (RTE_HASH_EXTRA_FLAGS_RW_C
 The freeing of old data is synchronized through the worker's RCU mechanism.
 
 
-### Key selection
+### Key epoch selection
 With the new SPAO design the DRKey epoch has to be identified through the relative timestamp in the header.
-![Alt text](./drkey_selection.drawio.svg)
-<img src="./drkey_selection.drawio.svg">
+![Image](./drkey_selection.drawio.svg "icon")
