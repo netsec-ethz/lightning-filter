@@ -124,6 +124,16 @@ sudo ./usertools/lf-ipc.py --cmd=<command> {--params=<parameters>}
 
 # Develop
 
+To develop on LightningFilter, fork the repository, and clone it onto your machine. If you want to contribute to the open-source repository, we recommend adding the open-source repository as the upstream for the main branch (`open-source`):
+
+```
+git checkout open-source
+git remote add upstream git@github.com:netsec-ethz/lightning-filter.git
+git fetch upstream
+git branch --set-upstream-to upstream/open-source
+git pull
+```
+
 To get quickly started with developing LightningFilter, we provide a Development Container setup (`.devcontainer/devcontainer.json`) with all required dependencies and some useful tools.
 When using VS Code, just install the [Visual Studio Code Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension and open the project in a container (`>Dev Container: Reopen in Container`).
 
