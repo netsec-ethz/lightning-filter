@@ -21,6 +21,10 @@
  */
 #define LF_DRKEY_GRACE_PERIOD       (2 * LF_TIME_NS_IN_S) /* in nanoseconds */
 #define LF_DRKEY_PREFETCHING_PERIOD (1 * LF_TIME_NS_IN_S) /* in nanoseconds */
+#define LF_DRKEY_MINIMUM_VALIDITY_PERIOD_NS \
+	(6 * 60 * LF_TIME_NS_IN_S) /* in nanoseconds */
+#define LF_DRKEY_ACCEPTANCE_WINDOW_SIZE_NS \
+	(LF_DRKEY_MINIMUM_VALIDITY_PERIOD_NS / 2) /* in nanoseconds */
 
 /*
  * DRKey derivation types.

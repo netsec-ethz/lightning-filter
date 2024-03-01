@@ -18,8 +18,7 @@
 struct lf_ip_hdr {
 	uint64_t src_as;
 	uint16_t drkey_protocol;         /* DRKey protocol (or payload length) */
-	uint8_t drkey_e: 1;              /* grace period indicator */
-	uint8_t rsv: 7;                  /* reserved authenticated fields */
+	uint8_t rsv;                     /* reserved authenticated fields */
 	uint8_t next_proto_id;           /* payload proto identifier */
 	uint64_t timestamp;              /* timestamp in nanoseconds */
 	uint8_t hash[20];                /* payload hash */

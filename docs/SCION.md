@@ -2,8 +2,8 @@
 
 ## Installation
 
-Some information to install SCION so that it can be run locally can be found online on the documentation website of Anapaya:
-https://scion.docs.anapaya.net/en/latest/build/setup.html
+Some information to install SCION so that it can be run locally can be found online on the documentation website:
+https://docs.scion.org/en/latest/dev/run.html
 
 The following instructions describe a relatively minimal installation, which allows running LightningFilter and its tests.
 

@@ -93,22 +93,22 @@ struct lf_keymanager {
  * Check if DRKey is valid at the requested time.
  *
  * @param drkey: DRKey to be checked.
- * @param ns_valid: Unix timestamp in nanoseconds, at which the requested key
+ * @param ns_now: Unix timestamp in nanoseconds, at which the requested key
  * must be valid.
  * @return Returns 0 if the requested time is within the DRKey's epoch. Returns
  * 1 if the DRKey is valid only due to the grace period.
  */
 static inline int
 lf_keymanager_check_drkey_validity(struct lf_keymanager_key_container *drkey,
-		uint64_t ns_valid)
+		uint64_t ns_now)
 {
-	if (likely(ns_valid >= drkey->validity_not_before &&
-				ns_valid < drkey->validity_not_after)) {
+	if (likely(ns_now >= drkey->validity_not_before &&
+				ns_now < drkey->validity_not_after)) {
 		return 0;
 	}
 
-	if (likely(ns_valid >= drkey->validity_not_before &&
-				ns_valid < drkey->validity_not_after + LF_DRKEY_GRACE_PERIOD)) {
+	if (likely(ns_now >= drkey->validity_not_before &&
+				ns_now < drkey->validity_not_after + LF_DRKEY_GRACE_PERIOD)) {
 		return 1;
 	}
 
@@ -123,9 +123,10 @@ lf_keymanager_check_drkey_validity(struct lf_keymanager_key_container *drkey,
  * @param backend_addr: Packet's destination address (network byte
  * order).
  * @param drkey_protocol: (network byte order).
- * @param ns_valid: Unix timestamp in nanoseconds, at which the requested key
+ * @param ns_now: Unix timestamp in nanoseconds, at which the requested key
  * must be valid.
- * @param grace_period: Indicator that the DRKey is in the grace period.
+ * @param ns_rel_time: Relative timestamp in nanoseconds to uniquely identify
+ * the epoch for the key that should be used.
  * @param drkey: Memory to write DRKey to.
  * @return 0 if success. Otherwise, < 0.
  */
@@ -133,7 +134,8 @@ static inline int
 lf_keymanager_worker_inbound_get_drkey(struct lf_keymanager_worker *kmw,
 		uint64_t peer_as, const struct lf_host_addr *peer_addr,
 		const struct lf_host_addr *backend_addr, uint16_t drkey_protocol,
-		uint64_t ns_valid, bool grace_period, struct lf_crypto_drkey *drkey)
+		uint64_t ns_now, uint64_t ns_rel_time, uint64_t *ns_drkey_epoch_start,
+		struct lf_crypto_drkey *drkey)
 {
 	int res;
 	int key_id;
@@ -149,28 +151,53 @@ lf_keymanager_worker_inbound_get_drkey(struct lf_keymanager_worker *kmw,
 		return -1;
 	}
 
-	/* Check if the new key is valid and and is in the grace period if
-	 * requested. */
-	res = lf_keymanager_check_drkey_validity(&dict_node->inbound_key, ns_valid);
-#if LF_WORKER_IGNORE_KEY_VALIDITY_CHECK
-	res = 0;
-	grace_period = 0;
-#endif
-	if (res >= 0 && (res == grace_period)) {
+	/* NOTE: Different from the SCION documentation we only check for two
+	 * possible DRKeys here instead of the proposed three (i-1, i, i+1). This is
+	 * mainly done to save memory. It works since new DRKeys (i+1) are fetched
+	 * before they are valid and after the old keys (i-1) grace period is over.
+	 * Therefore the two stored keys are the only ones that make sense at any
+	 * given moment. Further information can be found in the LF documentation.
+	 */
+
+	/* Check if the start time of the new key with offset ns_rel_time is whithin
+	 * the acceptance window around ns_now. */
+	if ((dict_node->inbound_key.validity_not_before + ns_rel_time <
+				ns_now + LF_DRKEY_ACCEPTANCE_WINDOW_SIZE_NS) &&
+			(dict_node->inbound_key.validity_not_before + ns_rel_time >=
+					ns_now - LF_DRKEY_ACCEPTANCE_WINDOW_SIZE_NS)) {
+		/* A key with offet ns_rel_time could still be within the acceptance
+		 * window but not be valid anymore. Therefore the validity has to be
+		 * checked explicitly. */
+		res = lf_keymanager_check_drkey_validity(&dict_node->inbound_key,
+				ns_now);
+		if (res < 0) {
+			return -3;
+		}
 		lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx,
 				&dict_node->inbound_key.key, backend_addr, peer_addr,
 				drkey_protocol, drkey);
+		*ns_drkey_epoch_start = dict_node->inbound_key.validity_not_before;
 		return 0;
 	}
 
-	/* Check if the new key is valid and and is in the grace period if
-	 * requested. */
-	res = lf_keymanager_check_drkey_validity(&dict_node->old_inbound_key,
-			ns_valid);
-	if (res >= 0 && (res == grace_period)) {
+	/* Check if the start time of the old key with offset ns_rel_time is whithin
+	 * the acceptance window around ns_now. */
+	if ((dict_node->old_inbound_key.validity_not_before + ns_rel_time <
+				ns_now + LF_DRKEY_ACCEPTANCE_WINDOW_SIZE_NS) &&
+			(dict_node->old_inbound_key.validity_not_before + ns_rel_time >=
+					ns_now - LF_DRKEY_ACCEPTANCE_WINDOW_SIZE_NS)) {
+		/* A key with offet ns_rel_time could still be within the acceptance
+		 * window but not be valid anymore. Therefore the validity has to be
+		 * checked explicitly. */
+		res = lf_keymanager_check_drkey_validity(&dict_node->old_inbound_key,
+				ns_now);
+		if (res < 0) {
+			return -4;
+		}
 		lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx,
 				&dict_node->old_inbound_key.key, backend_addr, peer_addr,
 				drkey_protocol, drkey);
+		*ns_drkey_epoch_start = dict_node->old_inbound_key.validity_not_before;
 		return 0;
 	}
 
@@ -186,7 +213,7 @@ lf_keymanager_worker_inbound_get_drkey(struct lf_keymanager_worker *kmw,
  * @param peer_addr: Packet's destination address (network byte order).
  * @param backend_addr: Packet's source address (network byte order).
  * @param drkey_protocol: (network byte order).
- * @param ns_valid: Unix timestamp in nanoseconds, at which the requested key
+ * @param ns_now: Unix timestamp in nanoseconds, at which the requested key
  * must be valid.
  * @param drkey: Memory to write DRKey to.
  * @return Returns 0 if a DRKey has been found which is valid for the requested
@@ -197,7 +224,8 @@ static inline int
 lf_keymanager_worker_outbound_get_drkey(struct lf_keymanager_worker *kmw,
 		uint64_t peer_as, const struct lf_host_addr *peer_addr,
 		const struct lf_host_addr *backend_addr, uint16_t drkey_protocol,
-		uint64_t ns_valid, struct lf_crypto_drkey *drkey)
+		uint64_t ns_now, uint64_t *ns_drkey_epoch_start,
+		struct lf_crypto_drkey *drkey)
 {
 	int res;
 	int key_id;
@@ -213,26 +241,24 @@ lf_keymanager_worker_outbound_get_drkey(struct lf_keymanager_worker *kmw,
 		return -1;
 	}
 
-	/* Check first if the new key is valid */
-	res = lf_keymanager_check_drkey_validity(&dict_node->outbound_key,
-			ns_valid);
-#if LF_WORKER_IGNORE_KEY_VALIDITY_CHECK
-	res = 0;
-#endif
+	/* Check if the new key is valid. */
+	res = lf_keymanager_check_drkey_validity(&dict_node->outbound_key, ns_now);
 	if (likely(res == 0 || res == 1)) {
 		lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx,
 				&dict_node->outbound_key.key, peer_addr, backend_addr,
 				drkey_protocol, drkey);
+		*ns_drkey_epoch_start = dict_node->outbound_key.validity_not_before;
 		return res;
 	}
 
 	/* Check if the old key is valid */
 	res = lf_keymanager_check_drkey_validity(&dict_node->old_outbound_key,
-			ns_valid);
+			ns_now);
 	if (likely(res == 0 || res == 1)) {
 		lf_drkey_derive_host_host_from_as_as(&kmw->drkey_ctx,
 				&dict_node->old_outbound_key.key, peer_addr, backend_addr,
 				drkey_protocol, drkey);
+		*ns_drkey_epoch_start = dict_node->old_outbound_key.validity_not_before;
 		return res;
 	}
 
