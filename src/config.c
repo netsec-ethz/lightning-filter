@@ -30,7 +30,11 @@
 #define FIELD_BYTE_BURST   "byte_burst"
 
 #define FIELD_PORT       "port"
+#define FIELD_SCION_DST  "scion_dst"
+#define FIELD_SCION_SRC  "scion_src"
 #define FIELD_IP         "ip"
+#define FIELD_IP_DST_MAP "ip_dst_map"
+#define FIELD_IP_SRC_MAP "ip_src_map"
 #define FIELD_IPV6       "ipv6"
 #define FIELD_IP_PUBLIC  "ip_public"
 #define FIELD_IP_PRIVATE "ip_private"
@@ -484,6 +488,75 @@ err:
 }
 
 static int
+parse_pkt_mod_ip_map(char *name, json_value *json_val,
+		struct lf_config_pkt_mod *pkt_mod)
+{
+	int res, error_count;
+	unsigned int length, i;
+	uint32_t from, to;
+	char *field_name;
+	json_value *field_value;
+
+	if (json_val == NULL) {
+		return -1;
+	}
+
+	if (json_val->type != json_object) {
+		return -1;
+	}
+
+	length = json_val->u.object.length;
+	if (length > LF_CONFIG_IP_MAP_MAX) {
+		LF_LOG(ERR, "Exceed ip map limit (%d:%d)\n", json_val->line,
+				json_val->col);
+		return -1;
+	}
+	error_count = 0;
+
+	for (i = 0; i < length; ++i) {
+		field_name = json_val->u.object.values[i].name;
+		field_value = json_val->u.object.values[i].value;
+#if !LF_IPV6
+		assert(sizeof from == sizeof(struct in_addr));
+		res = inet_pton(AF_INET, field_name, &from);
+		if (res != 1) {
+			LF_LOG(ERR, "Invalid IPv4 address mapping (%d:%d)\n",
+					field_value->line, field_value->col);
+			error_count++;
+		}
+		res = lf_json_parse_ipv4(field_value, &to);
+		if (res != 0) {
+			LF_LOG(ERR, "Invalid IPv4 address mapping (%d:%d)\n",
+					field_value->line, field_value->col);
+			error_count++;
+		}
+		if (strcmp(name, FIELD_IP_DST_MAP) == 0) {
+			assert(i <
+					sizeof pkt_mod->ip_dst_map / sizeof pkt_mod->ip_dst_map[0]);
+			pkt_mod->ip_dst_map[i].from = from;
+			pkt_mod->ip_dst_map[i].to = to;
+		} else {
+			assert(strcmp(name, FIELD_IP_SRC_MAP) == 0);
+			assert(i <
+					sizeof pkt_mod->ip_src_map / sizeof pkt_mod->ip_src_map[0]);
+			pkt_mod->ip_src_map[i].from = from;
+			pkt_mod->ip_src_map[i].to = to;
+		}
+#else
+		LF_LOG(ERR, "Detected IPv4 address but IPv6 is enabled (%d:%d)\n",
+				field_value->line, field_value->col);
+		error_count++;
+#endif
+	}
+
+	if (error_count > 0) {
+		return -1;
+	} else {
+		return 0;
+	}
+}
+
+static int
 parse_pkt_mod(json_value *json_val, struct lf_config_pkt_mod *pkt_mod)
 {
 	int res = 0;
@@ -536,6 +609,46 @@ parse_pkt_mod(json_value *json_val, struct lf_config_pkt_mod *pkt_mod)
 				error_count++;
 			}
 			pkt_mod->ip_option = true;
+#else
+			LF_LOG(ERR, "Detected IPv4 address but IPv6 is enabled (%d:%d)\n",
+					field_value->line, field_value->col);
+			error_count++;
+#endif
+		} else if (strcmp(field_name, FIELD_IP_DST_MAP) == 0) {
+			res = parse_pkt_mod_ip_map(field_name, field_value, pkt_mod);
+			if (res != 0) {
+				LF_LOG(ERR, "Invalid pkt mod IP dst map field (%d:%d)\n",
+						field_value->line, field_value->col);
+				error_count++;
+			}
+		} else if (strcmp(field_name, FIELD_IP_SRC_MAP) == 0) {
+			res = parse_pkt_mod_ip_map(field_name, field_value, pkt_mod);
+			if (res != 0) {
+				LF_LOG(ERR, "Invalid pkt mod IP src map field (%d:%d)\n",
+						field_value->line, field_value->col);
+				error_count++;
+			}
+		} else if (strcmp(field_name, FIELD_SCION_DST) == 0) {
+#if !LF_IPV6
+			res = lf_json_parse_ipv4(field_value, &pkt_mod->scion_dst);
+			if (res != 0) {
+				LF_LOG(ERR, "Invalid IPv4 address (%d:%d)\n", field_value->line,
+						field_value->col);
+				error_count++;
+			}
+#else
+			LF_LOG(ERR, "Detected IPv4 address but IPv6 is enabled (%d:%d)\n",
+					field_value->line, field_value->col);
+			error_count++;
+#endif
+		} else if (strcmp(field_name, FIELD_SCION_SRC) == 0) {
+#if !LF_IPV6
+			res = lf_json_parse_ipv4(field_value, &pkt_mod->scion_src);
+			if (res != 0) {
+				LF_LOG(ERR, "Invalid IPv4 address (%d:%d)\n", field_value->line,
+						field_value->col);
+				error_count++;
+			}
 #else
 			LF_LOG(ERR, "Detected IPv4 address but IPv6 is enabled (%d:%d)\n",
 					field_value->line, field_value->col);
