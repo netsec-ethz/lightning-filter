@@ -61,7 +61,6 @@ struct parsed_pkt {
 
 	void *scion_path_hdr;
 	uint32_t scion_path_hdr_len;
-	uint32_t path_timestamp;
 
 	/* Offset to the memory after the SCION path,
 	 * i.e., to the payload or SCION extension headers. */
@@ -210,44 +209,40 @@ get_spao_hdr(const struct rte_mbuf *m, unsigned int offset,
 }
 
 /**
- * @param path_timestamp: in seconds (CPU endian)
+ * @param ns_drkey_epoch_start: in nanoseconds (CPU endian)
  * @param timestamp: current (unique) timestamp in nanoseconds (CPU endian)
  */
 static inline int
-set_spao_timestamp(uint32_t path_timestamp, uint64_t timestamp,
+set_spao_timestamp(uint64_t ns_drkey_epoch_start, uint64_t timestamp,
 		struct scion_packet_authenticator_opt *spao_hdr)
 {
-	uint64_t relative_timestamp;
-	uint64_t path_timestamp_ns;
+	uint64_t ns_rel_time;
 
-	path_timestamp_ns = LF_TIME_NS_IN_S * (uint64_t)path_timestamp;
-
-	if (unlikely(path_timestamp_ns > timestamp)) {
+	if (unlikely(ns_drkey_epoch_start > timestamp)) {
 		LF_WORKER_LOG_DP(NOTICE,
-				"Path timestamp (%" PRIu64 "ms) is in the future (now: %" PRIu64
-				").\n",
-				path_timestamp_ns, timestamp);
-#if !LF_WORKER_IGNORE_PATH_TIMESTAMP_CHECK
+				"DRKey epoch start timestamp (%" PRIu64
+				"ns) is in the future (now: %" PRIu64 ").\n",
+				ns_drkey_epoch_start, timestamp);
+#if !LF_WORKER_IGNORE_DRKEY_TIMESTAMP_CHECK
 		return -1;
 #endif
 	}
 
-	relative_timestamp = timestamp - path_timestamp_ns;
+	ns_rel_time = timestamp - ns_drkey_epoch_start;
 
 	/* ensure that timestamp fits into 6 bytes */
-	if (unlikely(relative_timestamp >> 48)) {
+	if (unlikely(ns_rel_time >> 48)) {
 		LF_WORKER_LOG_DP(NOTICE,
-				"Path timestamp (%" PRIu64
-				" ns) is too far in the past (relative_timestamp: %" PRIu64
-				").\n",
-				path_timestamp_ns, relative_timestamp);
-#if !LF_WORKER_IGNORE_PATH_TIMESTAMP_CHECK
+				"DRKey epoch start timestamp (%" PRIu64
+				" ns) is too far in the past (ns_rel_time: %" PRIu64 ").\n",
+				ns_drkey_epoch_start, ns_rel_time);
+#if !LF_WORKER_IGNORE_DRKEY_TIMESTAMP_CHECK
 		return -1;
 #endif
 	}
 
 	/* Set header fields */
-	scion_spao_set_timestamp(spao_hdr, relative_timestamp);
+	scion_spao_set_timestamp(spao_hdr, ns_rel_time);
 	return 0;
 }
 
@@ -554,7 +549,7 @@ get_lf_spao_hdr(struct rte_mbuf *m, struct parsed_pkt *parsed_pkt,
 						rte_cpu_to_be_32(
 								SCION_PACKET_AUTHENTICATOR_OPT_SPI_DRKEY_MASK)) !=
 						parsed_spao->spao_hdr->spi ||
-				parsed_spao->spao_hdr->spi_drkey_rr != 0 ||
+				parsed_spao->spao_hdr->spi_drkey_rrr != 0 ||
 				parsed_spao->spao_hdr->spi_drkey_t !=
 						SCION_SPAO_SPI_DRKEY_TYPE_HH ||
 				parsed_spao->spao_hdr->spi_drkey_d !=
@@ -597,11 +592,8 @@ get_lf_spao_hdr(struct rte_mbuf *m, struct parsed_pkt *parsed_pkt,
 
 	/* Obtain required SPAO fields before they are temporarily overwritten.
 	 */
-	pkt_data->timestamp = scion_spao_get_timestamp(parsed_spao->spao_hdr) +
-	                      parsed_pkt->path_timestamp * LF_TIME_NS_IN_S;
+	pkt_data->timestamp = scion_spao_get_timestamp(parsed_spao->spao_hdr);
 	pkt_data->drkey_protocol = parsed_spao->spao_hdr->spi_drkey_protocol_id;
-	pkt_data->grace_period = parsed_spao->spao_hdr->spi_drkey_e;
-
 	pkt_data->mac = parsed_spao->spao_hdr->mac;
 	/* The MAC input starts at the after the type and length field of the
 	 * SPAO extension header. */
@@ -732,13 +724,12 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	struct scion_packet_authenticator_opt *spao_hdr;
 	struct parsed_spao parsed_spao;
 
-	uint64_t timestamp_now;
+	uint64_t timestamp;
 
 	struct lf_host_addr src_addr;
 	struct lf_host_addr dst_addr;
 	struct lf_crypto_drkey drkey;
 	uint16_t drkey_protocol;
-	int drkey_epoch_flag;
 
 	uint8_t payload_protocol;
 	unsigned int payload_offset;
@@ -749,7 +740,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	uint8_t *p;
 
 	/* get current time */
-	res = lf_time_worker_get_unique(&worker_context->time, &timestamp_now);
+	res = lf_time_worker_get_unique(&worker_context->time, &timestamp);
 	if (unlikely(res != 0)) {
 		LF_WORKER_LOG_DP(ERR, "Failed to get timestamp.\n");
 		return -1;
@@ -770,29 +761,29 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	drkey_protocol = lf_configmanager_worker_get_outbound_drkey_protocol(
 			worker_context->config);
 
-	drkey_epoch_flag = lf_keymanager_worker_outbound_get_drkey(
-			worker_context->key_manager, parsed_pkt->scion_addr_ia_hdr->dst_ia,
-			&dst_addr, &src_addr, drkey_protocol, timestamp_now, &drkey);
-	if (unlikely(drkey_epoch_flag < 0)) {
+	uint64_t ns_drkey_epoch_start;
+	res = lf_keymanager_worker_outbound_get_drkey(worker_context->key_manager,
+			parsed_pkt->scion_addr_ia_hdr->dst_ia, &dst_addr, &src_addr,
+			drkey_protocol, timestamp, &ns_drkey_epoch_start, &drkey);
+	if (unlikely(res < 0)) {
 		LF_WORKER_LOG_DP(NOTICE,
 				"Outbound DRKey not found for AS " PRIISDAS
-				" and drkey_protocol %d (ns_now = %" PRIu64 ", res = %d)!\n",
+				" and drkey_protocol %d (timestamp = %" PRIu64 ", res = %d)!\n",
 				PRIISDAS_VAL(rte_be_to_cpu_64(
 						parsed_pkt->scion_addr_ia_hdr->dst_ia)),
-				rte_be_to_cpu_16(drkey_protocol), timestamp_now,
-				drkey_epoch_flag);
+				rte_be_to_cpu_16(drkey_protocol), timestamp, res);
 		return -1;
 	}
 
 	LF_WORKER_LOG_DP(DEBUG,
 			"Outbound DRKey [" PRIISDAS "]:" PRIIP " - [XX]:" PRIIP
-			" and drkey_protocol %d is %x (ns_now = %" PRIu64 ", res = %d)\n",
+			" and drkey_protocol %d is %x (timestamp = %" PRIu64
+			", res = %d)\n",
 			PRIISDAS_VAL(
 					rte_be_to_cpu_64(parsed_pkt->scion_addr_ia_hdr->dst_ia)),
 			PRIIP_VAL(*(uint32_t *)dst_addr.addr),
 			PRIIP_VAL(*(uint32_t *)src_addr.addr),
-			rte_be_to_cpu_16(drkey_protocol), drkey.key[0], timestamp_now,
-			drkey_epoch_flag);
+			rte_be_to_cpu_16(drkey_protocol), drkey.key[0], timestamp, res);
 
 	/*
 	 * Add SPAO Extension Header
@@ -840,10 +831,9 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	 */
 	spao_hdr->spi_drkey_zero0 = 0;
 	spao_hdr->spi_drkey_zero1 = 0;
-	spao_hdr->spi_drkey_rr = 0;
+	spao_hdr->spi_drkey_rrr = 0;
 	spao_hdr->spi_drkey_t = SCION_SPAO_SPI_DRKEY_TYPE_HH;
 	spao_hdr->spi_drkey_d = SCION_SPAO_SPI_DRKEY_DIRECTION_RECEIVER;
-	spao_hdr->spi_drkey_e = drkey_epoch_flag;
 	spao_hdr->spi_drkey_protocol_id = drkey_protocol;
 	spao_hdr->algorithm = SCION_SPAO_ALGORITHM_TYPE_SHA_AES_CBC;
 	spao_hdr->reserved = 0;
@@ -865,8 +855,7 @@ add_spao(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	}
 
 	/* set timestamp */
-	res = set_spao_timestamp(parsed_pkt->path_timestamp, timestamp_now,
-			spao_hdr);
+	res = set_spao_timestamp(ns_drkey_epoch_start, timestamp, spao_hdr);
 	if (unlikely(res != 0)) {
 		/* TODO: error handling */
 		return -1;
@@ -1074,17 +1063,6 @@ parse_pkt(struct rte_mbuf *m, unsigned int offset,
 				SCION_HDR_LEN(parsed_pkt->scion_cmn_hdr),
 				sizeof(struct scion_cmn_hdr), parsed_pkt->scion_addr_hdr_len,
 				parsed_pkt->scion_path_hdr_len);
-		return -1;
-	}
-
-	/* obtain path timestamp */
-	res = scion_get_path_timestamp(parsed_pkt->scion_cmn_hdr->path_type,
-			parsed_pkt->scion_path_hdr, &parsed_pkt->path_timestamp);
-	if (res == 1) {
-		LF_WORKER_LOG_DP(DEBUG, "Path without path timestamp\n", res);
-		return 1;
-	} else if (res == -1) {
-		LF_WORKER_LOG_DP(ERR, "Failed to obtain path timestamp\n", res);
 		return -1;
 	}
 
