@@ -40,8 +40,6 @@ jobs:
           tags: lf-developer:latest
       - name: Start dev container
         run: ./docker.sh dev_create &&./docker.sh dev_up
-      - name: Clear old artifacts
-        run: rm -rf tmp/tests_artifacts
       - name: Run tests in dev container
         run: ./docker.sh dev_exec bash lightning-filter/tests.sh
       - name: Upload artifacts
@@ -50,5 +48,7 @@ jobs:
         with:
           name: tests-artifacts
           path: tmp/tests_artifacts
+      - name: Clear artifacts
+        run: rm -rf tmp/tests_artifacts
       - name: Stop dev container
         run: ./docker.sh dev_down
