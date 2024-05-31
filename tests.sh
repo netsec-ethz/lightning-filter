@@ -86,6 +86,7 @@ function build_test() {
     return $ret
 }
 
+# Create a directory for the artifacts of the current test.
 function make_artifacts_dir() {
     artifacts_dir="${ARTIFACTS_DIR}/${CURRENT_TIME}_${test_label}"
     mkdir -p $artifacts_dir
