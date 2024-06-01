@@ -18,7 +18,7 @@ jobs:
       outputs:
         main_changed: ${{ steps.main_changed.outputs.main_changed }}
       steps:
-        - uses: actions/checkout@v2
+        - uses: actions/checkout@v4
         - name: print latest_commit
           run: echo ${{ github.sha }}
 
@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Build and install dependencies
       run: ./usertools/install_deps.sh
 
