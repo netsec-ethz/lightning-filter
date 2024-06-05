@@ -82,6 +82,29 @@ cmd_help() {
 	        Show this text.
 	_EOF
 }
+
+cmd_image_create() {
+    cd docker
+    make pull-dev-image
+    cd ..
+    docker create --name lf-dev-container --privileged --net=host \
+    -v $PWD:/home/lf/lightning-filter/ \
+    -v /dev/hugepages:/dev/hugepages -v /sys/bus/pci/devices:/sys/bus/pci/devices \
+    lf-dev sleep infinity
+}
+
+cmd_image_up() {
+    docker start lf-dev-container
+}
+
+cmd_image_down() {
+    docker stop lf-dev-container
+}
+
+cmd_image_exec() {
+    docker exec lf-dev-container "$@"
+}
+
 # END subcommand functions
 
 PROGRAM="${0##*/}"

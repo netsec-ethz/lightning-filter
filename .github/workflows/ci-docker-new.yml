@@ -1,0 +1,42 @@
+name: CI - Docker Build and Tests - New
+
+on:
+  push:
+    branches: ["open-source"]
+  pull_request:
+    branches: ["open-source"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: try to build the image
+        run: cd docker && make make build-dev-image
+
+  docker-test:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: pull the image
+        run: cd docker && make make pull-dev-image
+      - name: Start dev container
+        run: ./docker.sh image_create &&./docker.sh image_up
+      - name: Run tests in dev container
+        run: ./docker.sh dev_exec bash lightning-filter/tests.sh
+      - name: Upload artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: tests-artifacts
+          path: tmp/tests_artifacts
+      - name: Clear artifacts
+        run: rm -rf tmp/tests_artifacts
+      - name: Stop dev container
+        run: ./docker.sh dev_down
