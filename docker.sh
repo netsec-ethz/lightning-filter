@@ -85,7 +85,7 @@ cmd_help() {
 
 cmd_image_create() {
     cd docker
-    docker pull streun/lightning-filter:lf-dev-v0.1.0
+    make pull-dev-image
     cd ..
     docker create --name lf-dev-container --privileged --net=host \
     -v $PWD:/home/lf/lightning-filter/ \
