@@ -1,10 +1,11 @@
-
 # Lightning Filter Developer Image
 # Container for developing (building, linting, testing)
 #
 # Requires the base image as argument
 
-FROM streun/lightning-filter:lf-base-v0.1.0 AS lf-dev
+ARG BASE_VERSION=lf-base-v0.1.0
+
+FROM streun/lightning-filter:${BASE_VERSION} AS lf-dev
 ARG UID=1001
 ARG GID=1001
 ARG USER=lf

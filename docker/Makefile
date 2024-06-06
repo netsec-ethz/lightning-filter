@@ -42,7 +42,7 @@ update-base-digest:
 # Development image
 build-dev-image:
 	@echo "Building $(DOCKER_USERNAME)/$(DOCKER_IMAGE_NAME):$(TAG_DEV) -f dev.Dockerfile"
-	docker build --target lf-dev -t $(DOCKER_USERNAME)/$(DOCKER_IMAGE_NAME):$(TAG_DEV) -f dev.Dockerfile .
+	docker build --target lf-dev -t $(DOCKER_USERNAME)/$(DOCKER_IMAGE_NAME):$(TAG_DEV) --build-arg BASE_VERSION=$(TAG_BASE) -f dev.Dockerfile .
 
 pull-dev-image:
 	@echo "Pulling $(DOCKER_USERNAME)/$(DOCKER_IMAGE_NAME):$(TAG_DEV) by SHA256 digest"
