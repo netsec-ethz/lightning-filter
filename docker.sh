@@ -85,12 +85,12 @@ cmd_help() {
 
 cmd_image_create() {
     cd docker
-    make pull-dev-image
+    docker pull streun/lightning-filter:lf-dev-v0.1.0
     cd ..
     docker create --name lf-dev-container --privileged --net=host \
     -v $PWD:/home/lf/lightning-filter/ \
     -v /dev/hugepages:/dev/hugepages -v /sys/bus/pci/devices:/sys/bus/pci/devices \
-    lf-dev sleep infinity
+    streun/lightning-filter:lf-dev-v0.1.0 sleep infinity
 }
 
 cmd_image_up() {
@@ -112,7 +112,7 @@ COMMAND="$1"
 shift
 
 case "$COMMAND" in
-    help|build|image|create|up|down|shell|dev_image|dev_create|dev_up|dev_down|dev_exec)
+    help|build|image|create|up|down|shell|dev_image|dev_create|dev_up|dev_down|dev_exec|image_create|image_up|image_down|image_exec)
         "cmd_$COMMAND" "$@" ;;
     *)  cmd_help; exit 1 ;;
 esac
