@@ -27,7 +27,7 @@ all: build-base-image update-digest
 # Base image
 build-base-image:
 	@echo "Building $(DOCKER_USERNAME)/$(DOCKER_IMAGE_NAME):$(TAG_BASE) -f base.Dockerfile ."
-	docker build --target lf-base -t $(DOCKER_USERNAME)/$(DOCKER_IMAGE_NAME):$(TAG_BASE) -f base.Dockerfile .
+	docker build --target lf-base -t $(DOCKER_USERNAME)/$(DOCKER_IMAGE_NAME):$(TAG_BASE) --build-arg DPDK_MINIMAL_BUILD=true -f base.Dockerfile .
 
 pull-base-image:
 	@echo "Pulling $(DOCKER_USERNAME)/$(DOCKER_IMAGE_NAME) by SHA256 digest"

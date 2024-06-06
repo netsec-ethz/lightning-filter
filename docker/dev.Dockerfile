@@ -8,7 +8,6 @@ FROM streun/lightning-filter:lf-base-v0.1.0 AS lf-dev
 ARG UID=1001
 ARG GID=1001
 ARG USER=lf
-ARG CI=false
 
 # Allow the lf-build user to use sudo without a password
 RUN groupadd --gid $GID --non-unique $USER && \
