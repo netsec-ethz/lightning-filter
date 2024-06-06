@@ -12,12 +12,14 @@ concurrency:
 
 jobs:
   docker-test:
-    runs-on: streun/lightning-filter:lf-dev-v0.1.0
+    runs-on: ubuntu-22.04
 
     steps:
       - uses: actions/checkout@v4
       - name: Start dev container
-        run: ./tests.sh
+        run: ./docker.sh image_create && ./docker.sh image_up
+      - name: Run tests in dev container
+        run: ./docker.sh image_exec bash lightning-filter/tests.sh
       - name: Upload artifacts
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
@@ -26,3 +28,5 @@ jobs:
           path: tmp/tests_artifacts
       - name: Clear artifacts
         run: rm -rf tmp/tests_artifacts
+      - name: Stop dev container
+        run: ./docker.sh dev_down

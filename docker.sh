@@ -85,12 +85,12 @@ cmd_help() {
 
 cmd_image_create() {
     cd docker
-    make pull-dev-image
+    DEV_VERSION=$(cat dev.version)
     cd ..
     docker create --name lf-dev-container --privileged --net=host \
     -v $PWD:/home/lf/lightning-filter/ \
     -v /dev/hugepages:/dev/hugepages -v /sys/bus/pci/devices:/sys/bus/pci/devices \
-    streun/lightning-filter:lf-dev-v0.1.0 sleep infinity
+    streun/lightning-filter:$DEV_VERSION sleep infinity
 }
 
 cmd_image_up() {

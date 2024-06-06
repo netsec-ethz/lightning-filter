@@ -16,10 +16,8 @@
 # Variables
 DOCKER_USERNAME = streun
 DOCKER_IMAGE_NAME = lightning-filter
-VERSION_BASE = v0.1.0
-VERSION_DEV = v0.1.0
-TAG_BASE = lf-base-${VERSION_BASE}
-TAG_DEV = lf-dev-${VERSION_DEV}
+TAG_BASE = $(shell cat base.version)
+TAG_DEV = $(shell cat dev.version)
 
 .PHONY: all
 all: build-base-image update-digest
