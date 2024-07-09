@@ -8,9 +8,10 @@
 
 FROM ubuntu:jammy AS lf-base
 
-# ARG for controlling the DPDK build process. If set to true, DPDK is build for a default machine
-# type. If set to false, DPDK is build for the host machine.
-ARG DPDK_MINIMAL_BUILD=false
+# ARG for controlling the DPDK build process. If set to "true", DPDK is build
+# without host machine optimization, e.g., SSE2, providing better compatibility
+# with different systems.
+ARG DPDK_MINIMAL_BUILD="false"
 
 # Packages for building
 RUN apt-get update && \

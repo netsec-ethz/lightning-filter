@@ -8,7 +8,7 @@
 # When pulling from Docker Hub, the SHA256 digest uniquely identifies the image.
 #
 # To change the base image:
-# 1. Update the Dockerfile accordingly.
+# 1. Update the Dockerfile as you like.
 # 2. Run `make build-base-image` to build the image.
 # 3. Run `make push-base-image` to push the image to Docker Hub.
 # 4. Run `make update-base-digest` to store the SHA256 digest of the image.
