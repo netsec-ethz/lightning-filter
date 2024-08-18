@@ -5,7 +5,7 @@ set -x
 cmd_dev_create() {
     DEV_VERSION=$(cat dev.version)
     docker create --name lf-dev-container --privileged --net=host \
-    -v $PWD:/home/lf/lightning-filter/ \
+    -v $PWD/..:/home/lf/lightning-filter/ \
     -v /dev/hugepages:/dev/hugepages -v /sys/bus/pci/devices:/sys/bus/pci/devices \
     streun/lightning-filter:$DEV_VERSION sleep infinity
 }
