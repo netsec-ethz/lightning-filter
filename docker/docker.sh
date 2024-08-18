@@ -2,10 +2,15 @@
 
 set -x
 
+# directory of this script
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+# base directory of the project
+base_dir=$script_dir/..
+
 cmd_dev_create() {
     DEV_VERSION=$(cat dev.version)
     docker create --name lf-dev-container --privileged --net=host \
-    -v $PWD/..:/home/lf/lightning-filter/ \
+    -v $base_dir:/home/lf/lightning-filter/ \
     -v /dev/hugepages:/dev/hugepages -v /sys/bus/pci/devices:/sys/bus/pci/devices \
     streun/lightning-filter:$DEV_VERSION sleep infinity
 }
