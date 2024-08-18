@@ -12,6 +12,7 @@ env:
 
 jobs:
 
+  # This job checks if the main branch has changed in the last 24 hours
   check_change:
       runs-on: ubuntu-latest
       name: Check latest commit
@@ -28,6 +29,8 @@ jobs:
           if: ${{ github.event_name == 'schedule' }}
           run: test -z $(git rev-list  --after="24 hours"  ${{ github.sha }}) && echo "::set-output name=main_changed::false"
 
+  # This job builds the project and runs the tests. Because building the project
+  # is time-consuming, we only run this job nightly.
   build:
     needs: check_change
     if: ${{ needs.check_change.outputs.main_changed != 'false' }}
@@ -51,3 +54,21 @@ jobs:
     - name: Test
       # Execute tests defined by the CMake configuration.
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}} --target run_tests
+
+  # This job runs the devcontainer/ci action to build and run the dev container
+  # and execute the tests in the container. Because building the container is
+  # time-consuming, we only run this job nightly.
+  docker_dev:
+    needs: check_change
+    if: ${{ needs.check_change.outputs.main_changed != 'false' }}
+
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout (GitHub)
+        uses: actions/checkout@v4
+
+      - name: Build and run dev container task
+        uses: devcontainers/ci@v0.3
+        with:
+          runCmd: ./tests.sh
