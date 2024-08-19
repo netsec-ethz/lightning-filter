@@ -6,7 +6,13 @@
 		// Sets the run context to one level up instead of the .devcontainer folder.
 		"context": "..",
 		// Update the 'dockerFile' property if you aren't using the standard 'Dockerfile' filename.
-		"dockerfile": "../docker/lf.Dockerfile"
+		"dockerfile": "../docker/lf.Dockerfile",
+		// Update 'args' to add any environment variables.
+		"args": {"DPDK_MINIMAL_BUILD": "true"}
+	},
+
+	"containerEnv": {
+		"SHELL": "/bin/bash"
 	},
 
 	// Arguments:
@@ -15,7 +21,11 @@
 
 	// Mounts:
 	// - Hugepages
-	"mounts": ["source=/dev/hugepages,target=/dev/hugepages,type=bind"]
+	// - Docker socket for docker-from-docker support
+	"mounts": [
+		"source=/dev/hugepages,target=/dev/hugepages,type=bind",
+		"source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+	]
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	// "features": {},

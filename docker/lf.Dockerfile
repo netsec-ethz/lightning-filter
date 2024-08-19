@@ -8,7 +8,6 @@
 
 FROM ubuntu:jammy AS lf-base
 
-
 # With DPDK_MINIMAL_BUILD set to true, DPDK is build without host machine optimization, e.g., SSE2,
 # providing better compatibility with different systems (useful for CI pipelines).
 ARG DPDK_MINIMAL_BUILD="false"
@@ -25,7 +24,7 @@ RUN apt-get update && \
 RUN curl -LO https://golang.org/dl/go1.21.2.linux-amd64.tar.gz && \
     echo "f5414a770e5e11c6e9674d4cd4dd1f4f630e176d1828d3427ea8ca4211eee90d go1.21.2.linux-amd64.tar.gz" | sha256sum -c && \
     rm -rf /usr/local/go && tar -C /usr/local -xzf go1.21.2.linux-amd64.tar.gz
-ENV PATH /usr/local/go/bin:$PATH
+ENV PATH=/usr/local/go/bin:$PATH
 
 # Install DPDK
 RUN curl -LO https://fast.dpdk.org/rel/dpdk-23.11.tar.xz && \
@@ -37,18 +36,18 @@ tar xJf dpdk-23.11.tar.xz && cd dpdk-23.11 && \
 
 # Development image
 FROM lf-base AS lf-dev
-ARG UID=1001
-ARG GID=1001
+ARG UID=1000
+ARG GID=1000
 ARG USER=lf
 
 # Allow the lf-build user to use sudo without a password
 RUN groupadd --gid $GID --non-unique $USER && \
-    useradd $USER --create-home --shell /bin/bash --non-unique --uid $UID --gid $GID && \
+    useradd $USER --create-home --shell /bin/bash --uid $UID --gid $GID && \
     echo "$USER ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Set the default user for the container
 USER $USER
-ENV USER $USER
+ENV USER=$USER
 # Set the working directory for the user
 WORKDIR /home/$USER
 
@@ -73,3 +72,9 @@ RUN git clone https://github.com/scionproto/scion.git && \
     go build -o ./bin/ ./scion-pki/cmd/scion-pki
 ENV SCION_DIR=/home/$USER/scion
 ENV SCION_BIN=/home/$USER/scion/bin
+
+# Install docker (with convenience scripts)
+RUN curl -fsSL https://get.docker.com -o get-docker.sh && \
+    sudo sh get-docker.sh && \
+    sudo usermod -aG docker $USER && \
+    sudo rm get-docker.sh

@@ -58,7 +58,7 @@ jobs:
   # This job runs the devcontainer/ci action to build and run the dev container
   # and execute the tests in the container. Because building the container is
   # time-consuming, we only run this job nightly.
-  docker_dev:
+  devcontainer_test:
     needs: check_change
     if: ${{ needs.check_change.outputs.main_changed != 'false' }}
 

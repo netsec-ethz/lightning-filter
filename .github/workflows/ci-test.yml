@@ -19,7 +19,7 @@ jobs:
       - name: Start dev container
         run: cd docker && ./docker.sh dev_create && ./docker.sh dev_up
       - name: Run tests in dev container
-        run: cd docker && ./docker.sh dev_exec ls -al lightning-filter &&  ./docker.sh dev_exec bash lightning-filter/tests.sh
+        run: cd docker && ./docker.sh dev_exec bash tests.sh
       - name: Upload artifacts
         if: ${{ always() }}
         uses: actions/upload-artifact@v4

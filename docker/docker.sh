@@ -9,8 +9,9 @@ base_dir=$script_dir/..
 
 cmd_dev_create() {
     DEV_VERSION=$(cat dev.version)
+    # XXX: We Sould create the dev container defined in .devconainter/devcontainer.json
     docker create --name lf-dev-container --privileged --net=host \
-    -v $base_dir:/home/lf/lightning-filter/ \
+    -v $base_dir:/home/lf/lightning-filter/ -w /home/lf/lightning-filter/ \
     -v /dev/hugepages:/dev/hugepages -v /sys/bus/pci/devices:/sys/bus/pci/devices \
     streun/lightning-filter:$DEV_VERSION sleep infinity
 }
