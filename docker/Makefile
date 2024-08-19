@@ -45,7 +45,6 @@ update-base-digest:
 TAG_DEV = $(shell cat dev.version)
 build-dev-image:
 	@echo "Building $(DOCKER_REGISTRY)/$(DOCKER_IMAGE_NAME):$(TAG_DEV)"
-	ls -l
 	docker build --target lf-dev -t $(DOCKER_REGISTRY)/$(DOCKER_IMAGE_NAME):$(TAG_DEV) \
 	 --build-arg DPDK_MINIMAL_BUILD=$(DPDK_MINIMAL_BUILD) \
 	 -f lf.Dockerfile .

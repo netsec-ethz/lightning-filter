@@ -36,8 +36,8 @@ tar xJf dpdk-23.11.tar.xz && cd dpdk-23.11 && \
 
 # Development image
 FROM lf-base AS lf-dev
-ARG UID=1000
-ARG GID=1000
+ARG UID=1001
+ARG GID=1001
 ARG USER=lf
 
 # Allow the lf-build user to use sudo without a password
