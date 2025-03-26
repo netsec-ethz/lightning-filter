@@ -41,6 +41,19 @@
 	LF_LOG_DP(level, RTE_FMT("Worker [%d]: " RTE_FMT_HEAD(__VA_ARGS__, ), \
 							 rte_lcore_id(), RTE_FMT_TAIL(__VA_ARGS__, )))
 
+/**
+ * The action to be performed with the packet.
+ */
+enum lf_pkt_action {
+	LF_PKT_UNKNOWN = 0,
+	LF_PKT_UNKNOWN_DROP,
+	LF_PKT_UNKNOWN_FORWARD,
+	LF_PKT_OUTBOUND_DROP,
+	LF_PKT_OUTBOUND_FORWARD,
+	LF_PKT_INBOUND_DROP,
+	LF_PKT_INBOUND_FORWARD,
+};
+
 struct lf_worker_context {
 	uint16_t lcore_id;
 
@@ -58,6 +71,12 @@ struct lf_worker_context {
 	/* Forwarding port pair */
 	/* TODO: replace with a ip lookup struct for proper l3 forwarding */
 	uint16_t port_pair[RTE_MAX_ETHPORTS];
+
+	/* packet processing */
+	enum lf_pkt_processing pkt_processing;
+	void (*pkt_processing_func)(struct lf_worker_context *worker_context,
+			struct rte_mbuf **pkt_burst, uint16_t nb_pkts,
+			enum lf_pkt_action *pkt_res);
 
 	/* Timestamp threshold in nanoseconds */
 	uint64_t timestamp_threshold;
@@ -114,19 +133,6 @@ struct lf_pkt_data {
 };
 
 /**
- * The action to be performed with the packet.
- */
-enum lf_pkt_action {
-	LF_PKT_UNKNOWN = 0,
-	LF_PKT_UNKNOWN_DROP,
-	LF_PKT_UNKNOWN_FORWARD,
-	LF_PKT_OUTBOUND_DROP,
-	LF_PKT_OUTBOUND_FORWARD,
-	LF_PKT_INBOUND_DROP,
-	LF_PKT_INBOUND_FORWARD,
-};
-
-/**
  * The packet check can provide following results.
  */
 enum lf_check_state {
@@ -166,12 +172,32 @@ int
 lf_worker_run(struct lf_worker_context *worker_context);
 
 /**
+ * SCION packet processing.
  * Parse the packet and decide wether to forward it or to drop it.
  */
 void
-lf_worker_handle_pkt(struct lf_worker_context *worker_context,
+lf_worker_scion_handle_pkt(struct lf_worker_context *worker_context,
 		struct rte_mbuf **pkt_burst, uint16_t nb_pkts,
 		enum lf_pkt_action *pkt_res);
+
+/**
+ * IP packet processing.
+ * Parse the packet and decide wether to forward it or to drop it.
+ */
+void
+lf_worker_ip_handle_pkt(struct lf_worker_context *worker_context,
+		struct rte_mbuf **pkt_burst, uint16_t nb_pkts,
+		enum lf_pkt_action *pkt_res);
+
+/**
+ * Forwards packets without any processing.
+ * XXX: This function should only be used for testing purposes.
+ */
+void
+lf_worker_fwd_handle_pkt(struct lf_worker_context *worker_context,
+		struct rte_mbuf **pkt_burst, uint16_t nb_pkts,
+		enum lf_pkt_action *pkt_res);
+
 
 /**
  * Check if packet can pass as a valid packet.

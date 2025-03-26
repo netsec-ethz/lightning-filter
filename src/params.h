@@ -45,6 +45,11 @@ struct lf_params {
 	bool disable_mirrors; /* disable mirrors for all ports */
 
 	/*
+	 * Processing
+	 */
+	enum lf_pkt_processing pkt_processing; /* packet processing */
+
+	/*
 	 * Timestamp Filter
 	 */
 	unsigned int tf_threshold; /* threshold in milliseconds */

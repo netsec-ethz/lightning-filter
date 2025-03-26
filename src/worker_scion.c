@@ -1111,7 +1111,7 @@ handle_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m)
 }
 
 void
-lf_worker_handle_pkt(struct lf_worker_context *worker_context,
+lf_worker_scion_handle_pkt(struct lf_worker_context *worker_context,
 		struct rte_mbuf **pkt_burst, uint16_t nb_pkts,
 		enum lf_pkt_action *pkt_res)
 {

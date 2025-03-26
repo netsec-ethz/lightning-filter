@@ -49,7 +49,7 @@ include(plugins/CMakePlugins.cmake)
 # Add all source files
 target_sources(${EXEC} PRIVATE params.c setup.c duplicate_filter.c config.c configmanager.c)
 target_sources(${EXEC} PRIVATE keyfetcher.c keymanager.c ratelimiter.c statistics.c version.c)
-target_sources(${EXEC} PRIVATE worker.c worker_check.c)
+target_sources(${EXEC} PRIVATE worker.c worker_check.c worker_scion.c worker_ip.c worker_fwd.c)
 target_sources(${EXEC} PRIVATE lib/crypto/crypto.c lib/hash/murmurhash.c lib/ipc/ipc.c)
 target_sources(${EXEC} PRIVATE lib/mirror/mirror.c)
 target_sources(${EXEC} PRIVATE plugins/plugins.c)

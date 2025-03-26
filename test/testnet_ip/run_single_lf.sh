@@ -6,6 +6,9 @@ set -Eeuo pipefail
 
 log_folder="logs/"
 
+# The packet processing is by default IP, but can be set with an environment variable.
+pkt_processing=${LF_PKT_PROCESSING:-"ip"}
+
 # include network variables
 source "$(dirname "$0")/testnet_vars.sh"
 
@@ -21,6 +24,7 @@ function lf_up() {
 		-p 0x3 \
 		--portmap "(0,1,o),(1,0,i)" \
 		-c $lf_config \
+		--processing $pkt_processing \
 		--bf-period 500 \
 		--bf-hashes 7 \
 		--bf-bytes 131072 \

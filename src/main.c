@@ -379,6 +379,28 @@ main(int argc, char **argv)
 	}
 
 	/*
+	 * Setup Packet Processing Logic
+	 */
+	RTE_LCORE_FOREACH(lcore_id) {
+		if (!lf_worker_lcores[lcore_id]) {
+			continue;
+		}
+		worker_contexts[lcore_id].pkt_processing = params.pkt_processing;
+		if (params.pkt_processing == LF_PKT_PROCESSING_SCION) {
+			worker_contexts[lcore_id].pkt_processing_func =
+					lf_worker_scion_handle_pkt;
+		} else if (params.pkt_processing == LF_PKT_PROCESSING_IP) {
+			worker_contexts[lcore_id].pkt_processing_func =
+					lf_worker_ip_handle_pkt;
+		} else if (params.pkt_processing == LF_PKT_PROCESSING_FWD) {
+			worker_contexts[lcore_id].pkt_processing_func =
+					lf_worker_fwd_handle_pkt;
+		} else {
+			rte_exit(EXIT_FAILURE, "Invalid packet processing type\n");
+		}
+	}
+
+	/*
 	 * Initialize and launch IPC thread.
 	 */
 	res = lf_ipc_init(rte_eal_get_runtime_dir());

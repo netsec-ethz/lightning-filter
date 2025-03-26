@@ -12,11 +12,11 @@
 #include <rte_tcp.h>
 #include <rte_udp.h>
 
-#include "../config.h"
-#include "../configmanager.h"
-#include "../lf.h"
-#include "../lib/utils/packet.h"
-#include "../worker.h"
+#include "config.h"
+#include "configmanager.h"
+#include "lf.h"
+#include "lib/utils/packet.h"
+#include "worker.h"
 
 static enum lf_pkt_action
 handle_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m)
@@ -61,7 +61,7 @@ handle_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m)
 }
 
 void
-lf_worker_handle_pkt(struct lf_worker_context *worker_context,
+lf_worker_fwd_handle_pkt(struct lf_worker_context *worker_context,
 		struct rte_mbuf **pkt_burst, uint16_t nb_pkts,
 		enum lf_pkt_action *pkt_res)
 {

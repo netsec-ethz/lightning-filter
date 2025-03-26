@@ -30,6 +30,9 @@ static const struct lf_params default_params = {
 	.mtu = 1500,
 	.disable_mirrors = false,
 
+	/* processing */
+	.pkt_processing = LF_PKT_PROCESSING_SCION,
+
 	/* timestamp filter */
 	.tf_threshold = 1000,
 
@@ -67,6 +70,7 @@ static const char short_options[] = "v:" /* version */
 #define CMD_LINE_OPT_PROMISCUOUS     "promiscuous"
 #define CMD_LINE_OPT_PORTMAP         "portmap"
 #define CMD_LINE_OPT_MTU             "mtu"
+#define CMD_LINE_OPT_PROCESSING      "processing"
 #define CMD_LINE_OPT_TF_THRESHOLD    "tf-threshold"
 #define CMD_LINE_OPT_BF_NB           "bf-nb"
 #define CMD_LINE_OPT_BF_PERIOD       "bf-period"
@@ -87,6 +91,7 @@ enum {
 	CMD_LINE_OPT_PROMISCUOUS_NUM = 256,
 	CMD_LINE_OPT_PORTMAP_NUM,
 	CMD_LINE_OPT_MTU_NUM,
+	CMD_LINE_OPT_PROCESSING_NUM,
 	CMD_LINE_OPT_TF_THRESHOLD_NUM,
 	CMD_LINE_OPT_BF_NB_NUM,
 	CMD_LINE_OPT_BF_PERIOD_NUM,
@@ -108,6 +113,8 @@ static const struct option long_options[] = {
 			CMD_LINE_OPT_PROMISCUOUS_NUM },
 	{ CMD_LINE_OPT_PORTMAP, required_argument, 0, CMD_LINE_OPT_PORTMAP_NUM },
 	{ CMD_LINE_OPT_MTU, required_argument, 0, CMD_LINE_OPT_MTU_NUM },
+	{ CMD_LINE_OPT_PROCESSING, required_argument, 0,
+			CMD_LINE_OPT_PROCESSING_NUM },
 	{ CMD_LINE_OPT_TF_THRESHOLD, required_argument, 0,
 			CMD_LINE_OPT_TF_THRESHOLD_NUM },
 	{ CMD_LINE_OPT_BF_NB, required_argument, 0, CMD_LINE_OPT_BF_NB_NUM },
@@ -146,6 +153,9 @@ lf_usage(const char *prgname)
 			"  --mtu=NUMBER:\n"
 			"         Set maximum transmission unit (MTU) of the ports "
 			"(default: 1500)\n"
+			"  --processing=TYPE:\n"
+			"         Packet processing type (scion, ip, fwd) "
+			"(default: scion)\n"
 			"  --tf-threshold=NUM:\n"
 			"         Timestamp filter threshold in milliseconds "
 			"(default: 1000)\n"
@@ -388,6 +398,23 @@ set_portmap_default(uint32_t portmask, uint16_t dst_port[RTE_MAX_ETHPORTS],
 }
 
 int
+lf_params_parse_processing(const char *processing_str,
+		enum lf_pkt_processing *pkt_processing)
+{
+	if (strncmp(processing_str, "scion", 5) == 0) {
+		*pkt_processing = LF_PKT_PROCESSING_SCION;
+	} else if (strncmp(processing_str, "ip", 2) == 0) {
+		*pkt_processing = LF_PKT_PROCESSING_IP;
+	} else if (strncmp(processing_str, "fwd", 3) == 0) {
+		*pkt_processing = LF_PKT_PROCESSING_FWD;
+	} else {
+		LF_LOG(ERR, "Invalid processing type\n");
+		return -1;
+	}
+	return 0;
+}
+
+int
 lf_params_parse(int argc, char **argv, struct lf_params *params)
 {
 	int res;
@@ -466,6 +493,13 @@ lf_params_parse(int argc, char **argv, struct lf_params *params)
 			}
 			if (params->mtu == 0) {
 				LF_LOG(ERR, "Invalid MTU\n");
+				return -1;
+			}
+			break;
+		case CMD_LINE_OPT_PROCESSING_NUM:
+			res = lf_params_parse_processing(optarg, &params->pkt_processing);
+			if (res != 0) {
+				LF_LOG(ERR, "Failed to parse processing type\n");
 				return -1;
 			}
 			break;

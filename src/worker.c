@@ -386,7 +386,9 @@ lf_worker_main_loop(struct lf_worker_context *worker_context)
 			pkt_res[i] = lf_plugins_pre(worker_context, rx_pkts[i], pkt_res[i]);
 		}
 
-		lf_worker_handle_pkt(worker_context, rx_pkts, nb_rx, pkt_res);
+		/* process the packets */
+		worker_context->pkt_processing_func(worker_context, rx_pkts, nb_rx,
+				pkt_res);
 
 		for (i = 0; i < nb_rx; ++i) {
 			pkt_res[i] =

@@ -135,33 +135,33 @@ lf_wg_ratelimiter_handle_pkt_post(struct lf_worker_context *worker_context,
 		return pkt_action;
 	}
 
-#if defined(LF_WORKER_SCION)
-	res = scion_skip_gateway(worker_context, SCION_IP_GATEWAY_PORT, m,
-			&ipv4_hdr);
-	if (res == 0) {
-		LF_WGR_LOG_DP(DEBUG, "SCION packet is not a SIG frame.\n");
-		return pkt_action;
-	} else if (res < 0) {
-		LF_WGR_LOG_DP(DEBUG, "Error parsing SCION packet.\n");
-		return LF_PKT_INBOUND_DROP;
-	}
-	LF_WGR_LOG_DP(DEBUG, "SCION packet is a SIG frame.\n");
-	offset = res;
-#elif defined(LF_WORKER_IPV4)
-	struct rte_ether_hdr *ether_hdr;
-	offset = lf_get_eth_hdr(worker_context, m, offset, &ether_hdr);
-	if (offset == 0) {
-		return LF_PKT_INBOUND_DROP;
-	}
+	if (worker_context->pkt_processing == LF_PKT_PROCESSING_SCION) {
+		res = scion_skip_gateway(SCION_IP_GATEWAY_PORT, m, &ipv4_hdr);
+		if (res == 0) {
+			LF_WGR_LOG_DP(DEBUG, "SCION packet is not a SIG frame.\n");
+			return pkt_action;
+		} else if (res < 0) {
+			LF_WGR_LOG_DP(DEBUG, "Error parsing SCION packet.\n");
+			return LF_PKT_INBOUND_DROP;
+		}
+		LF_WGR_LOG_DP(DEBUG, "SCION packet is a SIG frame.\n");
+		offset = res;
+	} else if (worker_context->pkt_processing == LF_PKT_PROCESSING_IP) {
+		struct rte_ether_hdr *ether_hdr;
+		offset = lf_get_eth_hdr(m, offset, &ether_hdr);
+		if (offset == 0) {
+			return LF_PKT_INBOUND_DROP;
+		}
 
-	offset = lf_get_ip_hdr(worker_context, m, offset, &ipv4_hdr);
-	if (unlikely(offset == 0)) {
-		return LF_PKT_INBOUND_DROP;
+		offset = lf_get_ip_hdr(m, offset, &ipv4_hdr);
+		if (unlikely(offset == 0)) {
+			return LF_PKT_INBOUND_DROP;
+		}
+	} else {
+		LF_WGR_LOG_DP(ERR, "Unknown packet processing type %d\n",
+				worker_context->pkt_processing);
+		return LF_PKT_UNKNOWN;
 	}
-#else
-#error "Unknown LF_WORKER value
-#endif /* LF_WORKER_... */
-
 
 	if (ipv4_hdr->next_proto_id != IPPROTO_UDP) {
 		/* It's not a UDP packet */
@@ -172,7 +172,7 @@ lf_wg_ratelimiter_handle_pkt_post(struct lf_worker_context *worker_context,
 		return pkt_action;
 	}
 
-	offset = lf_get_udp_hdr(worker_context, m, offset, &udp_hdr);
+	offset = lf_get_udp_hdr(m, offset, &udp_hdr);
 	if (offset == 0) {
 		return LF_PKT_INBOUND_DROP;
 	}

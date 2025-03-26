@@ -34,7 +34,6 @@
 #define LF_VERSION_OPTIONS_STRING(CO) #CO ": " xstr(CO) "\n"
 
 #define LF_VERSION_MAIN_OPTIONS(M) \
-	M(LF_WORKER)                   \
 	M(LF_DRKEY_FETCHER)            \
 	M(LF_CBCMAC)                   \
 	M(LF_LOG_DP_LEVEL)

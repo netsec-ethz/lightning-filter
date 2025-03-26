@@ -97,7 +97,7 @@ cmake_args=""
 
 test_label="lf_ipv4_drkey_mock"
 make_artifacts_dir
-cmake_args="-D LF_WORKER=IPV4 -D LF_DRKEY_FETCHER=MOCK -D CMAKE_BUILD_TYPE=Release"
+cmake_args="-D LF_DRKEY_FETCHER=MOCK -D CMAKE_BUILD_TYPE=Release"
 build_test
 if [ $? -eq 0 ]
 then
@@ -106,24 +106,25 @@ fi
 
 test_label="lf_fwd"
 make_artifacts_dir
-cmake_args="-D LF_WORKER=FWD -D LF_DRKEY_FETCHER=MOCK"
+cmake_args="-D LF_DRKEY_FETCHER=MOCK"
 build_test
 if [ $? -eq 0 ]
 then
     # Disable Ratelimiter in the integration test
     export LF_IT_NO_RL=1
+    export LF_PKT_PROCESSING=fwd
     run_integration_test test/testnet_ip/integration_test.sh $LF_EXEC
     unset LF_IT_NO_RL
 fi
 
 test_label="lf_fw_plugins"
 make_artifacts_dir
-cmake_args="-D LF_WORKER=IPV4 -D LF_DRKEY_FETCHER=MOCK -D LF_PLUGINS=\"bypass:dst_ratelimiter:wg_ratelimiter\""
+cmake_args="-D LF_DRKEY_FETCHER=MOCK -D LF_PLUGINS=\"bypass:dst_ratelimiter:wg_ratelimiter\""
 build_test
 
 test_label="lf_scion_drkey_scion"
 make_artifacts_dir
-cmake_args="-D LF_WORKER=SCION -D LF_DRKEY_FETCHER=SCION  -D CMAKE_BUILD_TYPE=Release"
+cmake_args="-D LF_DRKEY_FETCHER=SCION  -D CMAKE_BUILD_TYPE=Release"
 build_test
 if [ $? -eq 0 ]
 then
@@ -131,7 +132,7 @@ then
 fi
 
 test_label="lf_scion_drkey_scion_aesni"
-cmake_args="-D LF_WORKER=SCION -D LF_DRKEY_FETCHER=SCION -D LF_CBCMAC=AESNI -D CMAKE_BUILD_TYPE=Release"
+cmake_args="-D LF_DRKEY_FETCHER=SCION -D LF_CBCMAC=AESNI -D CMAKE_BUILD_TYPE=Release"
 build_test
 if [ $? -eq 0 ]
 then
