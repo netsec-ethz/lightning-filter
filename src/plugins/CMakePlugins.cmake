@@ -9,14 +9,6 @@ add_compile_definitions(LF_PLUGINS="${LF_PLUGINS_STRING}")
 
 message( STATUS ${LF_PLUGINS_STRING})
 
-if ("bypass" IN_LIST LF_PLUGINS)
-    message( STATUS "Plugin Bypass enabled")
-    add_compile_definitions(LF_PLUGIN_BYPASS=1)
-    target_sources(${EXEC} PRIVATE plugins/bypass.c)
-else()
-    add_compile_definitions(LF_PLUGIN_BYPASS=0)
-endif()
-
 if ("wg_ratelimiter" IN_LIST LF_PLUGINS)
     message( STATUS "Plugin WireGuard Ratelimiter enabled")
     add_compile_definitions(LF_PLUGIN_WG_RATELIMITER=1)

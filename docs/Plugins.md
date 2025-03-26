@@ -6,14 +6,8 @@ E.g., a plugin could filter traffic before it is processed by a worker, i.e., co
 In LF, to enable a plugin, add its name to the colon-separated list of the CMake variable `LF_PLUGINS`. E.g.:
 
 ```
-cmake -D LF_PLUGINS=\"bypass:wg_ratelimiter\"
+cmake -D LF_PLUGINS=\"dst_ratelimiter:wg_ratelimiter\"
 ```
-
-## Bypass (name: bypass)
-
-The bypass plugin forwards network control packets directly without going through the other processing steps. Currently, the following packets are considered network control packets:
-- ARP
-- IPv6 ICMP Neighbor Discovery
 
 ## Host Ratelimiter (name: dst_ratelimiter)
 

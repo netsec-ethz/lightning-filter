@@ -62,9 +62,6 @@ lf_plugins_pre(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 		enum lf_pkt_action pkt_action)
 {
 	enum lf_pkt_action pkt_action_res = pkt_action;
-#if LF_PLUGIN_BYPASS
-	pkt_action = lf_bp_pre(worker_context, m, pkt_action);
-#endif
 
 	(void)worker_context;
 	(void)m;

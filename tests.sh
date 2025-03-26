@@ -118,7 +118,7 @@ fi
 
 test_label="lf_fw_plugins"
 make_artifacts_dir
-cmake_args="-D LF_WORKER=IPV4 -D LF_DRKEY_FETCHER=MOCK -D LF_PLUGINS=\"bypass:dst_ratelimiter:wg_ratelimiter\""
+cmake_args="-D LF_WORKER=IPV4 -D LF_DRKEY_FETCHER=MOCK -D LF_PLUGINS=\"dst_ratelimiter:wg_ratelimiter\""
 build_test
 
 test_label="lf_scion_drkey_scion"
