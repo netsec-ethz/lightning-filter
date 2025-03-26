@@ -50,6 +50,7 @@ struct lf_configmanager {
 	/* Reference to other services which are notified on config change. */
 	struct lf_keymanager *km;
 	struct lf_ratelimiter *rl;
+	struct lf_statistics *stats;
 };
 
 /**
@@ -58,7 +59,7 @@ struct lf_configmanager {
 int
 lf_configmanager_init(struct lf_configmanager *cm, uint16_t nb_workers,
 		struct rte_rcu_qsbr *qsv, struct lf_keymanager *km,
-		struct lf_ratelimiter *rl);
+		struct lf_ratelimiter *rl, struct lf_statistics *stats);
 
 /**
  * Load new config from json file.

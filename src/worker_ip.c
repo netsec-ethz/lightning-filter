@@ -114,8 +114,8 @@ handle_inbound_pkt(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	res = lf_crypto_hash_cmp(exp_hash, lf_hdr->hash);
 	if (likely(res != 0)) {
 		LF_WORKER_LOG_DP(DEBUG, "Packet hash check failed.\n");
-		lf_statistics_worker_counter_inc(worker_context->statistics,
-				invalid_hash);
+		lf_statistics_ia_counter_inc(worker_context->statistics,
+				pkt_data.src_as, pkt_data.drkey_protocol, invalid_hash);
 #if !(LF_WORKER_IGNORE_HASH_CHECK)
 		// LF_CHECK_VALID_MAC_BUT_INVALID_HASH;
 		return LF_PKT_INBOUND_DROP;

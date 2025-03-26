@@ -140,7 +140,6 @@ dictionary_new(uint32_t size)
 
 	if (dic == NULL) {
 		LF_RATELIMITER_LOG(ERR, "Hash creation failed with: %d\n", errno);
-		rte_hash_free(dic);
 		return NULL;
 	}
 
@@ -159,8 +158,8 @@ static void
 dictionary_free(struct rte_hash *dict)
 {
 	uint32_t iterator;
-	struct lf_ratelimiter_dictionary_key *key_ptr;
-	struct lf_ratelimiter_dictionary_data *data;
+	struct lf_ratelimiter_key *key_ptr;
+	struct lf_ratelimiter_data *data;
 
 	for (iterator = 0; rte_hash_iterate(dict, (void *)&key_ptr, (void **)&data,
 							   &iterator) >= 0;) {
@@ -410,6 +409,7 @@ lf_ratelimiter_close(struct lf_ratelimiter *rl)
 		rte_free(rl->workers[i]);
 	}
 
+	// TODO: double free here (see rte_hash_free above)
 	dictionary_free(rl->dict);
 }
 

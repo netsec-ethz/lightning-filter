@@ -15,6 +15,7 @@
 #include "lib/log/log.h"
 #include "plugins/plugins.h"
 #include "ratelimiter.h"
+#include "statistics.h"
 
 
 /*
@@ -53,6 +54,9 @@ lf_configmanager_apply_config(struct lf_configmanager *cm,
 	}
 	if (cm->km != NULL) {
 		res |= lf_keymanager_apply_config(cm->km, new_config);
+	}
+	if (cm->stats != NULL) {
+		res |= lf_statistics_apply_config(cm->stats, new_config);
 	}
 	res |= lf_plugins_apply_config(new_config);
 
@@ -98,7 +102,7 @@ lf_configmanager_apply_config_file(struct lf_configmanager *cm,
 int
 lf_configmanager_init(struct lf_configmanager *cm, uint16_t nb_workers,
 		struct rte_rcu_qsbr *qsv, struct lf_keymanager *km,
-		struct lf_ratelimiter *rl)
+		struct lf_ratelimiter *rl, struct lf_statistics *stats)
 {
 	uint16_t worker_id;
 
@@ -120,6 +124,7 @@ lf_configmanager_init(struct lf_configmanager *cm, uint16_t nb_workers,
 
 	cm->km = km;
 	cm->rl = rl;
+	cm->stats = stats;
 
 	return 0;
 }

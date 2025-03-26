@@ -60,8 +60,10 @@ void
 lf_print(const char *format, ...);
 
 #define PRIISDAS "%u-%x:%x:%x"
-#define PRIISDAS_VAL(isd_as)                              \
-	((isd_as) >> 48 & 0XFFFF), ((isd_as) >> 32 & 0XFFFF), \
-			((isd_as) >> 16 & 0XFFFF), ((isd_as) >> 0 & 0XFFFF)
+#define PRIISDAS_VAL(isd_as)                         \
+	(unsigned int)((isd_as) >> 48 & 0XFFFF),         \
+			(unsigned int)((isd_as) >> 32 & 0XFFFF), \
+			(unsigned int)((isd_as) >> 16 & 0XFFFF), \
+			(unsigned int)((isd_as) >> 0 & 0XFFFF)
 
 #endif /* LF_LOG_H */

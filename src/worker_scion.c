@@ -456,7 +456,8 @@ compute_pkt_hash(struct lf_worker_context *worker_context, struct rte_mbuf *m,
  */
 static int
 check_pkt_hash(struct lf_worker_context *worker_context, struct rte_mbuf *m,
-		struct parsed_pkt *parsed_pkt, struct parsed_spao *parsed_spao)
+		struct parsed_pkt *parsed_pkt, struct parsed_spao *parsed_spao,
+		struct lf_pkt_data *pkt_data)
 {
 	int res;
 	uint8_t hash[20];
@@ -475,8 +476,8 @@ check_pkt_hash(struct lf_worker_context *worker_context, struct rte_mbuf *m,
 	res = lf_crypto_hash_cmp(hash, parsed_spao->spao_hdr->hash);
 	if (likely(res != 0)) {
 		LF_WORKER_LOG_DP(DEBUG, "Packet hash check failed.\n");
-		lf_statistics_worker_counter_inc(worker_context->statistics,
-				invalid_hash);
+		lf_statistics_ia_counter_inc(worker_context->statistics,
+				pkt_data->src_as, pkt_data->drkey_protocol, invalid_hash);
 	} else {
 		LF_WORKER_LOG_DP(DEBUG, "Packet hash check passed.\n");
 	}
@@ -640,7 +641,7 @@ handle_inbound_pkt_with_lf_hdr(struct lf_worker_context *worker_context,
 	}
 
 	/* Only if all checks are passed, the packet hash is checked. */
-	res = check_pkt_hash(worker_context, m, parsed_pkt, parsed_spao);
+	res = check_pkt_hash(worker_context, m, parsed_pkt, parsed_spao, pkt_data);
 	if (res == 0) {
 		return LF_CHECK_VALID;
 	} else {

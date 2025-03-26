@@ -533,7 +533,7 @@ main(int argc, char **argv)
 	 * Setup Config Manager
 	 */
 	res = lf_configmanager_init(&configmanager, lf_nb_workers, qsv, &keymanager,
-			&ratelimiter);
+			&ratelimiter, &statistics);
 	if (res != 0) {
 		rte_exit(EXIT_FAILURE, "Fail to init config manager.\n");
 	}

@@ -68,7 +68,8 @@ check_ratelimit(struct lf_worker_context *worker_context, uint64_t src_as,
 				" and DRKey protocol %u (res = %d).\n",
 				PRIISDAS_VAL(rte_be_to_cpu_64(src_as)),
 				rte_be_to_cpu_16(drkey_protocol), res);
-		lf_statistics_worker_counter_inc(worker_context->statistics, error);
+		lf_statistics_ia_counter_inc(worker_context->statistics, src_as,
+				drkey_protocol, error);
 		return 1;
 	}
 
@@ -81,12 +82,12 @@ check_ratelimit(struct lf_worker_context *worker_context, uint64_t src_as,
 				rte_be_to_cpu_16(drkey_protocol), res);
 
 		if (res & (LF_RATELIMITER_RES_BYTES | LF_RATELIMITER_RES_PKTS)) {
-			lf_statistics_worker_counter_inc(worker_context->statistics,
-					ratelimit_as);
+			lf_statistics_ia_counter_inc(worker_context->statistics, src_as,
+					drkey_protocol, ratelimit_as);
 		}
 		if (res & (LF_RATELIMITER_RES_BYTES | LF_RATELIMITER_RES_PKTS)) {
-			lf_statistics_worker_counter_inc(worker_context->statistics,
-					ratelimit_system);
+			lf_statistics_ia_counter_inc(worker_context->statistics, src_as,
+					drkey_protocol, ratelimit_system);
 		}
 	} else {
 		LF_WORKER_LOG_DP(DEBUG, "Rate limit check pass (res=%d).\n", res);
@@ -153,7 +154,8 @@ get_drkey(struct lf_worker_context *worker_context, uint64_t src_as,
 				", offset = %" PRIu64 ", res = %d)\n",
 				PRIISDAS_VAL(rte_be_to_cpu_64(src_as)),
 				rte_be_to_cpu_16(drkey_protocol), ns_now, ns_rel_time, res);
-		lf_statistics_worker_counter_inc(worker_context->statistics, no_key);
+		lf_statistics_ia_counter_inc(worker_context->statistics, src_as,
+				drkey_protocol, no_key);
 	} else {
 		LF_WORKER_LOG_DP(DEBUG,
 				"DRKey [XX]: " PRIIP ",[" PRIISDAS "]:" PRIIP
@@ -182,9 +184,9 @@ get_drkey(struct lf_worker_context *worker_context, uint64_t src_as,
  * @return Returns 0 if the MAC is valid.
  */
 static inline int
-check_mac(struct lf_worker_context *worker_context,
-		const struct lf_crypto_drkey *drkey, const uint8_t *mac,
-		const uint8_t *auth_data)
+check_mac(struct lf_worker_context *worker_context, uint64_t src_as,
+		uint16_t drkey_protocol, const struct lf_crypto_drkey *drkey,
+		const uint8_t *mac, const uint8_t *auth_data)
 {
 #if LF_WORKER_OMIT_MAC_CHECK
 	return 0;
@@ -196,8 +198,8 @@ check_mac(struct lf_worker_context *worker_context,
 			auth_data, mac);
 	if (likely(res != 0)) {
 		LF_WORKER_LOG_DP(DEBUG, "MAC check failed.\n");
-		lf_statistics_worker_counter_inc(worker_context->statistics,
-				invalid_mac);
+		lf_statistics_ia_counter_inc(worker_context->statistics, src_as,
+				drkey_protocol, invalid_mac);
 	} else {
 		LF_WORKER_LOG_DP(DEBUG, "MAC check passed.\n");
 	}
@@ -221,8 +223,8 @@ check_mac(struct lf_worker_context *worker_context,
  * @return Returns 0 if the packet timestamp is within the timestamp threshold.
  */
 static inline int
-check_timestamp(struct lf_worker_context *worker_context, uint64_t timestamp,
-		uint64_t ns_now)
+check_timestamp(struct lf_worker_context *worker_context, uint64_t src_as,
+		uint16_t drkey_protocol, uint64_t timestamp, uint64_t ns_now)
 {
 #if LF_WORKER_OMIT_TIMESTAMP_CHECK
 	return 0;
@@ -235,8 +237,8 @@ check_timestamp(struct lf_worker_context *worker_context, uint64_t timestamp,
 
 	if (unlikely(res)) {
 		LF_WORKER_LOG_DP(DEBUG, "Timestamp check failed.\n");
-		lf_statistics_worker_counter_inc(worker_context->statistics,
-				outdated_timestamp);
+		lf_statistics_ia_counter_inc(worker_context->statistics, src_as,
+				drkey_protocol, outdated_timestamp);
 	} else {
 		LF_WORKER_LOG_DP(DEBUG, "Timestamp check passed.\n");
 	}
@@ -260,8 +262,8 @@ check_timestamp(struct lf_worker_context *worker_context, uint64_t timestamp,
  * @return Returns 0 if the packet is not a duplicate.
  */
 static inline int
-check_duplicate(struct lf_worker_context *worker_context, const uint8_t *mac,
-		uint64_t ns_now)
+check_duplicate(struct lf_worker_context *worker_context, uint64_t src_as,
+		uint16_t drkey_protocol, const uint8_t *mac, uint64_t ns_now)
 {
 #if LF_WORKER_OMIT_DUPLICATE_CHECK
 	return 0;
@@ -273,7 +275,8 @@ check_duplicate(struct lf_worker_context *worker_context, const uint8_t *mac,
 			ns_now);
 	if (likely(res != 0)) {
 		LF_WORKER_LOG_DP(DEBUG, "Duplicate check failed.\n");
-		lf_statistics_worker_counter_inc(worker_context->statistics, duplicate);
+		lf_statistics_ia_counter_inc(worker_context->statistics, src_as,
+				drkey_protocol, duplicate);
 	} else {
 		LF_WORKER_LOG_DP(DEBUG, "Duplicate check passed.\n");
 	}
@@ -301,7 +304,8 @@ lf_worker_check_pkt(struct lf_worker_context *worker_context,
 	 */
 	res = lf_time_worker_get(&worker_context->time, &ns_now);
 	if (unlikely(res != 0)) {
-		lf_statistics_worker_counter_inc(worker_context->statistics, error);
+		lf_statistics_ia_counter_inc(worker_context->statistics,
+				pkt_data->src_as, pkt_data->drkey_protocol, error);
 		return LF_CHECK_ERROR;
 	}
 
@@ -328,7 +332,8 @@ lf_worker_check_pkt(struct lf_worker_context *worker_context,
 	if (unlikely(res != 0)) {
 		return LF_CHECK_NO_KEY;
 	}
-	res = check_mac(worker_context, &drkey, pkt_data->mac, pkt_data->auth_data);
+	res = check_mac(worker_context, pkt_data->src_as, pkt_data->drkey_protocol,
+			&drkey, pkt_data->mac, pkt_data->auth_data);
 	if (unlikely(res != 0)) {
 		return LF_CHECK_INVALID_MAC;
 	}
@@ -337,7 +342,8 @@ lf_worker_check_pkt(struct lf_worker_context *worker_context,
 	 * Timestamp Check
 	 */
 	uint64_t ns_abs_time = ns_drkey_epoch_start + pkt_data->timestamp;
-	res = check_timestamp(worker_context, ns_abs_time, ns_now);
+	res = check_timestamp(worker_context, pkt_data->src_as,
+			pkt_data->drkey_protocol, ns_abs_time, ns_now);
 	if (likely(res != 0)) {
 		return LF_CHECK_OUTDATED_TIMESTAMP;
 	}
@@ -347,7 +353,8 @@ lf_worker_check_pkt(struct lf_worker_context *worker_context,
 	 * Check that the packet is not a duplicate and update the bloom filter
 	 * structure.
 	 */
-	res = check_duplicate(worker_context, pkt_data->mac, ns_now);
+	res = check_duplicate(worker_context, pkt_data->src_as,
+			pkt_data->drkey_protocol, pkt_data->mac, ns_now);
 	if (likely(res != 0)) {
 		return LF_CHECK_DUPLICATE;
 	}
@@ -361,7 +368,8 @@ lf_worker_check_pkt(struct lf_worker_context *worker_context,
 	/*
 	 * The Packet has passed all checks and can be considered valid.
 	 */
-	lf_statistics_worker_counter_inc(worker_context->statistics, valid);
+	lf_statistics_ia_counter_inc(worker_context->statistics, pkt_data->src_as,
+			pkt_data->drkey_protocol, valid);
 	return LF_CHECK_VALID;
 }
 
@@ -375,7 +383,7 @@ lf_worker_check_best_effort_pkt(struct lf_worker_context *worker_context,
 	/* get current time (in ms) */
 	res = lf_time_worker_get(&worker_context->time, &ns_now);
 	if (unlikely(res != 0)) {
-		lf_statistics_worker_counter_inc(worker_context->statistics, error);
+		lf_statistics_ia_counter_inc(worker_context->statistics, 0, 0, error);
 		return LF_CHECK_ERROR;
 	}
 
@@ -388,13 +396,13 @@ lf_worker_check_best_effort_pkt(struct lf_worker_context *worker_context,
 	if (likely(res > 0)) {
 		LF_WORKER_LOG_DP(DEBUG,
 				"Best-effort rate limit filter check failed (res=%d).\n", res);
-		lf_statistics_worker_counter_inc(worker_context->statistics,
+		lf_statistics_ia_counter_inc(worker_context->statistics, 0, 0,
 				ratelimit_be);
 		return LF_CHECK_BE_RATELIMITED;
 	} else if (res < 0) {
 		LF_WORKER_LOG_DP(DEBUG,
 				"System rate limit filter check failed (res=%d).\n", res);
-		lf_statistics_worker_counter_inc(worker_context->statistics,
+		lf_statistics_ia_counter_inc(worker_context->statistics, 0, 0,
 				ratelimit_system);
 		return LF_CHECK_SYSTEM_RATELIMITED;
 	}
