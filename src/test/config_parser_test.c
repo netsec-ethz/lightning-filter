@@ -134,9 +134,9 @@ init_test1_config(struct lf_config *config)
 	};
 
 	struct lf_config_peer *peer2;
-	peer1 = malloc(sizeof *peer2);
+	peer2 = malloc(sizeof *peer2);
 	lf_parse_isd_as("0-1", &ia);
-	*peer1 = (struct lf_config_peer){
+	*peer2 = (struct lf_config_peer){
 		.isd_as = rte_cpu_to_be_64(ia),
 		.drkey_protocol = rte_cpu_to_be_16(0),
 		.ratelimit_option = false,
@@ -145,7 +145,8 @@ init_test1_config(struct lf_config *config)
 	config->nb_peers = 3;
 	config->peers = peer0;
 	peer0->next = peer1;
-	peer1->next = NULL;
+	peer1->next = peer2;
+	peer2->next = NULL;
 
 	return 0;
 }
@@ -439,22 +440,14 @@ check_config(struct lf_config *config, struct lf_config *config_exp)
 		printf("Error: nb_peers = %ld, expected %ld\n", config->nb_peers,
 				config_exp->nb_peers);
 	} else {
-
 		peer = config->peers;
 		peer_exp = config_exp->peers;
-		for (peer_counter = 0; peer_counter <= config->nb_peers;
-				++peer_counter) {
-			if (peer == NULL) {
-				printf("Error: Found %d peers but nb_peers is %ld",
-						peer_counter, config->nb_peers);
-				error_count++;
-				break;
-			}
+		peer_counter = 0;
+		while (peer != NULL) {
+			peer_counter++;
 			if (peer_exp == NULL) {
-				printf("Fatal: Expected structure is faulty: Found %d peers "
-					   "but nb_peers is %ld",
-						peer_counter, config->nb_peers);
 				error_count++;
+				printf("Error: Found more peers than expected peers");
 				break;
 			}
 			res = check_peer(peer, peer_exp);
@@ -462,6 +455,15 @@ check_config(struct lf_config *config, struct lf_config *config_exp)
 				error_count += res;
 				printf("Error: Peer number %d\n", peer_counter);
 			}
+			peer = peer->next;
+			peer_exp = peer_exp->next;
+		}
+		if (peer_exp != NULL) {
+			printf("Error: Found less peers than expected");
+		}
+		if (peer_counter != config->nb_peers) {
+			printf("Error: nb_peers = %ld, list length = %d", config->nb_peers,
+					peer_counter);
 		}
 	}
 
