@@ -431,12 +431,6 @@ exit_unlock:
 	}
 }
 
-static void
-reset_statistics(struct lf_keymanager_statistics *counter)
-{
-	LF_KEYMANAGER_STATISTICS(LF_TELEMETRY_FIELD_RESET)
-}
-
 int
 lf_keymanager_close(struct lf_keymanager *km)
 {
@@ -497,8 +491,6 @@ lf_keymanager_init(struct lf_keymanager *km, uint16_t nb_workers,
 		}
 	}
 
-	reset_statistics(&km->statistics);
-
 	km->fetcher = malloc(sizeof(struct lf_keyfetcher));
 	if (km->fetcher == NULL) {
 		return -1;
@@ -535,14 +527,6 @@ lf_keymanager_register_ipc(struct lf_keymanager *km)
 /* Keymanager context used when IPC commands are processed. */
 static struct lf_keymanager *tel_ctx;
 
-const struct lf_telemetry_field_name lf_keymanager_statistics_strings[] = {
-	LF_KEYMANAGER_STATISTICS(LF_TELEMETRY_FIELD_NAME)
-};
-
-#define LF_KEYMANAGER_STATISTICS_NUM            \
-	(sizeof(lf_keymanager_statistics_strings) / \
-			sizeof(struct lf_telemetry_field_name))
-
 static int
 handle_dict_stats(const char *cmd __rte_unused, const char *params __rte_unused,
 		struct rte_tel_data *d)
@@ -559,34 +543,11 @@ handle_dict_stats(const char *cmd __rte_unused, const char *params __rte_unused,
 	return 0;
 }
 
-static int
-handle_stats(const char *cmd __rte_unused, const char *params __rte_unused,
-		struct rte_tel_data *d)
-{
-	size_t i;
-	uint64_t *values;
-
-	rte_tel_data_start_dict(d);
-	values = (uint64_t *)&tel_ctx->statistics;
-	for (i = 0; i < LF_KEYMANAGER_STATISTICS_NUM; i++) {
-		rte_tel_data_add_dict_uint(d, lf_keymanager_statistics_strings[i].name,
-				values[i]);
-	}
-
-	return 0;
-}
-
 int
 lf_keymanager_register_telemetry(struct lf_keymanager *km)
 {
 	int res;
 	tel_ctx = km;
-
-	res = rte_telemetry_register_cmd(LF_TELEMETRY_PREFIX "/keymanager/stats",
-			handle_stats, "Returns key manager statistics.");
-	if (res != 0) {
-		return -1;
-	}
 
 	res = rte_telemetry_register_cmd(LF_TELEMETRY_PREFIX "/keymanager/dict",
 			handle_dict_stats, "Returns key manager dictionary statistics.");

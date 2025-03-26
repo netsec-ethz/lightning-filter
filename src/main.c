@@ -510,8 +510,7 @@ main(int argc, char **argv)
 	/*
 	 * Setup Statistics
 	 */
-	res = lf_statistics_init(&statistics, lf_worker_lcore_map, lf_nb_workers,
-			qsv);
+	res = lf_statistics_init(&statistics, lf_worker_lcore_map, lf_nb_workers);
 	if (res < 0) {
 		rte_exit(EXIT_FAILURE, "Unable to initiate statistics\n");
 	}

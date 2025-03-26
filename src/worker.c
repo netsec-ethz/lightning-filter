@@ -274,7 +274,6 @@ lf_worker_rx(struct lf_worker_context *worker,
 	if (nb_rx > 0) {
 		LF_WORKER_LOG_DP(DEBUG, "%u packets received (port %u, queue %u)\n",
 				nb_rx, rx_port_id, rx_queue_id);
-		(void)lf_statistics_worker_add_burst(worker->statistics, nb_rx);
 	}
 
 	/* Apply mirror filter only if mirror exists for the port. */

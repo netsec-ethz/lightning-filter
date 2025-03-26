@@ -21,11 +21,6 @@
  */
 
 /**
- * Minimal time in ms between aggregating statistics from other workers.
- */
-#define LF_STATISTICS_MIN_AGGREGATION_INTERVAL 0.5 /* seconds */
-
-/**
  * Declaration of the worker counter with all its fields.
  */
 #define LF_STATISTICS_WORKER_COUNTER(M) \
@@ -72,39 +67,17 @@
 	M(uint64_t, outbound_error)         \
 	M(uint64_t, outbound_no_key)
 
-
-struct lf_statistics_worker_counter {
-	LF_STATISTICS_WORKER_COUNTER(LF_TELEMETRY_FIELD_DECL)
-};
-
 struct lf_statistics_worker {
-	_Atomic(struct lf_statistics_worker_counter *) active_counter;
-	struct lf_statistics_worker_counter counter[2];
+	LF_STATISTICS_WORKER_COUNTER(LF_TELEMETRY_FIELD_DECL)
 } __rte_cache_aligned;
 
 struct lf_statistics {
 	struct lf_statistics_worker *worker[LF_MAX_WORKER];
 	uint16_t nb_workers;
-
-	int current_state;
-
-	/* Workers' Quiescent State Variable */
-	struct rte_rcu_qsbr *qsv;
-
-	struct lf_statistics_worker_counter aggregate_global;
-	struct lf_statistics_worker_counter aggregate_worker[LF_MAX_WORKER];
-
-	/* timestamp of last statistics aggregation (nanoseconds) */
-	uint64_t last_aggregate;
-
-	/* management lock */
-	rte_spinlock_t lock;
-} __rte_cache_aligned;
+};
 
 #define lf_statistics_worker_counter_add(statistics_worker, field, val) \
-	atomic_load_explicit(&(statistics_worker)->active_counter,          \
-			memory_order_relaxed)                                       \
-			->field += val
+	statistics_worker->field += val
 
 #define lf_statistics_worker_counter_inc(statistics_worker, field) \
 	lf_statistics_worker_counter_add(statistics_worker, field, 1)
@@ -149,14 +122,10 @@ lf_statistics_close(struct lf_statistics *stats);
  * @param worker_lcores The lcore assignment for the workers, which determines
  * the socket for which memory is allocated.
  * @param nb_workers Number of worker contexts to be created.
- * @param qsv Workers' QS variable for the RCU synchronization. The QS variable
- * can be shared with other services, i.e., other processes call check on it,
- * because the statistics service calls it rarely and can also wait.
  * @return 0 if successful.
  */
 int
 lf_statistics_init(struct lf_statistics *stats,
-		uint16_t worker_lcores[LF_MAX_WORKER], uint16_t nb_workers,
-		struct rte_rcu_qsbr *qsv);
+		uint16_t worker_lcores[LF_MAX_WORKER], uint16_t nb_workers);
 
 #endif /* LF_STATISTICS_H */

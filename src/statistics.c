@@ -19,13 +19,10 @@
 #include "version.h"
 
 /*
- * Synchronization and Atomic Operations:
- * Writing and reading the workers' statistics pointer is always performed
- * atomically with relaxed memory order. Synchronization is provided through the
- * worker's RCU mechanism (rcu_qsbr).
- * This is sufficient, because the manager only accesses a worker's statistics
- * after giving the worker another statistics pointer and wait for the worker to
- * pass through the quiescent state.
+ * Thread Safety:
+ * Each worker has its own statistics counter and updates it independently.
+ * The telemetry process can read the statistics counters at any time because
+ * we assume that updates (to uint64_t) are atomic.
  */
 
 /**
@@ -86,92 +83,32 @@ escape_json(const char *in, char *out, int out_len)
 	return -1;
 }
 
-/**
- * List of all worker counter names.
- */
-const struct lf_telemetry_field_name worker_counter_strings[] = {
-	LF_STATISTICS_WORKER_COUNTER(LF_TELEMETRY_FIELD_NAME)
-};
-#define WORKER_COUNTER_NUM \
-	(sizeof(worker_counter_strings) / sizeof(struct lf_telemetry_field_name))
-
-#define other_state(state) (((state) + 1) % 2)
-
 void
-add_worker_statistics(struct lf_statistics_worker_counter *res,
-		struct lf_statistics_worker_counter *a,
-		struct lf_statistics_worker_counter *b)
+add_worker_statistics(struct lf_statistics_worker *res,
+		struct lf_statistics_worker *a, struct lf_statistics_worker *b)
 {
 	LF_STATISTICS_WORKER_COUNTER(LF_TELEMETRY_FIELD_OP_ADD)
 }
 
 void
-reset_worker_statistics(struct lf_statistics_worker_counter *counter)
+reset_worker_statistics(struct lf_statistics_worker *counter)
 {
 	LF_STATISTICS_WORKER_COUNTER(LF_TELEMETRY_FIELD_RESET)
 }
 
 void
-aggregate_worker_statistics(struct lf_statistics *stats)
+counter_field_add_dict(struct rte_tel_data *d, struct lf_statistics_worker *c)
 {
-	int res;
-	int read_state;
-	uint16_t worker_id;
-	uint64_t ns_now;
-
-	res = lf_time_get(&ns_now);
-
-	/* check if aggregation should be performed, i.e., if the minimal time
-	interval between aggregation has passed. */
-	if (res != 0 ||
-			ns_now <=
-					stats->last_aggregate +
-							(uint64_t)(LF_STATISTICS_MIN_AGGREGATION_INTERVAL *
-									   (double)LF_TIME_NS_IN_S)) {
-		return;
-	}
-
-	LF_STATISTICS_LOG(INFO, "Aggregate statistics\n");
-	stats->last_aggregate = ns_now;
-
-	/* switch state and the worker's statistics structures */
-	read_state = stats->current_state;
-	stats->current_state = other_state(stats->current_state);
-	for (worker_id = 0; worker_id < stats->nb_workers; ++worker_id) {
-		atomic_store_explicit(&stats->worker[worker_id]->active_counter,
-				&stats->worker[worker_id]->counter[stats->current_state],
-				memory_order_relaxed);
-	}
-
-	/*
-	 * wait until all workers have entered quiescent state and ensure that no
-	 * worker still references memory of the other state.
-	 */
-	rte_rcu_qsbr_synchronize(stats->qsv, RTE_QSBR_THRID_INVALID);
-
-	for (worker_id = 0; worker_id < stats->nb_workers; ++worker_id) {
-		/* update worker statistics */
-		add_worker_statistics(&stats->aggregate_worker[worker_id],
-				&stats->worker[worker_id]->counter[read_state],
-				&stats->aggregate_worker[worker_id]);
-
-		/* update global statistics */
-		add_worker_statistics(&stats->aggregate_global,
-				&stats->worker[worker_id]->counter[read_state],
-				&stats->aggregate_global);
-
-		/* reset worker counter */
-		reset_worker_statistics(&stats->worker[worker_id]->counter[read_state]);
-	}
+	LF_STATISTICS_WORKER_COUNTER(LF_TELEMETRY_FIELD_ADD_DICT)
 }
 
 static int
 handle_worker_stats(const char *cmd __rte_unused, const char *params,
 		struct rte_tel_data *d)
 {
-	size_t i;
-	uint64_t *values;
 	int worker_id;
+	struct lf_statistics_worker total_stats;
+	memset(&total_stats, 0, sizeof(total_stats));
 
 	rte_tel_data_start_dict(d);
 
@@ -180,25 +117,16 @@ handle_worker_stats(const char *cmd __rte_unused, const char *params,
 		if (worker_id < 0 || worker_id >= telemetry_ctx->nb_workers) {
 			return -EINVAL;
 		}
-		rte_spinlock_lock(&telemetry_ctx->lock);
-		aggregate_worker_statistics(telemetry_ctx);
-		values = (uint64_t *)&telemetry_ctx->aggregate_worker[worker_id];
-		for (i = 0; i < WORKER_COUNTER_NUM; i++) {
-			rte_tel_data_add_dict_uint(d, worker_counter_strings[i].name,
-					values[i]);
-		}
-		rte_spinlock_unlock(&telemetry_ctx->lock);
+		add_worker_statistics(&total_stats, &total_stats,
+				telemetry_ctx->worker[worker_id]);
 	} else {
-		(void)rte_spinlock_lock(&telemetry_ctx->lock);
-		aggregate_worker_statistics(telemetry_ctx);
-		values = (uint64_t *)&telemetry_ctx->aggregate_global;
-		for (i = 0; i < WORKER_COUNTER_NUM; i++) {
-			rte_tel_data_add_dict_uint(d, worker_counter_strings[i].name,
-					values[i]);
+		for (worker_id = 0; worker_id < telemetry_ctx->nb_workers;
+				++worker_id) {
+			add_worker_statistics(&total_stats, &total_stats,
+					telemetry_ctx->worker[worker_id]);
 		}
-		(void)rte_spinlock_unlock(&telemetry_ctx->lock);
 	}
-
+	counter_field_add_dict(d, &total_stats);
 	return 0;
 }
 
@@ -256,18 +184,14 @@ lf_statistics_close(struct lf_statistics *stats)
 
 int
 lf_statistics_init(struct lf_statistics *stats,
-		uint16_t worker_lcores[LF_MAX_WORKER], uint16_t nb_workers,
-		struct rte_rcu_qsbr *qsv)
+		uint16_t worker_lcores[LF_MAX_WORKER], uint16_t nb_workers)
 {
 	int res;
 	uint16_t worker_id;
 
 	LF_STATISTICS_LOG(DEBUG, "Init\n");
 
-	stats->current_state = 0;
 	stats->nb_workers = nb_workers;
-	stats->qsv = qsv;
-	stats->last_aggregate = 0;
 
 	for (worker_id = 0; worker_id < nb_workers; ++worker_id) {
 		stats->worker[worker_id] = rte_zmalloc_socket("lf_statistics_worker",
@@ -278,17 +202,8 @@ lf_statistics_init(struct lf_statistics *stats,
 			return -1;
 		}
 
-		reset_worker_statistics(&stats->worker[worker_id]->counter[0]);
-		reset_worker_statistics(&stats->worker[worker_id]->counter[1]);
-		reset_worker_statistics(&stats->aggregate_worker[worker_id]);
-
-		stats->worker[worker_id]->active_counter =
-				&stats->worker[worker_id]->counter[stats->current_state];
+		reset_worker_statistics(stats->worker[worker_id]);
 	}
-
-	reset_worker_statistics(&stats->aggregate_global);
-
-	rte_spinlock_init(&stats->lock);
 
 	/*
 	 * Setup telemetry
