@@ -29,12 +29,13 @@
 #define FIELD_BYTE_RATE    "byte_rate"
 #define FIELD_BYTE_BURST   "byte_burst"
 
-#define FIELD_PORT       "port"
-#define FIELD_IP         "ip"
-#define FIELD_IPV6       "ipv6"
-#define FIELD_IP_PUBLIC  "ip_public"
-#define FIELD_IP_PRIVATE "ip_private"
-#define FIELD_ETHER      "ether"
+#define FIELD_PORT        "port"
+#define FIELD_IP          "ip"
+#define FIELD_IPV6        "ipv6"
+#define FIELD_IP_PREFIXES "ip_prefixes"
+#define FIELD_IP_PUBLIC   "ip_public"
+#define FIELD_IP_PRIVATE  "ip_private"
+#define FIELD_ETHER       "ether"
 
 #define FIELD_AUTH_PEERS  "auth_peers"
 #define FIELD_BEST_EFFORT "best_effort"
@@ -90,7 +91,7 @@ peer_init(struct lf_config_peer *config_peer)
 {
 	*config_peer = (struct lf_config_peer){
 		.drkey_protocol = rte_cpu_to_be_16(LF_DRKEY_PROTOCOL),
-		.ip = 0,
+		.ip_prefixes = NULL,
 		.isd_as = 1,
 		.next = NULL,
 
@@ -301,6 +302,105 @@ parse_shared_secret_list(json_value *json_val,
 }
 
 static int
+parse_ipv4_prefix(json_value *json_val,
+		struct lf_config_peer_ipv4_prefix *ip_prefix)
+{
+	return lf_json_parse_ipv4_prefix(json_val, &ip_prefix->ip,
+			&ip_prefix->length);
+}
+
+static int
+parse_peer_ipv4_prefixes(json_value *json_val, struct lf_config_peer *peer)
+{
+	int res;
+	unsigned int length;
+	unsigned int i;
+	json_value *prefix_json_val;
+	struct lf_config_peer_ipv4_prefix *prefix;
+	struct lf_config_peer_ipv4_prefix *previous_prefix = NULL;
+	struct lf_config_peer_ipv4_prefix *next_prefix = NULL;
+
+	if (json_val == NULL) {
+		return -1;
+	}
+
+	if (json_val->type != json_array) {
+		return -1;
+	}
+
+	length = json_val->u.array.length;
+	if (length > LF_CONFIG_PEERS_PREFIX_MAX) {
+		LF_LOG(ERR, "Exceed peer's IP prefix limit (%d:%d)\n", json_val->line,
+				json_val->col);
+		return -1;
+	}
+
+	assert(peer->ip_prefixes == NULL);
+
+	res = 0;
+	for (i = 0; i < length; ++i) {
+		prefix_json_val = json_val->u.array.values[i];
+
+		prefix = malloc(sizeof(struct lf_config_peer_ipv4_prefix));
+		if (prefix == NULL) {
+			LF_LOG(ERR, "Failed to allocate memory for prefix (%d:%d)\n",
+					json_val->line, json_val->col);
+			res = -1;
+			break;
+		}
+
+		res = parse_ipv4_prefix(prefix_json_val, prefix);
+		if (res != 0) {
+			free(prefix);
+			LF_LOG(ERR, "Failed to parse IP prefix %d", i);
+			break;
+		}
+
+		/*
+		 * Extend peer list with new peer.
+		 */
+		if (previous_prefix != NULL) {
+			previous_prefix->next = prefix;
+		} else {
+			peer->ip_prefixes = prefix;
+		}
+		previous_prefix = prefix;
+	}
+
+	if (res != 0) {
+		/* Something went wrong. Remove all parsed ip_prefixes. */
+		prefix = peer->ip_prefixes;
+		while (prefix != NULL) {
+			next_prefix = prefix->next;
+			free(prefix);
+			prefix = next_prefix;
+		}
+		return -1;
+	}
+
+	return 0;
+}
+
+struct lf_config_peer *
+new_peer()
+{
+	return calloc(1, sizeof(struct lf_config_peer));
+}
+
+void
+free_peer(struct lf_config_peer *peer)
+{
+	struct lf_config_peer_ipv4_prefix *prefix = peer->ip_prefixes;
+	struct lf_config_peer_ipv4_prefix *next_prefix;
+	while (prefix != NULL) {
+		next_prefix = prefix->next;
+		free(prefix);
+		prefix = next_prefix;
+	}
+	free(peer);
+}
+
+static int
 parse_peer(json_value *json_val, struct lf_config_peer *peer)
 {
 	int res;
@@ -340,10 +440,10 @@ parse_peer(json_value *json_val, struct lf_config_peer *peer)
 			}
 			/* set to network byte order */
 			peer->drkey_protocol = rte_cpu_to_be_16(peer->drkey_protocol);
-		} else if (strcmp(field_name, FIELD_IP) == 0) {
-			res = lf_json_parse_ipv4(field_value, &peer->ip);
+		} else if (strcmp(field_name, FIELD_IP_PREFIXES) == 0) {
+			res = parse_peer_ipv4_prefixes(field_value, peer);
 			if (res != 0) {
-				LF_LOG(ERR, "Invalid IP address (%d:%d)\n", field_value->line,
+				LF_LOG(ERR, "Invalid IP prefix (%d:%d)\n", field_value->line,
 						field_value->col);
 				error_count++;
 			}
@@ -1057,7 +1157,7 @@ lf_config_free(struct lf_config *config)
 	current_peer = config->peers;
 	while (current_peer != NULL) {
 		next_peer = current_peer->next;
-		free(current_peer);
+		free_peer(current_peer);
 		current_peer = next_peer;
 	}
 

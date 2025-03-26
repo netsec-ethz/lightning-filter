@@ -161,6 +161,49 @@ lf_json_parse_ipv6(const json_value *json_val, uint8_t val[16])
 	return 0;
 }
 
+static inline int
+lf_json_parse_ipv4_prefix(const json_value *json_val, uint32_t *ip,
+		uint8_t *length)
+{
+	char *ip_string, *length_string;
+	char *saveptr;
+	uint64_t parsed_length;
+	if (json_val->type != json_string) {
+		return -1;
+	}
+	assert(sizeof *ip == sizeof(struct in_addr));
+
+	ip_string = strtok_r(json_val->u.string.ptr, "/", &saveptr);
+	if (ip_string == NULL) {
+		return -1;
+	}
+	length_string = strtok_r(NULL, "/", &saveptr);
+	if (length_string == NULL) {
+		return -1;
+	}
+	if (strtok_r(NULL, "/", &saveptr) != NULL) {
+		return -1;
+	}
+
+	if (inet_pton(AF_INET, ip_string, ip) != 1) {
+		return -1;
+	}
+	*ip = ntohl(*ip);
+	if (lf_parse_unum(length_string, &parsed_length)) {
+		return -1;
+	}
+	if (parsed_length > 32) {
+		return -1;
+	}
+	*length = (uint8_t)parsed_length;
+
+	/* set least significant bits beyong the length to 0 */
+	uint32_t mask = ~(1 << (32 - *length)) - 1;
+	*ip &= mask;
+
+	return 0;
+}
+
 /**
  * Parse UDP/TCP port number.
  * @param val result port number (newtork byte order).

@@ -10,7 +10,7 @@
 		{
 			"isd_as": "1-1",
 			"drkey_protocol": 0,
-			"ip": "10.248.2.1",
+			"ip_prefixes": ["10.248.2.1/32"],
 			"ratelimit": {
 				"byte_rate": 9223372036854775807,
 				"packet_rate": 9223372036854775807

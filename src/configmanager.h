@@ -122,13 +122,18 @@ lf_configmanager_worker_get_peer_from_ip(
 		const struct lf_configmanager_worker *config_ctx, uint32_t ip)
 {
 	struct lf_config_peer *peer;
+	struct lf_config_peer_ipv4_prefix *prefix;
 	struct lf_config *config =
 			atomic_load_explicit(&config_ctx->config, memory_order_relaxed);
 
 	peer = config->peers;
 	while (peer != NULL) {
-		if (peer->ip == ip) {
-			return peer;
+		prefix = peer->ip_prefixes;
+		while (prefix != NULL) {
+			uint32_t mask = ~(1 << (32 - prefix->length)) - 1;
+			if (prefix->ip == (rte_be_to_cpu_32(ip) & mask)) {
+				return peer;
+			}
 		}
 		peer = peer->next;
 	}

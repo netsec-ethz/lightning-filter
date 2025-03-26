@@ -18,7 +18,8 @@
  * configuration file, default values are set.
  */
 
-#define LF_CONFIG_PEERS_MAX 1000000 /* 1'000'000 */
+#define LF_CONFIG_PEERS_MAX        1000000 /* 1'000'000 */
+#define LF_CONFIG_PEERS_PREFIX_MAX 1000
 
 /*
  * Maximum number of SV that can be configured per peer
@@ -40,6 +41,13 @@ struct lf_config_shared_secret {
 	uint64_t not_before;
 };
 
+struct lf_config_peer_ipv4_prefix {
+	uint32_t ip; /* in host byte order with the least significant bits beyond
+	                the length set to 0 */
+	uint8_t length;
+	struct lf_config_peer_ipv4_prefix *next;
+};
+
 struct lf_config_peer {
 	/* peer identifier */
 	uint64_t isd_as;         /* in network byte order */
@@ -53,8 +61,8 @@ struct lf_config_peer {
 	bool shared_secrets_configured_option; /* if shared secrets are defined*/
 	struct lf_config_shared_secret shared_secrets[LF_CONFIG_SV_MAX];
 
-	/* LF-IP: ip -> isd_as map (TODO: move this to a separate map) */
-	uint32_t ip; /* in network byte order */
+	/* LF-IP: ip -> isd_as map */
+	struct lf_config_peer_ipv4_prefix *ip_prefixes;
 
 	/*
 	 * Pointer to the next peer (for the linked list represenation).

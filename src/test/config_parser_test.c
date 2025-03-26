@@ -119,11 +119,17 @@ init_test1_config(struct lf_config *config)
 
 	struct lf_config_peer *peer1;
 	peer1 = malloc(sizeof *peer1);
-	inet_pton(AF_INET, "10.248.2.1", &ip);
+	inet_pton(AF_INET, "10.248.2.0", &ip);
+	struct lf_config_peer_ipv4_prefix *peer1_prefix;
+	peer1_prefix = malloc(sizeof(struct lf_config_peer_ipv4_prefix));
+	*peer1_prefix = (struct lf_config_peer_ipv4_prefix){
+		.ip = ntohl(ip),
+		.length = 24,
+	};
 	*peer1 = (struct lf_config_peer){
 		.isd_as = rte_cpu_to_be_64(0xffffffff0000ffffu), // 65535-ffff:0:ffff,
 		.drkey_protocol = rte_cpu_to_be_16(0),
-		.ip = ip,
+		.ip_prefixes = peer1_prefix,
 		.ratelimit_option = true,
 		.ratelimit = {
 			.byte_rate = 1,
@@ -214,6 +220,35 @@ check_ratelimit(struct lf_config_ratelimit *config,
 	return error_count;
 }
 
+int
+check_prefix_list(struct lf_config_peer_ipv4_prefix *prefix,
+		struct lf_config_peer_ipv4_prefix *prefix_exp)
+{
+	int error_count = 0;
+
+	if ((prefix == NULL) != (prefix_exp == NULL)) {
+		error_count++;
+		printf("Error: prefix list length");
+	}
+	if (prefix == NULL) {
+		return error_count;
+	}
+
+	if (prefix->ip != prefix_exp->ip) {
+		error_count++;
+		printf("Error: ip = " PRIIP ", expected = " PRIIP "\n",
+				PRIIP_VAL(ntohl(prefix->ip)), PRIIP_VAL(ntohl(prefix_exp->ip)));
+	}
+	if (prefix->length != prefix_exp->length) {
+		error_count++;
+		printf("Error: length = %d, expected = %d\n", prefix->length,
+				prefix_exp->length);
+	}
+
+	error_count += check_prefix_list(prefix->next, prefix_exp->next);
+	return error_count;
+}
+
 /**
  * Compare peer structs.
  * If fails, error is printed and number of errors is returned.
@@ -228,12 +263,6 @@ check_peer(struct lf_config_peer *peer, struct lf_config_peer *peer_exp)
 	if (peer->isd_as != peer_exp->isd_as) {
 		printf("Error: ids_as = %ld, expected = %ld\n", peer->isd_as,
 				peer_exp->isd_as);
-		error_count++;
-	}
-
-	if (peer->ip != peer_exp->ip) {
-		printf("Error: ip = " PRIIP ", expected = " PRIIP "\n",
-				PRIIP_VAL(peer->ip), PRIIP_VAL(peer_exp->ip));
 		error_count++;
 	}
 
@@ -256,6 +285,8 @@ check_peer(struct lf_config_peer *peer, struct lf_config_peer *peer_exp)
 		printf("Error: drkey_protocol = %u, expected = %u\n",
 				peer->drkey_protocol, peer_exp->drkey_protocol);
 	}
+
+	error_count += check_prefix_list(peer->ip_prefixes, peer_exp->ip_prefixes);
 
 	return error_count;
 }
