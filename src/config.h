@@ -26,6 +26,11 @@
 #define LF_CONFIG_SV_MAX 5
 
 /*
+ * Maximum number of entries in an IP address map
+ */
+#define LF_CONFIG_IP_MAP_MAX 5
+
+/*
  * Rate limits are always defined for bytes and packets.
  */
 struct lf_config_ratelimit {
@@ -93,6 +98,26 @@ struct lf_config_pkt_mod {
 	uint8_t ipv6[16];
 #else
 	uint32_t ip; /* in network byte order */
+#endif
+	/* map source/destination IP address to specific value */
+	struct {
+#if LF_IPV6
+		uint8_t from[16], to[16];
+#else
+		uint32_t from, to;
+#endif
+	} ip_src_map[LF_CONFIG_IP_MAP_MAX], ip_dst_map[LF_CONFIG_IP_MAP_MAX];
+	/* set SCION destination host address to specific value */
+#if LF_IPV6
+	uint8_t scion_dst[16];
+#else
+	uint32_t scion_dst; /* in network byte order */
+#endif
+	/* set SCION source host address to specific value */
+#if LF_IPV6
+	uint8_t scion_src[16];
+#else
+	uint32_t scion_src; /* in network byte order */
 #endif
 };
 

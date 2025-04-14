@@ -1,0 +1,17 @@
+[gateway]
+id = "sig1-ff00_0_111"
+traffic_policy_file="gen-eh/ASff00_0_111/sig.json"
+ip_routing_policy_file="gen-eh/ASff00_0_111/sig.policy"
+ctrl_addr = "10.248.2.2:30256"
+data_addr = "10.248.2.2:30056"
+
+[sciond_connection]
+address = "10.248.3.1:30255"
+
+[log.console]
+level = "debug"
+
+[features]
+
+[tunnel]
+name = "sig1"
